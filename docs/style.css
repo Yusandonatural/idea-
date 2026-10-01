@@ -5,10 +5,10 @@
 }
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
   --bg:#17161a;--bg2:#211f24;--ink:#f0ede6;--ink2:#a7a19a;--line:#36333a;
-  --accent:#e6675a;--accent2:#3d2420;--ok:#5fc48a;--ok2:#1f3a2c;--warn:#e2c35a;--warn2:#3a3220;}}
+  --accent:#e6675a;--accent2:#3d2420;--ok:#5fc48a;--ok2:#1f3a2c;--warn:#e2c35a;--warn2:#3a3220;color-scheme:dark;}}
 :root[data-theme="dark"]{
   --bg:#17161a;--bg2:#211f24;--ink:#f0ede6;--ink2:#a7a19a;--line:#36333a;
-  --accent:#e6675a;--accent2:#3d2420;--ok:#5fc48a;--ok2:#1f3a2c;--warn:#e2c35a;--warn2:#3a3220;}
+  --accent:#e6675a;--accent2:#3d2420;--ok:#5fc48a;--ok2:#1f3a2c;--warn:#e2c35a;--warn2:#3a3220;color-scheme:dark;}
 *{box-sizing:border-box}
 html{-webkit-text-size-adjust:100%}
 body{margin:0;background:var(--bg);color:var(--ink);font-family:-apple-system,"Hiragino Sans","Noto Sans JP","Noto Sans CJK SC","PingFang SC",sans-serif;line-height:1.7;font-size:16px}

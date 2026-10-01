@@ -64,7 +64,7 @@ function similarity(a, b) {
   return dp[b.length] / b.length;
 }
 function checkSpeech(target, out) {
-  if (!Rec) { out.className = "result bad"; out.textContent = "この端末のブラウザは発話チェックに対応していません（Chrome / Safari で使えます）。"; return; }
+  if (EMBED || !Rec) { out.className = "result bad"; out.textContent = EMBED ? "このプレビュー版ではマイクが使えません。GitHub Pages で公開した版（またはホーム画面に追加した版）で使えます。" : "この端末のブラウザは発話チェックに対応していません（Chrome / Safari で使えます）。"; return; }
   const r = new Rec(); r.lang = LANG.tts; r.interimResults = false; r.maxAlternatives = 3;
   out.className = "result"; out.textContent = "🎤 話してください…";
   r.onresult = e => {
@@ -99,7 +99,7 @@ const idb = {
 };
 let mediaRec = null;
 async function startRec(key, ui) {
-  if (!navigator.mediaDevices || !window.MediaRecorder) { ui.status.textContent = "この端末では録音できません。スマホの録音アプリで代用してください。"; return; }
+  if (EMBED || !navigator.mediaDevices || !window.MediaRecorder) { ui.status.textContent = EMBED ? "このプレビュー版では録音できません。公開版で使うか、スマホの録音アプリで代用してください。" : "この端末では録音できません。スマホの録音アプリで代用してください。"; return; }
   try {
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
     const chunks = [];
@@ -130,8 +130,9 @@ function bindRecorders() {
 
 // ---------- 小物 ----------
 function toast(msg) { const t = document.createElement("div"); t.className = "notice"; t.style.cssText = "position:fixed;left:16px;right:16px;bottom:16px;z-index:50;text-align:center"; t.textContent = msg; document.body.appendChild(t); setTimeout(() => t.remove(), 2500); }
-async function copy(text) { try { await navigator.clipboard.writeText(text); toast("コピーしました"); } catch (e) { prompt("コピーしてください", text); } }
-window.__copy = id => copy(document.getElementById(id).textContent);
+const EMBED = !!window.__EMBED__; // claude.ai 上の公開版：ダウンロード・マイクが使えない
+async function copy(text, el) { try { await navigator.clipboard.writeText(text); toast("コピーしました"); } catch (e) { if (el) { const r = document.createRange(); r.selectNodeContents(el); const sel = getSelection(); sel.removeAllRanges(); sel.addRange(r); } toast("選択しました。長押し（Ctrl+C）でコピーしてください"); } }
+window.__copy = id => { const el = document.getElementById(id); copy(el.textContent, el); };
 
 // ---------- 意味リストの表示（自分専用・差し替え） ----------
 function slotWords(slot) { return (LANG.slots && LANG.slots[slot]) || []; }
@@ -359,7 +360,7 @@ views.memo = function (arg) {
 views.plan = function () {
   const rows = m => DAYS.filter(d => d.month === m).map(d => `<tr class="${d.day === S.day ? "cur" : ""} ${S.finished[d.day] ? "fin" : ""}"><td><a href="#/today/${d.day}">Day ${d.day}</a></td><td>${esc(d.theme)}</td><td>${d.items.length}</td>
     <td>${[d.known ? "知っている語" : "", d.sound ? "音" + d.sound : "", d.soundReview ? "聞き分け" : "", d.pattern != null ? "文型" + (d.pattern + 1) : "", d.session ? "会話セッション" : "", d.check ? "到達チェック" : ""].filter(Boolean).map(x => `<span class="tag grey">${x}</span>`).join("")}</td></tr>`).join("");
-  return `<h2>90日のテーマ表</h2><p class="muted">優先度★★★を1ヶ月目、★★を2ヶ月目、★を3ヶ月目に配置。各月の中は「つなぐ技術 → 自分のこと → 質問 → 旅先 → 気持ち → 予定と過去 → 困ったとき」の順です。<a href="data/days.csv" download>CSVで保存</a></p>
+  return `<h2>90日のテーマ表</h2><p class="muted">優先度★★★を1ヶ月目、★★を2ヶ月目、★を3ヶ月目に配置。各月の中は「つなぐ技術 → 自分のこと → 質問 → 旅先 → 気持ち → 予定と過去 → 困ったとき」の順です。${EMBED ? "" : '<a href="data/days.csv" download>CSVで保存</a>'}</p>
   ${[1, 2, 3].map(m => `<h3>${m}ヶ月目：${esc(monthGoal(m))}</h3><div class="card" style="overflow-x:auto"><table class="daytable"><tr><th>Day</th><th>テーマ</th><th>新規</th><th>その日の追加メニュー</th></tr>${rows(m)}</table></div>`).join("")}`;
 };
 
@@ -376,7 +377,7 @@ views.list = function (arg, arg2) {
   }
   const counts = Object.fromEntries(CATS.map(c => [c.id, MEANINGS.filter(m => m.cat === c.id).length]));
   return `<h2>${title} <span class="tag">${items.length}</span></h2>
-  ${arg === "day" ? "" : `<p class="muted">日本人が実際に口にしたい「言いたいこと」を、会話の役割で7つに分けています。文型（○○を含む文）と差し替え単語の2層構造です。<a href="data/meanings.csv" download>意味リストCSV</a>・<a href="data/slots.csv" download>差し替え単語CSV</a></p>
+  ${arg === "day" ? "" : `<p class="muted">日本人が実際に口にしたい「言いたいこと」を、会話の役割で7つに分けています。文型（○○を含む文）と差し替え単語の2層構造です。${EMBED ? "" : '<a href="data/meanings.csv" download>意味リストCSV</a>・<a href="data/slots.csv" download>差し替え単語CSV</a>'}</p>
   <div class="chips" id="catChips"><button data-cat="" class="${listFilter.cat ? "" : "on"}">すべて</button>${CATS.map(c => `<button data-cat="${c.id}" class="${listFilter.cat === c.id ? "on" : ""}">${esc(c.name)} ${counts[c.id]}</button>`).join("")}</div>
   <div class="chips" style="margin-top:6px" id="priChips">${[0, 3, 2, 1].map(p => `<button data-pri="${p}" class="${listFilter.pri === p ? "on" : ""}">${p ? STARS[p] : "優先度すべて"}</button>`).join("")}</div>
   <input type="text" id="q" placeholder="検索（日本語・${esc(LANG.name)}）" value="${esc(listFilter.q)}" style="margin-top:8px">`}
@@ -513,9 +514,9 @@ views.about = function () {
     <tr><td>強み</td><td>${LANG.code === "zh" ? "漢字" : "カタカナ語"}が橋になる</td><td>「実はもう知っている語」から始め、初日から自信をつける。${esc(LANG.strength)}。</td></tr></table></div>
   <div class="card"><h3 style="margin-top:0">意味リスト</h3><p>日本人が実際に口にしたくなる「言いたいこと」${MEANINGS.length}項目を、会話の役割で7カテゴリに分けています。言語に依存しない共通の土台で、各言語に訳して横展開します。</p>
     <table>${CATS.map(c => `<tr><td>${esc(c.name)}</td><td>${MEANINGS.filter(m => m.cat === c.id).length}</td></tr>`).join("")}</table>
-    <p class="muted">差し替え単語 ${Object.values(LANG.slots || {}).reduce((a, b) => a + b.length, 0)}語・自分専用スロット ${MEANINGS.filter(m => m.self).length}項目。<a href="data/meanings.csv" download>CSV</a></p></div>
+    <p class="muted">差し替え単語 ${Object.values(LANG.slots || {}).reduce((a, b) => a + b.length, 0)}語・自分専用スロット ${MEANINGS.filter(m => m.self).length}項目。${EMBED ? "" : '<a href="data/meanings.csv" download>CSV</a>'}</p></div>
   <div class="card"><h3 style="margin-top:0">記録について</h3><p class="muted">学習記録と録音は、この端末のブラウザの中にだけ保存されます。サーバーには送りません。</p>
-    <div class="row"><button class="small" id="exportBtn">記録を書き出す</button><label class="btn small">記録を読み込む<input type="file" id="importFile" accept="application/json" hidden></label><button class="small" id="resetBtn">記録をリセット</button></div></div>`;
+    <div class="row">${EMBED ? "" : '<button class="small" id="exportBtn">記録を書き出す</button>'}<label class="btn small">記録を読み込む<input type="file" id="importFile" accept="application/json" hidden></label><button class="small" id="resetBtn">記録をリセット</button><button class="small" id="resetYes" hidden>本当に消す（録音は残ります）</button></div></div>`;
 };
 
 // ---------- ルーティング ----------
@@ -594,7 +595,8 @@ function bind(name, arg) {
   // 記録
   on("#exportBtn", () => { const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([JSON.stringify(S, null, 1)], { type: "application/json" })); a.download = `lang90-${LANG.code}-${today()}.json`; a.click(); });
   const imp = $("#importFile"); if (imp) imp.onchange = async () => { try { const v = JSON.parse(await imp.files[0].text()); S = Object.assign(blank(), v); save(); toast("読み込みました"); route(); } catch (e) { toast("読み込めませんでした"); } };
-  on("#resetBtn", () => { if (confirm("学習記録（進み具合・復習・メモ・自分の答え）を消します。録音は残ります。よろしいですか？")) { S = Object.assign(blank(), { pinyin: S.pinyin, theme: S.theme }); save(); deck = null; goToday(); } });
+  on("#resetBtn", () => { const y = $("#resetYes"); y.hidden = false; $("#resetBtn").textContent = "やめる"; $("#resetBtn").onclick = () => route(); });
+  on("#resetYes", () => { S = Object.assign(blank(), { pinyin: S.pinyin, theme: S.theme }); save(); deck = null; goToday(); });
 }
 
 window.addEventListener("hashchange", route);
