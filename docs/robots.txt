@@ -2,4 +2,4 @@ User-agent: *
 Allow: /
 Disallow: /admin/
 
-Sitemap: https://zh.yusando.com/sitemap.xml
+Sitemap: https://lang90.yusando.com/sitemap.xml

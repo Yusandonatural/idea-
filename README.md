@@ -1,9 +1,10 @@
-# パターンで話す中国語 3ヶ月
+# 90日外国語会話プログラム
 
-1日60分 × 12週で中国語の日常会話へ。文型・文法地図・同音対比で学ぶ学習サイトの企画とプロトタイプ。
+1日60分 × 90日で、日本人がネイティブと10〜15分、自分のことと日常の話ができるようにする学習プログラム。最初の言語は中国語。
 
 - 企画書：[企画書.md](企画書.md)
-- プロトタイプ：`docs/index.html`（ビルド不要。GitHub Pages で `docs/` を公開するとそのまま動く）
+- アプリ：`docs/`（ビルド不要の静的サイト。GitHub Pages で `docs/` を公開するとそのまま動く）
+- 意味リスト：`docs/data/meanings.csv` ／ 90日テーマ表：`docs/data/days.csv` ／ 差し替え単語：`docs/data/slots.csv`
 
 ## ローカルで見る
 
@@ -12,28 +13,30 @@ cd docs && python3 -m http.server 8000
 # http://localhost:8000/
 ```
 
+## 教材を直す・増やす
+
+原本は `docs/data/src/` の JSON。編集したら再生成する。
+
+```bash
+python3 tools/build.py
+```
+
+- `part*.json`：意味リスト（形式は `docs/data/src/SCHEMA.md`）
+- `slots.json`：差し替え単語
+- `sounds.json`：日本人がつまずく音トップ10
+- `known.json`：実はもう知っている語
+
+`meanings.js`・`lang/zh.js`・`days.js`・CSV は自動生成なので直接編集しない。文型・文法地図・同音セット・会話シーンは `docs/data/patterns.js` などを直接編集する。
+
 ## 構成
 
 ```
 docs/
-  index.html          アプリ本体（今日の60分 / 12週 / 文型 / 文法地図 / 同音・声調 / 語彙 / ドリル）
-  data/curriculum.js  12週カリキュラム
-  data/grammar.js     文法地図 49項目
-  data/patterns.js    文型 50
-  data/homophones.js  同音・声調セット 32
-  data/vocab.js       動詞・副詞・言い回し、1日60分の時間割
-  404.html / robots.txt / sitemap.xml
-google-ids.json       GA4・広告・サイトURL（web-google-standard）
-```
-
-## 教材を増やす
-
-`docs/data/*.js` を編集するだけ。文型は `patterns.js` に追加し、`curriculum.js` の該当週に ID を入れる。文型の `〔…〕` と差し替え語の `A / B / C` は個数を揃える（日本語は `／` 区切り、文全体を差し替えたいときは4要素目に書く）。
-
-## head・サイトマップの再生成
-
-```bash
-S=~/.claude/skills/.../web-google-standard
-python3 $S/scripts/generate_head.py google-ids.json --page-title "..." --description "..." > head.html
-python3 $S/scripts/generate_sitemap.py docs https://zh.yusando.com
+  index.html  style.css  app.js     アプリ本体
+  sw.js  manifest.webmanifest       オフライン対応・ホーム画面追加
+  data/meanings.js  data/days.js    意味リスト・90日表（自動生成）
+  data/lang/zh.js                   中国語の訳・音・差し替え語（自動生成）
+  data/patterns.js grammar.js homophones.js vocab.js scenes.js   中国語の参考教材
+tools/build.py                      意味リストからアプリ用データとCSVを生成
+google-ids.json                     GA4・広告・サイトURL
 ```
