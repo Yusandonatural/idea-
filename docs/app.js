@@ -223,40 +223,57 @@ views.today = function (arg) {
   const due = dueCards().length;
   const extra = [];
   if (d.known) extra.push(`<a href="#/known">もう知っている語</a>`);
-  if (d.sound) extra.push(`<a href="#/sounds/${d.sound}">音 ${d.sound}：${esc(LANG.sounds[d.sound - 1].title)}</a>`);
+  if (d.sound) extra.push(`<a href="#/sounds/${d.sound}">音 ${d.sound}/10：${esc(LANG.sounds[d.sound - 1].title)}</a>`);
   if (d.soundReview) extra.push(`<a href="#/quiz">聞き分けテスト</a>`);
-  if (d.pattern != null && PATTERNS[d.pattern]) extra.push(`<a href="#/patterns/${PATTERNS[d.pattern].id}">文型：${esc(PATTERNS[d.pattern].zh)}</a>`);
-  if (d.session) extra.push(`<span class="tag warn">ネイティブとの会話セッションの日</span>`);
-  if (d.check) extra.push(`<a href="#/check">到達チェック（録音）</a>`);
-  return `<div class="hero">
-    <div class="row" style="justify-content:space-between"><div class="day">Day ${day}<small>/ 90</small></div><span class="tag">${d.month}ヶ月目</span></div>
-    <div style="margin-top:6px"><strong>今日のテーマ：${esc(d.theme)}</strong>　<span class="muted">新しい言いたいこと ${d.items.length}件・復習 ${due}件</span></div>
-    <div class="muted">${d.month}ヶ月目の目標：${esc(monthGoal(d.month))}</div>
-    ${extra.length ? `<div class="pill-list" style="margin-top:8px">${extra.map(x => x.startsWith("<a") ? x.replace("<a ", '<a class="" ') : x).join("")}</div>` : ""}
-    <div class="bar" style="margin-top:10px"><i style="width:${Math.round(Object.keys(S.finished).length / 90 * 100)}%"></i></div>
-    <div class="muted" style="margin-top:4px">完了 ${Object.keys(S.finished).length} / 90日 ・ 使える状態のフレーズ ${learnedCount()}</div>
-    ${isCur ? "" : `<div class="row" style="margin-top:8px"><span class="notice">Day ${day} を表示中（現在は Day ${S.day}）</span><button class="small" data-goto="${day}">この日に移動</button></div>`}
-  </div>
+  if (d.pattern != null && PATTERNS[d.pattern]) extra.push(`<a href="#/patterns/${PATTERNS[d.pattern].id}">文型 ${esc(PATTERNS[d.pattern].zh)}</a>`);
+  if (d.session) extra.push(`<span class="hl">ネイティブと会話する日</span>`);
+  if (d.check) extra.push(`<a class="hl" href="#/check">到達チェック（録音）</a>`);
+  const done = Object.keys(S.finished).length;
+  return `<section class="hero">
+    <div class="eyebrow">${d.month}ヶ月目 ・ ${esc(monthGoal(d.month))}</div>
+    <div class="today-head" style="margin-top:8px">
+      <div class="day">${day}<small>日目 / 90</small></div>
+      <div class="theme">${esc(d.theme)}</div>
+      <div class="sub">新しい言いたいこと ${d.items.length}件 ・ 復習 ${due}件 ・ 使える状態 ${learnedCount()}件</div>
+    </div>
+    ${extra.length ? `<div class="extras">${extra.join("")}</div>` : ""}
+    ${journey(day)}
+    ${isCur ? "" : `<div class="row" style="margin-top:10px"><span class="notice">${day}日目を表示中です（今は ${S.day}日目）</span><button class="small" data-goto="${day}">この日に移動</button></div>`}
+  </section>
+  <nav class="hour" aria-label="今日の60分">${BLOCKS.map(b => `<a href="#/${b.key}/${day}" style="--min:${b.min}" class="${blocks[b.key] ? "done" : ""}">${b.min}分 ${b.min >= 15 ? esc(b.name.replace("フレーズの", "").replace("言えなかったことメモ", "メモ")) : ""}</a>`).join("")}</nav>
   <div class="card">${BLOCKS.map((b, i) => `<div class="block ${blocks[b.key] ? "done" : ""}">
       <div class="m">${b.min}<small>分</small></div>
-      <div><h3>${i + 1}. ${esc(b.name)}</h3><div class="muted">${esc(b.what)}</div>
-        <div class="row" style="margin-top:8px"><a class="btn" href="#/${b.key}/${day}">始める</a>
-        <button class="small ${blocks[b.key] ? "" : "ok"}" data-block="${b.key}" data-day="${day}">${blocks[b.key] ? "未完了に戻す" : "完了"}</button></div></div></div>`).join("")}
-    <div class="row" style="margin-top:12px;justify-content:space-between">
-      ${day > 1 ? `<a class="btn" href="#/today/${day - 1}">← Day ${day - 1}</a>` : "<span></span>"}
-      ${isCur ? `<button class="primary" id="finishDay" ${BLOCKS.every(b => blocks[b.key]) ? "" : "disabled"}>Day ${day} を完了して次へ</button>` : ""}
-      ${day < 90 ? `<a class="btn" href="#/today/${day + 1}">Day ${day + 1} →</a>` : "<span></span>"}
-    </div>
-    <div class="muted" style="margin-top:8px">時間がない日は「復習15分＋話す5分」だけでもOK。ゼロの日を作らないことが一番大事です。</div>
-  </div>`;
+      <div><h3>${esc(b.name)}</h3><div class="muted">${esc(b.what)}</div>
+        <div class="row" style="margin-top:10px"><a class="btn" href="#/${b.key}/${day}">始める</a>
+        <button class="small ${blocks[b.key] ? "" : "ok"}" data-block="${b.key}" data-day="${day}">${blocks[b.key] ? "未完了に戻す" : "完了にする"}</button></div></div></div>`).join("")}
+  </div>
+  <div class="daynav">
+    ${day > 1 ? `<a class="btn" href="#/today/${day - 1}">← ${day - 1}日目</a>` : "<span></span>"}
+    ${isCur ? `<button class="primary" id="finishDay" ${BLOCKS.every(b => blocks[b.key]) ? "" : "disabled"}>${day}日目を終えて次へ</button>` : ""}
+    ${day < 90 ? `<a class="btn" href="#/today/${day + 1}">${day + 1}日目 →</a>` : "<span></span>"}
+  </div>
+  <p class="muted" style="margin-top:12px">時間がない日は「復習15分＋話す5分」だけでも十分です。ゼロの日を作らないことを優先します。完了 ${done} / 90日。</p>`;
 };
+function journey(cur) {
+  const row = m => DAYS.filter(d => d.month === m).map(d => {
+    const c = [S.finished[d.day] ? "done" : "", d.day === cur ? "cur" : "", d.check ? "check" : "", d.session ? "session" : ""].filter(Boolean).join(" ");
+    return `<a href="#/today/${d.day}" class="${c}" title="${d.day}日目 ${esc(d.theme)}" aria-label="${d.day}日目"></a>`;
+  }).join("");
+  return `<div class="journey" aria-label="90日の進み具合">
+    ${[1, 2, 3].map(m => `<div class="mrow"><span class="ml">${m}ヶ月目</span><div class="cells">${row(m)}</div></div>`).join("")}
+    <div class="legend"><span><i class="d"></i>終えた日</span><span><i class="s"></i>会話セッション</span><span><i class="c"></i>到達チェック</span></div>
+  </div>`;
+}
 function welcome() {
-  return `<div class="hero"><h2 style="margin-top:0">1日60分 × 90日で、${esc(LANG.name)}を話す</h2>
-    <p>3ヶ月後の約束：<strong>${esc(LANG.goalLong)}</strong>。ペラペラは約束しません。そのかわり、毎日必ず「話す」時間を入れます。</p>
-    <div class="stat"><div><b>${MEANINGS.length}</b>言いたいこと</div><div><b>90</b>日</div><div><b>60</b>分/日</div><div><b>${(LANG.known || []).length}</b>もう知っている語</div></div>
-    <h3>まず、自分のことを登録（3分）</h3>
-    <p class="muted">自己紹介や仕事の説明は、あなた専用の答えで練習します。あとから「わたしの答え」でいつでも変えられます。</p>
-    <div class="row"><button class="primary" id="startBtn">Day 1 を始める</button><a class="btn" href="#/me">先に自分の答えを入れる</a><a class="btn" href="#/about">このプログラムについて</a></div></div>`;
+  return `<section class="welcome">
+    <div class="big-han">说</div>
+    <h2>1日60分 × 90日で、${esc(LANG.name)}で自分のことを話す</h2>
+    <p>3ヶ月後の約束は「${esc(LANG.goalLong)}」です。ペラペラは約束しません。そのかわり、毎日かならず声に出して話す時間を入れます。</p>
+    <div class="stat"><div><b>${MEANINGS.length}</b>言いたいこと</div><div><b>90</b>日</div><div><b>60</b>分 / 日</div><div><b>${(LANG.known || []).filter(x => !String(x[3] || "").startsWith("注意")).length}</b>もう読める語</div></div>
+    <div class="card"><strong>最初に、自分のことを登録します（3分）</strong>
+      <p class="muted">自己紹介や仕事の説明は、あなた自身の答えで練習します。あとから「わたしの答え」でいつでも変えられます。</p>
+      <div class="row" style="margin-top:10px"><button class="primary" id="startBtn">1日目を始める</button><a class="btn" href="#/me">先に自分の答えを入れる</a><a class="btn" href="#/about">このプログラムについて</a></div></div>
+  </section>`;
 }
 
 // ---------- 画面：1. 復習（間隔反復） ----------
@@ -267,7 +284,7 @@ views.review = function (arg) {
   if (!deck || deck.day !== day) deck = { day, ids: dueCards(), i: 0, shown: false, ok: 0, ng: 0 };
   if (!deck.ids.length || deck.i >= deck.ids.length) {
     const nNew = DAYS[day - 1].items.length;
-    return `<h2>フレーズの復習 <span class="tag">Day ${day}</span></h2><div class="card"><p>${deck.ids.length ? `終わりました。言えた ${deck.ok} ／ もう一回 ${deck.ng}` : "今日の期限が来たカードはありません。"}</p>
+    return `<h2>フレーズの復習 <span class="tag">${day}日目</span></h2><div class="card"><p>${deck.ids.length ? `終わりました。言えた ${deck.ok} ／ もう一回 ${deck.ng}` : "今日の期限が来たカードはありません。"}</p>
       <p class="muted">今日の新規 ${nNew}件は、言えるようになるまで今日中に何度か出ます。翌日以降は 1→3→7→14→30日後 に戻ってきます。</p>
       <div class="row"><button class="ok" data-block="review" data-day="${day}" data-back="1">完了にして戻る</button><a class="btn" href="#/list/day/${day}">今日のフレーズ一覧</a><button class="small" id="again">もう一周</button></div></div>`;
   }
@@ -291,7 +308,7 @@ views.review = function (arg) {
 views.listen = function (arg) {
   const day = parseInt(arg || S.day, 10), d = DAYS[day - 1];
   const sc = (window.SCENES || {})[d.scene];
-  let html = `<h2>聞く＋まねる <span class="tag">Day ${day}</span></h2>`;
+  let html = `<h2>聞く＋まねる <span class="tag">${day}日目</span></h2>`;
   if (d.sound) html += `<h3>今日の音（${d.sound}/10）</h3>` + soundCard(LANG.sounds[d.sound - 1]);
   if (d.soundReview) html += `<div class="card"><strong>音の総ざらい</strong><p class="muted">Day 11〜14 は、音トップ10の聞き分けテストを5分。</p><a class="btn" href="#/quiz">聞き分けテストへ</a></div>`;
   html += `<h3>今日のフレーズを聞いてまねる</h3><div class="card"><div class="row"><button class="primary small" id="playAll">▶ 全部を順に再生（各2回＋まねる間）</button></div>
@@ -326,7 +343,7 @@ views.speak = function (arg) {
     trouble: "道に迷った/体調が悪い/物をなくした、のどれか1つを相手に説明する。",
   };
   const prompt = aiPrompt(day);
-  return `<h2>話す <span class="tag">Day ${day}</span></h2>
+  return `<h2>話す <span class="tag">${day}日目</span></h2>
   <div class="card"><strong>① 独り言（5分）</strong><p>${esc(themes[d.cat])}</p>
     <p class="muted">コツ：日本語の語順で考えず、<strong>「主語＋動詞」を先に言い切って、残りは後から足す</strong>。</p>
     <div class="pill-list">${d.items.map(no => `<a href="#/list/day/${day}">${esc(textOf(no).zh)}</a>`).join("")}</div></div>
@@ -344,7 +361,7 @@ views.memo = function (arg) {
   const day = parseInt(arg || S.day, 10);
   const list = S.memos.filter(m => m.day === day);
   const all = S.memos.length;
-  return `<h2>言えなかったことメモ <span class="tag">Day ${day}</span></h2>
+  return `<h2>言えなかったことメモ <span class="tag">${day}日目</span></h2>
   <div class="card"><p class="muted">今日「言いたかったのに言えなかったこと」を日本語で。訳がわかれば一緒に書きます（空欄でもOK、復習のときに埋められます）。翌日の復習カードになります。</p>
     <input type="text" id="mJa" placeholder="言いたかったこと（日本語）" style="margin-bottom:6px">
     <div class="row"><input type="text" id="mZh" placeholder="${esc(LANG.name)}（任意）" style="flex:1"><input type="text" id="mPy" placeholder="ピンイン（任意）" style="flex:1"></div>
@@ -405,7 +422,7 @@ views.sounds = function (arg) {
   if (n && LANG.sounds[n - 1]) return `<p><a href="#/sounds">← 音トップ10</a></p>` + soundCard(LANG.sounds[n - 1]);
   return `<h2>日本人がつまずく音 トップ10</h2>
   <p class="muted">日本語は母音が5つで、子音の後に必ず母音が付きます。この癖が${esc(LANG.name)}で特につまずく10の音を、Day 1〜10 に1つずつ潰します。${esc(LANG.strength)}。</p>
-  <div class="row"><a class="btn" href="#/quiz">聞き分けテスト</a></div>
+  <div class="row" style="justify-content:space-between"><a class="btn" href="#/quiz">聞き分けテスト</a>${toneLegend}</div>
   ${LANG.sounds.map(soundCard).join("")}
   ${window.HOMOPHONES ? `<h3>同音・声調違いの語（参考）</h3><p class="muted">声調だけ違う語、まったく同じ音の語、読みが複数ある漢字。</p><div class="grid">${HOMOPHONES.map(h => `<div class="card"><span class="tag ${h.type === "tone" ? "" : h.type === "same" ? "warn" : "ok"}">${{ tone: "声調違い", same: "完全同音", multi: "多音字" }[h.type]}</span><strong>${esc(h.title)}</strong><table style="margin-top:6px">${h.items.map(i => `<tr><td class="zh" style="font-size:18px">${esc(i[0])} ${spk(i[0])}</td><td class="py">${esc(i[1])}</td><td class="ja">${esc(i[2])}</td></tr>`).join("")}</table><div class="muted">${esc(h.drill)}</div></div>`).join("")}</div>` : ""}`;
 };
@@ -519,6 +536,22 @@ views.about = function () {
     <div class="row">${EMBED ? "" : '<button class="small" id="exportBtn">記録を書き出す</button>'}<label class="btn small">記録を読み込む<input type="file" id="importFile" accept="application/json" hidden></label><button class="small" id="resetBtn">記録をリセット</button><button class="small" id="resetYes" hidden>本当に消す（録音は残ります）</button></div></div>`;
 };
 
+// ---------- ピンインを声調で色分け ----------
+const TONE = {};
+"āēīōūǖĀĒĪŌŪǕ".split("").forEach(c => TONE[c] = 1); "áéíóúǘÁÉÍÓÚǗ".split("").forEach(c => TONE[c] = 2);
+"ǎěǐǒǔǚǍĚǏǑǓǙ".split("").forEach(c => TONE[c] = 3); "àèìòùǜÀÈÌÒÙǛ".split("").forEach(c => TONE[c] = 4);
+const V = "aeiouüvāáǎàēéěèīíǐìōóǒòūúǔùǖǘǚǜAEIOUÜĀÁǍÀĒÉĚÈĪÍǏÌŌÓǑÒŪÚǓÙǕǗǙǛ";
+const SYL = new RegExp(`(?:[Zz]h|[Cc]h|[Ss]h|[bpmfdtnlgkhjqxrzcsywBPMFDTNLGKHJQXRZCSYW])?[${V}]+(?:ng(?![${V}])|n(?![${V}]))?(?:r(?![${V}]))?`, "g");
+function colorPy(text) {
+  return esc(text).replace(new RegExp(`[A-Za-z${V}]+`, "g"), w => {
+    const parts = w.match(SYL);
+    if (!parts || parts.join("") !== w) return w;
+    return parts.map(p => { const t = [...p].map(c => TONE[c]).find(Boolean) || 5; return `<span class="t${t}">${p}</span>`; }).join("");
+  });
+}
+function paintTones(root) { root.querySelectorAll(".py").forEach(el => { if (!el.dataset.toned) { el.innerHTML = colorPy(el.textContent); el.dataset.toned = 1; } }); }
+const toneLegend = `<div class="tone-legend"><span class="t1">1声 ā</span><span class="t2">2声 á</span><span class="t3">3声 ǎ</span><span class="t4">4声 à</span><span class="t5">軽声 a</span></div>`;
+
 // ---------- ルーティング ----------
 function route() {
   const h = location.hash.replace(/^#\/?/, "") || "today";
@@ -526,6 +559,7 @@ function route() {
   const fn = views[name] || views.today;
   if (name !== "listen") speechSynthesis && speechSynthesis.cancel && speechSynthesis.cancel();
   app.innerHTML = fn(arg, arg2);
+  paintTones(app);
   const navName = ["review", "listen", "speak", "memo"].includes(name) ? "today" : name;
   $$("#nav a").forEach(a => a.classList.toggle("on", a.getAttribute("href") === "#/" + navName));
   window.scrollTo(0, 0);

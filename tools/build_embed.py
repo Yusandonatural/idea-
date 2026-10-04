@@ -12,6 +12,7 @@ body = re.sub(r'<script src="[^"]+"></script>\n?', "", body)
 css = (D / "style.css").read_text(encoding="utf-8").replace("header{position:sticky;top:0;", "header{position:sticky;top:env(safe-area-inset-top,0px);")
 js = "window.__EMBED__=true;\n" + "\n".join((D / s).read_text(encoding="utf-8") for s in scripts)
 js = js.replace("</script", "<\\/script")
-out = f"<title>90日外国語会話</title>\n<style>\n{css}\n</style>\n{body}\n<script>\n{js}\n</script>\n"
+fonts = re.search(r'<link rel="stylesheet" href="(https://fonts[^"]+)">', html).group(1)
+out = f'<title>90日外国語会話</title>\n<link rel="stylesheet" href="{fonts}">\n' + f"<style>\n{css}\n</style>\n{body}\n<script>\n{js}\n</script>\n"
 Path(sys.argv[1]).write_text(out, encoding="utf-8")
 print(sys.argv[1], len(out.encode()) // 1024, "KB")
