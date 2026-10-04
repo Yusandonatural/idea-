@@ -1,5 +1,5 @@
 // オフラインでも学習できるよう、アプリ一式をキャッシュする（ネット優先・失敗時にキャッシュ）
-const CACHE = "lang90-v2";
+const CACHE = "lang90-v3";
 const FILES = ["./", "index.html", "style.css", "app.js", "manifest.webmanifest", "icon-192.png", "icon-512.png",
   "data/meanings.js", "data/lang/zh.js", "data/days.js", "data/patterns.js", "data/grammar.js",
   "data/homophones.js", "data/vocab.js", "data/scenes.js"];

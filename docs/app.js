@@ -1,4 +1,4 @@
-/* 90日外国語会話プログラム — アプリ本体
+/* 90日外国語会話プログラム — アプリ本体（ゲーム風UI）
  * データ: data/meanings.js（意味リスト・言語共通）, data/lang/<code>.js（訳・音・差し替え語）, data/days.js（90日表）
  *         data/patterns.js, grammar.js, homophones.js, vocab.js, scenes.js（中国語の参考教材）
  * 学習記録はこの端末の localStorage（記録）と IndexedDB（録音）にだけ保存する。
@@ -9,13 +9,13 @@ const $ = s => document.querySelector(s);
 const $$ = s => Array.from(document.querySelectorAll(s));
 const app = $("#app");
 const esc = s => String(s == null ? "" : s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
-const DAY_MS = 86400000;
 const M = Object.fromEntries(MEANINGS.map(m => [m.no, m]));
 const CATNAME = Object.fromEntries(CATS.map(c => [c.id, c.name]));
 const P = window.PATTERNS ? Object.fromEntries(PATTERNS.map(p => [p.id, p])) : {};
 const G = window.GRAMMAR ? Object.fromEntries(GRAMMAR.map(g => [g.id, g])) : {};
 const STARS = { 3: "★★★", 2: "★★", 1: "★" };
 const INTERVALS = [1, 3, 7, 14, 30, 60]; // 間隔反復：箱ごとの次回までの日数
+const EMBED = !!window.__EMBED__; // claude.ai 上の試用版：ダウンロード・マイクが使えない
 
 // ---------- 記録 ----------
 const KEY = "lang90:" + LANG.code;
@@ -23,8 +23,9 @@ const store = {
   get() { try { return JSON.parse(localStorage.getItem(KEY) || "{}"); } catch (e) { return {}; } },
   set(v) { try { localStorage.setItem(KEY, JSON.stringify(v)); } catch (e) {} },
 };
-const blank = () => ({ day: 1, started: null, blocks: {}, finished: {}, srs: {}, me: {}, memos: [], log: {} });
+const blank = () => ({ day: 1, started: null, blocks: {}, finished: {}, srs: {}, me: {}, memos: [], log: {}, xp: 0, xpDay: {}, active: {} });
 let S = Object.assign(blank(), { pinyin: true, theme: null }, store.get());
+Object.keys(S.log || {}).forEach(d => { S.active[d] = 1; }); // 旧版の記録から連続日数を復元
 const save = () => store.set(S);
 
 function today() { const d = new Date(); return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); }
@@ -34,9 +35,75 @@ function applyPrefs() {
   document.body.classList.toggle("hide-py", !S.pinyin);
   if (S.theme) document.documentElement.setAttribute("data-theme", S.theme); else document.documentElement.removeAttribute("data-theme");
 }
-$("#pyToggle").onclick = () => { S.pinyin = !S.pinyin; save(); applyPrefs(); };
-$("#themeToggle").onclick = () => { const dark = matchMedia("(prefers-color-scheme:dark)").matches; const cur = S.theme || (dark ? "dark" : "light"); S.theme = cur === "dark" ? "light" : "dark"; save(); applyPrefs(); };
 applyPrefs();
+
+// ---------- XP・連続日数 ----------
+function gainXP(n) {
+  const t = today();
+  S.xp = (S.xp || 0) + n; S.xpDay[t] = (S.xpDay[t] || 0) + n; S.active[t] = 1; save(); renderStats();
+}
+function streak() {
+  let d = today(), n = 0;
+  if (!S.active[d]) d = addDays(d, -1);
+  while (S.active[d]) { n++; d = addDays(d, -1); }
+  return n;
+}
+function minutesDone(day) { const b = S.blocks[day] || {}; return BLOCKS.reduce((a, x) => a + (b[x.key] ? x.min : 0), 0); }
+
+// ---------- アイコン（線画SVG） ----------
+const IP = {
+  path: '<path d="M12 3l9 7-9 7-9-7z"/><path d="M3 15l9 7 9-7"/>',
+  dumbbell: '<path d="M6 7v10M18 7v10M3 10v4M21 10v4M6 12h12"/>',
+  book: '<path d="M4 5a2 2 0 012-2h13v16H6a2 2 0 00-2 2z"/><path d="M4 19V5"/>',
+  user: '<circle cx="12" cy="8" r="4"/><path d="M4 21c1-4 4.5-6 8-6s7 2 8 6"/>',
+  dots: '<circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/>',
+  flame: '<path d="M12 2c1 4 6 6 6 12a6 6 0 01-12 0c0-3 2-5 3-6 0 2 1 3 2 3 0-3-1-6 1-9z"/>',
+  bolt: '<path d="M13 2L4 14h7l-1 8 9-12h-7z"/>',
+  check: '<path d="M5 12l5 5 9-10"/>',
+  star: '<path d="M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1L3.2 9.5l6.1-.9z"/>',
+  lock: '<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 018 0v3"/>',
+  head: '<path d="M4 15v-3a8 8 0 0116 0v3"/><rect x="3" y="14" width="4" height="7" rx="1.5"/><rect x="17" y="14" width="4" height="7" rx="1.5"/>',
+  chat: '<path d="M4 5h16v11H9l-5 4z"/>',
+  mic: '<rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0014 0M12 18v3"/>',
+  cards: '<rect x="3" y="6" width="13" height="15" rx="2"/><path d="M8 3h11a2 2 0 012 2v12"/>',
+  pencil: '<path d="M4 20l4-1 11-11-3-3L5 16z"/><path d="M14 6l3 3"/>',
+  trophy: '<path d="M7 4h10v5a5 5 0 01-10 0z"/><path d="M7 6H4a3 3 0 003 4M17 6h3a3 3 0 01-3 4M12 14v4M8 21h8"/>',
+  x: '<path d="M6 6l12 12M18 6L6 18"/>',
+  play: '<path d="M8 5l11 7-11 7z"/>',
+  gear: '<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1L7 17M17 7l2.1-2.1"/>',
+  target: '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.5"/>',
+};
+const icon = (n, cls) => `<svg class="ico ${cls || ""}" viewBox="0 0 24 24" aria-hidden="true">${IP[n] || ""}</svg>`;
+
+// ---------- キャラクター：湯のみの「ちゃみ」 ----------
+function mascot(size, mood) {
+  const happy = mood === "happy";
+  return `<svg class="mascot" width="${size}" height="${size}" viewBox="0 0 120 120" role="img" aria-label="湯のみのキャラクター">
+    <path class="m-steam" d="M48 18c-6 6 6 10 0 16M62 12c-6 7 6 11 0 18M76 18c-6 6 6 10 0 16" fill="none" stroke-width="4" stroke-linecap="round"/>
+    <path class="m-handle" d="M92 52c14 0 14 26 0 26" fill="none" stroke-width="8" stroke-linecap="round"/>
+    <path class="m-body" d="M22 42h76l-8 52a10 10 0 01-10 8H40a10 10 0 01-10-8z"/>
+    <path class="m-rim" d="M20 40h80v8H20z"/>
+    <path class="m-band" d="M26 62h68l-1.6 10H27.6z"/>
+    ${happy ? '<path class="m-eye" d="M42 80q5-6 10 0M68 80q5-6 10 0" fill="none" stroke-width="4" stroke-linecap="round"/>'
+            : '<circle class="m-eyef" cx="47" cy="80" r="4.5"/><circle class="m-eyef" cx="73" cy="80" r="4.5"/>'}
+    <circle class="m-cheek" cx="38" cy="88" r="5"/><circle class="m-cheek" cx="82" cy="88" r="5"/>
+    <path class="m-eye" d="M54 90q6 ${happy ? 7 : 4} 12 0" fill="none" stroke-width="4" stroke-linecap="round"/>
+  </svg>`;
+}
+
+// ---------- 上のステータス ----------
+function renderStats() {
+  const el = $("#stats"); if (!el) return;
+  const st = streak(), min = S.started ? minutesDone(S.day) : 0, lit = !!S.active[today()];
+  el.innerHTML = `<a href="#/today" class="stat-chip lang" aria-label="${esc(LANG.name)}">中文</a>
+    <span class="stat-chip ${lit ? "fire" : "off"}" title="連続日数">${icon("flame")}<b>${st}</b></span>
+    <span class="stat-chip xp" title="経験値">${icon("bolt")}<b>${S.xp || 0}</b></span>
+    <a href="#/today" class="stat-chip goal" title="今日の60分">${ring(min / 60, 22)}<b>${min}<small>/60分</small></b></a>`;
+}
+function ring(p, size) {
+  const r = (size - 4) / 2, c = 2 * Math.PI * r;
+  return `<svg class="ring" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" aria-hidden="true"><circle cx="${size / 2}" cy="${size / 2}" r="${r}" class="ring-bg"/><circle cx="${size / 2}" cy="${size / 2}" r="${r}" class="ring-fg" stroke-dasharray="${c}" stroke-dashoffset="${c * (1 - Math.min(1, p))}" transform="rotate(-90 ${size / 2} ${size / 2})"/></svg>`;
+}
 
 // ---------- 音声：読み上げ ----------
 function speak(text, rate) {
@@ -129,8 +196,7 @@ function bindRecorders() {
 }
 
 // ---------- 小物 ----------
-function toast(msg) { const t = document.createElement("div"); t.className = "notice"; t.style.cssText = "position:fixed;left:16px;right:16px;bottom:16px;z-index:50;text-align:center"; t.textContent = msg; document.body.appendChild(t); setTimeout(() => t.remove(), 2500); }
-const EMBED = !!window.__EMBED__; // claude.ai 上の公開版：ダウンロード・マイクが使えない
+function toast(msg) { const t = document.createElement("div"); t.className = "toast"; t.textContent = msg; document.body.appendChild(t); setTimeout(() => t.remove(), 2400); }
 async function copy(text, el) { try { await navigator.clipboard.writeText(text); toast("コピーしました"); } catch (e) { if (el) { const r = document.createRange(); r.selectNodeContents(el); const sel = getSelection(); sel.removeAllRanges(); sel.addRange(r); } toast("選択しました。長押し（Ctrl+C）でコピーしてください"); } }
 window.__copy = id => { const el = document.getElementById(id); copy(el.textContent, el); };
 
@@ -203,77 +269,119 @@ ${me ? "\n私についての情報（自己紹介に使ってください）：\
 では、あなたから簡単なあいさつで始めてください。`;
 }
 
-// ---------- 画面：今日 ----------
+// ---------- 1日の4レッスン ----------
 const views = {};
 const BLOCKS = [
-  { min: 15, key: "review", name: "フレーズの復習", what: "今日の新しい「言いたいこと」と、間隔反復で期限が来たものを、日本語を見て声に出す。" },
-  { min: 20, key: "listen", name: "聞く＋まねる", what: "短い会話をシャドーイング。最初の2週間は「日本人がつまずく音」も1つずつ。" },
-  { min: 20, key: "speak", name: "話す", what: "今日のテーマで独り言かAIと音声会話。録音して聞き直す。" },
-  { min: 5, key: "memo", name: "言えなかったことメモ", what: "今日言いたかったのに言えなかったことを書く。翌日の復習に入る。" },
+  { min: 15, key: "review", name: "フレーズの復習", short: "復習", ic: "cards", color: "green", what: "今日の新しい「言いたいこと」と、期限が来たものを声に出す" },
+  { min: 20, key: "listen", name: "聞く＋まねる", short: "聞く", ic: "head", color: "blue", what: "音と会話をシャドーイング" },
+  { min: 20, key: "speak", name: "話す", short: "話す", ic: "mic", color: "orange", what: "独り言・AIと音声会話・録音" },
+  { min: 5, key: "memo", name: "言えなかったことメモ", short: "メモ", ic: "pencil", color: "purple", what: "明日の復習カードになる" },
 ];
+const UNIT_COLOR = { 1: "green", 2: "blue", 3: "purple" };
 function monthGoal(m) {
   return ["", "音と文字に慣れる。最重要フレーズとあいさつ・自己紹介が口から出る", "型（〜したい・〜した・〜してください・質問）を入れ替えて使える", "聞き返しや言い換えを含めて、やり取りを続けられる"][m];
 }
-views.today = function (arg) {
-  if (!S.started) return welcome();
-  const day = arg ? Math.max(1, Math.min(90, parseInt(arg, 10))) : S.day;
-  const d = DAYS[day - 1];
-  const blocks = S.blocks[day] || {};
-  const isCur = day === S.day;
-  const due = dueCards().length;
-  const extra = [];
-  if (d.known) extra.push(`<a href="#/known">もう知っている語</a>`);
-  if (d.sound) extra.push(`<a href="#/sounds/${d.sound}">音 ${d.sound}/10：${esc(LANG.sounds[d.sound - 1].title)}</a>`);
-  if (d.soundReview) extra.push(`<a href="#/quiz">聞き分けテスト</a>`);
-  if (d.pattern != null && PATTERNS[d.pattern]) extra.push(`<a href="#/patterns/${PATTERNS[d.pattern].id}">文型 ${esc(PATTERNS[d.pattern].zh)}</a>`);
-  if (d.session) extra.push(`<span class="hl">ネイティブと会話する日</span>`);
-  if (d.check) extra.push(`<a class="hl" href="#/check">到達チェック（録音）</a>`);
-  const done = Object.keys(S.finished).length;
-  return `<section class="hero">
-    <div class="eyebrow">${d.month}ヶ月目 ・ ${esc(monthGoal(d.month))}</div>
-    <div class="today-head" style="margin-top:8px">
-      <div class="day">${day}<small>日目 / 90</small></div>
-      <div class="theme">${esc(d.theme)}</div>
-      <div class="sub">新しい言いたいこと ${d.items.length}件 ・ 復習 ${due}件 ・ 使える状態 ${learnedCount()}件</div>
-    </div>
-    ${extra.length ? `<div class="extras">${extra.join("")}</div>` : ""}
-    ${journey(day)}
-    ${isCur ? "" : `<div class="row" style="margin-top:10px"><span class="notice">${day}日目を表示中です（今は ${S.day}日目）</span><button class="small" data-goto="${day}">この日に移動</button></div>`}
-  </section>
-  <nav class="hour" aria-label="今日の60分">${BLOCKS.map(b => `<a href="#/${b.key}/${day}" style="--min:${b.min}" class="${blocks[b.key] ? "done" : ""}">${b.min}分 ${b.min >= 15 ? esc(b.name.replace("フレーズの", "").replace("言えなかったことメモ", "メモ")) : ""}</a>`).join("")}</nav>
-  <div class="card">${BLOCKS.map((b, i) => `<div class="block ${blocks[b.key] ? "done" : ""}">
-      <div class="m">${b.min}<small>分</small></div>
-      <div><h3>${esc(b.name)}</h3><div class="muted">${esc(b.what)}</div>
-        <div class="row" style="margin-top:10px"><a class="btn" href="#/${b.key}/${day}">始める</a>
-        <button class="small ${blocks[b.key] ? "" : "ok"}" data-block="${b.key}" data-day="${day}">${blocks[b.key] ? "未完了に戻す" : "完了にする"}</button></div></div></div>`).join("")}
-  </div>
-  <div class="daynav">
-    ${day > 1 ? `<a class="btn" href="#/today/${day - 1}">← ${day - 1}日目</a>` : "<span></span>"}
-    ${isCur ? `<button class="primary" id="finishDay" ${BLOCKS.every(b => blocks[b.key]) ? "" : "disabled"}>${day}日目を終えて次へ</button>` : ""}
-    ${day < 90 ? `<a class="btn" href="#/today/${day + 1}">${day + 1}日目 →</a>` : "<span></span>"}
-  </div>
-  <p class="muted" style="margin-top:12px">時間がない日は「復習15分＋話す5分」だけでも十分です。ゼロの日を作らないことを優先します。完了 ${done} / 90日。</p>`;
-};
-function journey(cur) {
-  const row = m => DAYS.filter(d => d.month === m).map(d => {
-    const c = [S.finished[d.day] ? "done" : "", d.day === cur ? "cur" : "", d.check ? "check" : "", d.session ? "session" : ""].filter(Boolean).join(" ");
-    return `<a href="#/today/${d.day}" class="${c}" title="${d.day}日目 ${esc(d.theme)}" aria-label="${d.day}日目"></a>`;
-  }).join("");
-  return `<div class="journey" aria-label="90日の進み具合">
-    ${[1, 2, 3].map(m => `<div class="mrow"><span class="ml">${m}ヶ月目</span><div class="cells">${row(m)}</div></div>`).join("")}
-    <div class="legend"><span><i class="d"></i>終えた日</span><span><i class="s"></i>会話セッション</span><span><i class="c"></i>到達チェック</span></div>
-  </div>`;
+function nextBlock(day) { const b = S.blocks[day] || {}; return BLOCKS.find(x => !b[x.key]); }
+function completeBlock(day, key) {
+  S.blocks[day] = S.blocks[day] || {};
+  if (!S.blocks[day][key]) { S.blocks[day][key] = 1; gainXP(10); }
+  save();
 }
+function dayIcon(d) {
+  if (S.finished[d.day]) return "check";
+  if (d.check) return "trophy";
+  if (d.session) return "chat";
+  if (d.sound) return "head";
+  return "star";
+}
+
+// ---------- 画面：学ぶ（90日の道） ----------
+const OFFS = [0, 44, 72, 44, 0, -44, -72, -44];
+views.today = function (arg) {
+  if (arg) return views.day(arg);
+  if (!S.started) return welcome();
+  const cur = S.day, d = DAYS[cur - 1], nb = nextBlock(cur), min = minutesDone(cur);
+  const units = [1, 2, 3].map(m => {
+    const days = DAYS.filter(x => x.month === m);
+    const nodes = days.map((x, i) => {
+      const state = S.finished[x.day] ? "done" : x.day === cur ? "cur" : x.day < cur ? "open" : "lock";
+      const prog = x.day === cur ? minutesDone(cur) / 60 : 0;
+      return `<div class="node-wrap" style="--x:${OFFS[(x.day - 1) % OFFS.length]}px">
+        ${x.day === cur ? `<div class="bubble">${min ? "つづける" : "はじめる"}</div>` : ""}
+        <a class="node ${state} u${m}" href="#/day/${x.day}" id="${x.day === cur ? "curNode" : ""}" aria-label="${x.day}日目 ${esc(x.theme)}" style="--p:${prog}">
+          ${icon(state === "lock" ? (x.check ? "trophy" : "lock") : dayIcon(x))}<span class="nd">${x.day}</span></a>
+        ${x.day === cur ? `<div class="side-mascot ${(OFFS[(x.day - 1) % OFFS.length] > 0) ? "left" : "right"}">${mascot(84)}</div>` : ""}
+      </div>`;
+    }).join("");
+    return `<section class="unit u${m}">
+      <div class="unit-banner"><div><div class="ub-eyebrow">ユニット ${m} ・ ${m}ヶ月目</div><div class="ub-title">${esc(monthGoal(m))}</div></div>
+        <a class="ub-btn" href="#/plan" aria-label="テーマ表">${icon("book")}</a></div>
+      <div class="path">${nodes}</div></section>`;
+  }).join("");
+  return `<div class="goal-card">
+      <div class="gc-ring">${ring(min / 60, 64)}<span>${min}<small>分</small></span></div>
+      <div class="gc-text"><div class="gc-day">${cur}日目 ・ ${esc(d.theme)}</div>
+        <div class="muted">${nb ? `次は「${esc(nb.name)}」${nb.min}分` : "今日の4レッスンが終わりました"}</div></div>
+      <a class="btn primary" href="${nb ? `#/${nb.key}/${cur}` : `#/day/${cur}`}">${nb ? (min ? "つづける" : "はじめる") : "クリアへ"}</a>
+    </div>${units}`;
+};
 function welcome() {
   return `<section class="welcome">
-    <div class="big-han">说</div>
-    <h2>1日60分 × 90日で、${esc(LANG.name)}で自分のことを話す</h2>
-    <p>3ヶ月後の約束は「${esc(LANG.goalLong)}」です。ペラペラは約束しません。そのかわり、毎日かならず声に出して話す時間を入れます。</p>
-    <div class="stat"><div><b>${MEANINGS.length}</b>言いたいこと</div><div><b>90</b>日</div><div><b>60</b>分 / 日</div><div><b>${(LANG.known || []).filter(x => !String(x[3] || "").startsWith("注意")).length}</b>もう読める語</div></div>
-    <div class="card"><strong>最初に、自分のことを登録します（3分）</strong>
-      <p class="muted">自己紹介や仕事の説明は、あなた自身の答えで練習します。あとから「わたしの答え」でいつでも変えられます。</p>
-      <div class="row" style="margin-top:10px"><button class="primary" id="startBtn">1日目を始める</button><a class="btn" href="#/me">先に自分の答えを入れる</a><a class="btn" href="#/about">このプログラムについて</a></div></div>
+    <div class="wl-mascot">${mascot(150, "happy")}</div>
+    <h1 class="wl-title">1日60分 × 90日で、<br>${esc(LANG.name)}で自分のことを話そう</h1>
+    <p class="muted wl-sub">3ヶ月後の約束：${esc(LANG.goalLong)}</p>
+    <div class="wl-stats"><div><b>${MEANINGS.length}</b><span>言いたいこと</span></div><div><b>90</b><span>日</span></div><div><b>${(LANG.known || []).filter(x => !String(x[3] || "").startsWith("注意")).length}</b><span>もう読める語</span></div></div>
+    <div class="wl-actions">
+      <button class="btn primary big" id="startBtn">はじめる</button>
+      <a class="btn big" href="#/me">先に自分のことを登録する</a>
+    </div>
+    <p class="muted" style="text-align:center"><a href="#/about">このプログラムについて</a></p>
   </section>`;
+}
+
+// ---------- 画面：1日（4レッスン） ----------
+views.day = function (arg) {
+  if (!S.started) return welcome();
+  const day = Math.max(1, Math.min(90, parseInt(arg || S.day, 10))), d = DAYS[day - 1], b = S.blocks[day] || {};
+  const isCur = day === S.day, all = BLOCKS.every(x => b[x.key]);
+  const extra = [];
+  if (d.known) extra.push(`<a href="#/known">${icon("star")}もう知っている語</a>`);
+  if (d.sound) extra.push(`<a href="#/sounds/${d.sound}">${icon("head")}音 ${d.sound}/10</a>`);
+  if (d.soundReview) extra.push(`<a href="#/quiz">${icon("head")}聞き分けテスト</a>`);
+  if (d.pattern != null && PATTERNS[d.pattern]) extra.push(`<a href="#/drill/${PATTERNS[d.pattern].id}">${icon("dumbbell")}文型ドリル</a>`);
+  if (d.session) extra.push(`<span>${icon("chat")}ネイティブと会話する日</span>`);
+  if (d.check) extra.push(`<a href="#/check">${icon("trophy")}到達チェック</a>`);
+  return `<a class="back" href="#/today">← 道にもどる</a>
+  <div class="day-banner u${d.month}"><div class="db-eyebrow">ユニット ${d.month} ・ ${day}日目</div><div class="db-title">${esc(d.theme)}</div>
+    <div class="db-sub">新しい言いたいこと ${d.items.length} ・ 復習 ${dueCards().length}</div></div>
+  ${extra.length ? `<div class="extras">${extra.join("")}</div>` : ""}
+  <div class="lessons">${BLOCKS.map((x, i) => `<a class="lesson-row ${b[x.key] ? "done" : ""}" href="#/${x.key}/${day}">
+      <span class="lr-ic c-${x.color}">${icon(b[x.key] ? "check" : x.ic)}</span>
+      <span class="lr-text"><b>${esc(x.name)}</b><span class="muted">${x.min}分 ・ ${esc(x.what)}</span></span>
+      <span class="lr-xp">${b[x.key] ? "済" : "+10"}</span></a>`).join("")}</div>
+  <div class="day-actions">
+    ${isCur ? `<button class="btn primary big" id="finishDay" ${all ? "" : "disabled"}>${all ? `${day}日目をクリアする` : `あと ${BLOCKS.filter(x => !b[x.key]).length}レッスン`}</button>`
+            : `<button class="btn big" data-goto="${day}">この日を「今日」にする</button>`}
+    <p class="muted" style="text-align:center">時間がない日は「復習15分＋話す5分」だけでも十分です。</p>
+  </div>`;
+};
+
+// ---------- レッスンの枠 ----------
+function lessonShell(o) {
+  return `<div class="lesson">
+    <div class="lbar"><a class="lx" href="${o.exit}" aria-label="やめる">${icon("x")}</a>
+      <div class="pbar"><i style="width:${Math.round((o.p || 0) * 100)}%"></i></div>
+      ${o.right || ""}</div>
+    <div class="lbody">${o.body}</div>
+    <div class="lfoot ${o.footClass || ""}"><div class="lfoot-in">${o.foot}</div></div>
+  </div>`;
+}
+function doneScreen(o) {
+  return `<div class="celebrate">
+    <div class="cb-mascot">${mascot(140, "happy")}</div>
+    <h1>${esc(o.title)}</h1>${o.sub ? `<p class="muted">${esc(o.sub)}</p>` : ""}
+    <div class="tiles">${o.tiles.map(t => `<div class="tile c-${t[2]}"><div class="tl">${esc(t[0])}</div><div class="tv">${t[1]}</div></div>`).join("")}</div>
+    <div class="cb-actions">${o.actions}</div></div>`;
 }
 
 // ---------- 画面：1. 復習（間隔反復） ----------
@@ -281,49 +389,55 @@ let deck = null;
 views.review = function (arg) {
   const day = parseInt(arg || S.day, 10);
   if (day === S.day) introduce(day);
-  if (!deck || deck.day !== day) deck = { day, ids: dueCards(), i: 0, shown: false, ok: 0, ng: 0 };
+  if (!deck || deck.day !== day) deck = { day, ids: dueCards(), i: 0, shown: false, ok: 0, ng: 0, xp: 0, fb: null };
+  const exit = `#/day/${day}`;
   if (!deck.ids.length || deck.i >= deck.ids.length) {
-    const nNew = DAYS[day - 1].items.length;
-    return `<h2>フレーズの復習 <span class="tag">${day}日目</span></h2><div class="card"><p>${deck.ids.length ? `終わりました。言えた ${deck.ok} ／ もう一回 ${deck.ng}` : "今日の期限が来たカードはありません。"}</p>
-      <p class="muted">今日の新規 ${nNew}件は、言えるようになるまで今日中に何度か出ます。翌日以降は 1→3→7→14→30日後 に戻ってきます。</p>
-      <div class="row"><button class="ok" data-block="review" data-day="${day}" data-back="1">完了にして戻る</button><a class="btn" href="#/list/day/${day}">今日のフレーズ一覧</a><button class="small" id="again">もう一周</button></div></div>`;
+    const n = deck.ok + deck.ng;
+    return doneScreen({ title: deck.ids.length ? "復習クリア！" : "今日の復習はありません",
+      sub: deck.ids.length ? "言えたカードは 1→3→7→14→30日後 にまた出ます" : "期限が来たカードはありません。次のレッスンへ進みましょう",
+      tiles: [["獲得XP", "+" + (deck.xp + 10), "gold"], ["言えた", n ? Math.round(deck.ok / n * 100) + "%" : "—", "green"], ["カード", n, "blue"]],
+      actions: `<button class="btn primary big" data-complete="review" data-day="${day}">つづける</button><button class="btn" id="again">もう一周</button>` });
   }
   const id = deck.ids[deck.i], f = cardFace(id);
   if (!f) { deck.i++; return views.review(arg); }
   const isNew = (S.srs[id] || {}).box === 0 && (S.srs[id] || {}).intro === day;
-  return `<h2>フレーズの復習 <span class="tag">${deck.i + 1} / ${deck.ids.length}</span> ${isNew ? '<span class="tag ok">今日の新規</span>' : ""}</h2>
-  <div class="card flash" data-target="${esc(f.audio)}">
-    <div class="muted">日本語を見て、${esc(LANG.name)}で声に出してから「答え」</div>
-    <div class="q" style="margin-top:12px">${f.mine ? '<span class="self">自分</span> ' : ""}${esc(f.ja)}</div>
-    ${f.kind === "m" && M[f.no].slot && !f.mine ? `<div class="muted">○○ は差し替え：${esc(SLOT_NAME[M[f.no].slot])}</div>` : ""}
-    <div style="margin-top:16px;min-height:90px">${deck.shown ? (f.zh ? `<div class="zh lg">${esc(f.zh)} ${spk(f.audio)}</div><div class="py">${esc(f.py)}</div>${exChips(f)}` :
-      `<div class="notice">このメモにはまだ訳がありません。調べるかAIに聞いて書き込みましょう。</div><div class="row" style="margin-top:8px"><input type="text" id="memoZh" placeholder="${esc(LANG.name)}"><input type="text" id="memoPy" placeholder="ピンイン（任意）"><button class="small" id="memoSave">保存</button></div>`) : ""}</div>
-    <div class="row" style="justify-content:center">${deck.shown ? `${f.zh ? micBtn() : ""}<button class="ok" data-grade="1">言えた</button><button data-grade="0">もう一回</button>` : `<button class="primary" id="reveal">答え</button>`}</div>
-    <div class="result"></div>
-  </div>
-  <div class="muted">「言えた」の基準は「通じる短い文」。完璧でなくてかまいません。</div>`;
+  const body = `<div class="ltitle">${isNew ? '<span class="new-badge">新しいフレーズ</span>' : ""}${esc(LANG.name)}で言ってみよう</div>
+    <div class="speech">${mascot(88)}<div class="bubble-big">${f.mine ? '<span class="self">自分</span>' : ""}${esc(f.ja)}
+      ${f.kind === "m" && M[f.no].slot && !f.mine ? `<div class="muted" style="font-size:13px">○○ は ${esc(SLOT_NAME[M[f.no].slot])} を入れる</div>` : ""}</div></div>
+    <div class="answer" data-target="${esc(f.audio)}">${deck.shown ? (f.zh ? `<div class="ans-zh"><span class="zh lg">${esc(f.zh)}</span> ${spk(f.audio)}</div><div class="py">${esc(f.py)}</div>${exChips(f)}<div class="row center" style="margin-top:10px">${micBtn()}</div><div class="result"></div>` :
+      `<div class="notice">このメモにはまだ訳がありません。調べるかAIに聞いて書き込みましょう。</div><div class="row" style="margin-top:8px"><input type="text" id="memoZh" placeholder="${esc(LANG.name)}"><input type="text" id="memoPy" placeholder="ピンイン（任意）"><button class="btn small" id="memoSave">保存</button></div>`)
+      : `<div class="answer-hint">声に出して言ってから、答えを見ましょう</div>`}</div>`;
+  let foot, fc = "";
+  if (deck.fb) {
+    fc = deck.fb === "ok" ? "fb-ok" : "fb-ng";
+    foot = `<div class="fb-msg">${icon(deck.fb === "ok" ? "check" : "x", "fb-ic")}<div><b>${deck.fb === "ok" ? "いいね！ +10 XP" : "大丈夫、もう一度出ます"}</b>${deck.fb === "ng" ? `<div>${esc(f.zh)}</div>` : ""}</div></div><button class="btn big ${deck.fb === "ok" ? "primary" : "orange"}" id="fbNext">つづける</button>`;
+  } else if (deck.shown) {
+    foot = `<button class="btn big" data-grade="0">もう一回</button><button class="btn big primary" data-grade="1">言えた</button>`;
+  } else {
+    foot = `<button class="btn big primary wide" id="reveal">答えを見る</button>`;
+  }
+  return lessonShell({ exit, p: deck.i / deck.ids.length, right: `<span class="lcount">${deck.i + 1}/${deck.ids.length}</span>`, body, foot, footClass: fc });
 };
 
 // ---------- 画面：2. 聞く＋まねる ----------
 views.listen = function (arg) {
   const day = parseInt(arg || S.day, 10), d = DAYS[day - 1];
   const sc = (window.SCENES || {})[d.scene];
-  let html = `<h2>聞く＋まねる <span class="tag">${day}日目</span></h2>`;
-  if (d.sound) html += `<h3>今日の音（${d.sound}/10）</h3>` + soundCard(LANG.sounds[d.sound - 1]);
-  if (d.soundReview) html += `<div class="card"><strong>音の総ざらい</strong><p class="muted">Day 11〜14 は、音トップ10の聞き分けテストを5分。</p><a class="btn" href="#/quiz">聞き分けテストへ</a></div>`;
-  html += `<h3>今日のフレーズを聞いてまねる</h3><div class="card"><div class="row"><button class="primary small" id="playAll">▶ 全部を順に再生（各2回＋まねる間）</button></div>
+  let body = `<div class="ltitle">聞いて、まねして言おう</div>`;
+  if (d.sound) body += `<h3>今日の音（${d.sound}/10）</h3>` + soundCard(LANG.sounds[d.sound - 1]);
+  if (d.soundReview) body += `<a class="hub-row" href="#/quiz"><span class="lr-ic c-blue">${icon("head")}</span><span class="lr-text"><b>聞き分けテスト（5分）</b><span class="muted">音トップ10の総ざらい</span></span></a>`;
+  body += `<h3>今日のフレーズ</h3><div class="card"><button class="btn primary small" id="playAll">${icon("play")}全部を順に再生</button>
     ${d.items.map(itemRow).join("") || '<p class="muted">復習中心の日です。</p>'}</div>`;
-  if (sc) html += `<h3>会話のシャドーイング：${esc(sc.title)}</h3><div class="card">
-    <p class="muted">① 文字を見ずに1回聞く → ② 文字を見ながら音に重ねて言う ×3 → ③ B（あなた）の役だけ自分で言う。</p>
-    <div class="row"><button class="small" id="playScene">▶ 会話を通しで再生</button><button class="small" id="playSceneA">▶ Aだけ再生（Bは自分で言う）</button></div>
+  if (sc) body += `<h3>会話のシャドーイング：${esc(sc.title)}</h3><div class="card">
+    <p class="muted">① 文字を見ずに聞く → ② 音に重ねて言う ×3 → ③ B役（あなた）だけ自分で言う</p>
+    <div class="row"><button class="btn small" id="playScene">${icon("play")}通しで再生</button><button class="btn small" id="playSceneA">${icon("play")}Aだけ再生</button></div>
     ${sc.lines.map(l => `<div class="line ${l[0] === "B" ? "me" : ""}" data-target="${esc(l[1])}"><div class="who">${l[0]}</div><div><div class="zh" style="font-size:19px">${esc(l[1])}</div><div class="py">${esc(l[2])}</div><div class="ja">${esc(l[3])}</div><div class="result"></div></div><div>${spk(l[1])}${l[0] === "B" ? micBtn() : ""}</div></div>`).join("")}</div>`;
-  html += `<div class="row"><button class="ok" data-block="listen" data-day="${day}" data-back="1">完了にして戻る</button></div>`;
-  return html;
+  return lessonShell({ exit: `#/day/${day}`, p: (S.blocks[day] || {}).listen ? 1 : 0.5, body, foot: `<button class="btn big primary wide" data-complete="listen" data-day="${day}">できた！ +10 XP</button>` });
 };
 function soundCard(s) {
   return `<div class="card"><div class="row"><span class="tag">トップ${s.rank}</span><strong>${esc(s.title)}</strong></div>
     <p><span class="muted">つまずく理由：</span>${esc(s.why)}</p><p><span class="muted">直し方：</span>${esc(s.how)}</p>
-    <table>${s.pairs.map(p => `<tr data-target="${esc(p[0])}"><td class="zh" style="font-size:20px">${esc(p[0])} ${spk(p[0])}</td><td class="py">${esc(p[1])}</td><td class="ja">${esc(p[2])}</td><td>${micBtn()}<div class="result"></div></td></tr>`).join("")}</table></div>`;
+    <div class="pairs">${s.pairs.map(p => `<div class="pair" data-target="${esc(p[0])}"><div><span class="zh">${esc(p[0])}</span> ${spk(p[0])}</div><div class="py">${esc(p[1])}</div><div class="ja">${esc(p[2])}</div>${micBtn()}<div class="result"></div></div>`).join("")}</div></div>`;
 }
 async function playSeq(list, gapFactor) {
   for (const t of list) { const st = Date.now(); await speak(t); const dur = Date.now() - st; await new Promise(r => setTimeout(r, Math.max(800, dur * (gapFactor || 1.2)))); if (!document.body.contains(app)) return; }
@@ -336,41 +450,126 @@ views.speak = function (arg) {
   const themes = {
     connect: "「聞き返す・待ってもらう・言い換えを頼む」を、相手の早口を想像しながら5回ずつ言う。",
     self: "1分間の自己紹介。名前・出身・住まい・仕事・趣味・中国語を学ぶ理由。",
-    feel: "最近食べたもの・行った場所について「好き/いまいち/楽しかった」を3つ言う。",
+    feel: "最近食べたもの・行った場所について「好き／いまいち／楽しかった」を3つ言う。",
     plan: "昨日したこと3つ、明日する予定3つを言う。",
     ask: "店員・駅員・通行人に聞く場面を想像して、質問を5つ言う。",
     travel: "注文 → 値段を聞く → 支払い → お礼、を通しで1分。",
-    trouble: "道に迷った/体調が悪い/物をなくした、のどれか1つを相手に説明する。",
+    trouble: "道に迷った／体調が悪い／物をなくした、のどれか1つを相手に説明する。",
   };
-  const prompt = aiPrompt(day);
-  return `<h2>話す <span class="tag">${day}日目</span></h2>
-  <div class="card"><strong>① 独り言（5分）</strong><p>${esc(themes[d.cat])}</p>
-    <p class="muted">コツ：日本語の語順で考えず、<strong>「主語＋動詞」を先に言い切って、残りは後から足す</strong>。</p>
-    <div class="pill-list">${d.items.map(no => `<a href="#/list/day/${day}">${esc(textOf(no).zh)}</a>`).join("")}</div></div>
-  ${pat ? `<div class="card"><strong>② 型の入れ替え（5分）</strong>：<span class="zh" style="font-size:18px">${esc(pat.zh)}</span> ${spk(pat.zh)}<div class="py">${esc(pat.py)}</div><div class="ja">${esc(pat.ja)}</div>
-    <div class="row" style="margin-top:6px"><a class="btn" href="#/drill/${pat.id}">入れ替えドリル</a></div></div>` : ""}
-  <div class="card"><strong>${pat ? "③" : "②"} AIと音声会話（10分）</strong>
-    <p class="muted">下のプロンプトをコピーして、Claude などのAIアプリの音声モードに貼り付けて会話します。${d.session ? "<br><strong>今日はネイティブとの会話セッションの日です。</strong>オンライン講師や知人と15分。AIの練習はその準備に使います。" : ""}</p>
-    <pre class="prompt" id="aiPrompt">${esc(prompt)}</pre><div class="row"><button class="primary small" onclick="__copy('aiPrompt')">プロンプトをコピー</button></div></div>
-  <div class="card"><strong>録音して聞き直す</strong><p class="muted">独り言かAIとの会話の一部を1分録音。言えなかったところは最後の5分でメモへ。</p>${recorderHtml("day-" + day, "1分録音する")}</div>
-  <div class="row"><button class="ok" data-block="speak" data-day="${day}" data-back="1">完了にして戻る</button><a class="btn" href="#/memo/${day}">メモへ →</a></div>`;
+  const body = `<div class="ltitle">声に出して話そう</div>
+  <div class="step"><span class="step-n c-orange">1</span><div><b>独り言（5分）</b><p>${esc(themes[d.cat])}</p>
+    <p class="tip">${icon("star")}「主語＋動詞」を先に言い切って、残りは後から足す</p>
+    <div class="pill-list">${d.items.map(no => `<a href="#/list/day/${day}">${esc(textOf(no).zh)}</a>`).join("")}</div></div></div>
+  ${pat ? `<div class="step"><span class="step-n c-orange">2</span><div><b>型の入れ替え（5分）</b><div><span class="zh">${esc(pat.zh)}</span> ${spk(pat.zh)}</div><div class="py">${esc(pat.py)}</div><div class="ja">${esc(pat.ja)}</div>
+    <a class="btn small" href="#/drill/${pat.id}" style="margin-top:8px">${icon("dumbbell")}入れ替えドリル</a></div></div>` : ""}
+  <div class="step"><span class="step-n c-orange">${pat ? 3 : 2}</span><div><b>AIと音声会話（10分）</b>
+    <p class="muted">コピーして、Claude などのAIアプリの音声モードに貼り付けます。${d.session ? "<br><b>今日はネイティブと会話する日です。</b>AIの練習はその準備に使います。" : ""}</p>
+    <pre class="prompt" id="aiPrompt">${esc(aiPrompt(day))}</pre><button class="btn small blue" onclick="__copy('aiPrompt')">プロンプトをコピー</button></div></div>
+  <div class="step"><span class="step-n c-orange">${pat ? 4 : 3}</span><div><b>1分録音して聞き直す</b>${recorderHtml("day-" + day, "録音する")}</div></div>`;
+  return lessonShell({ exit: `#/day/${day}`, p: (S.blocks[day] || {}).speak ? 1 : 0.5, body, foot: `<button class="btn big primary wide" data-complete="speak" data-day="${day}">話した！ +10 XP</button>` });
 };
 
 // ---------- 画面：4. 言えなかったことメモ ----------
 views.memo = function (arg) {
   const day = parseInt(arg || S.day, 10);
   const list = S.memos.filter(m => m.day === day);
-  const all = S.memos.length;
-  return `<h2>言えなかったことメモ <span class="tag">${day}日目</span></h2>
-  <div class="card"><p class="muted">今日「言いたかったのに言えなかったこと」を日本語で。訳がわかれば一緒に書きます（空欄でもOK、復習のときに埋められます）。翌日の復習カードになります。</p>
-    <input type="text" id="mJa" placeholder="言いたかったこと（日本語）" style="margin-bottom:6px">
-    <div class="row"><input type="text" id="mZh" placeholder="${esc(LANG.name)}（任意）" style="flex:1"><input type="text" id="mPy" placeholder="ピンイン（任意）" style="flex:1"></div>
-    <div class="row" style="margin-top:8px"><button class="primary" id="mAdd">追加</button></div></div>
-  <div class="card"><strong>Day ${day} のメモ ${list.length}件</strong>（全体 ${all}件）
-    ${list.map(m => `<div class="ex"><div>${esc(m.ja)}</div><div class="zh" style="font-size:18px">${esc(m.zh || "（訳はまだ）")}</div><div class="py">${esc(m.py || "")}</div><button class="small" data-delmemo="${m.id}">削除</button></div>`).join("") || '<p class="muted">まだありません。</p>'}
-    ${list.some(m => !m.zh) ? `<p class="muted" style="margin-top:8px">訳がないメモは、AIに次のように聞くと早いです：</p><pre class="prompt" id="memoPrompt">次の日本語を、${esc(LANG.name)}の初心者が会話で使える短く自然な言い方にしてください。ピンインも付けてください。\n${list.filter(m => !m.zh).map(m => "・" + m.ja).join("\n")}</pre><button class="small" onclick="__copy('memoPrompt')">コピー</button>` : ""}
+  const body = `<div class="ltitle">言えなかったことをメモ</div>
+  <div class="speech">${mascot(72)}<div class="bubble-big" style="font-size:15px">今日「言いたかったのに言えなかったこと」は？　明日の復習カードにするよ</div></div>
+  <div class="card"><input type="text" id="mJa" placeholder="言いたかったこと（日本語）" style="margin-bottom:8px">
+    <div class="row"><input type="text" id="mZh" placeholder="${esc(LANG.name)}（わかれば）" style="flex:1"><input type="text" id="mPy" placeholder="ピンイン（任意）" style="flex:1"></div>
+    <button class="btn primary" id="mAdd" style="margin-top:10px">追加</button></div>
+  ${list.map(m => `<div class="memo-item"><div><b>${esc(m.ja)}</b><div class="zh" style="font-size:17px">${esc(m.zh || "（訳はまだ）")}</div><div class="py">${esc(m.py || "")}</div></div><button class="btn small" data-delmemo="${m.id}">削除</button></div>`).join("")}
+  ${list.some(m => !m.zh) ? `<p class="muted">訳がないメモは、AIにこう聞くと早いです。</p><pre class="prompt" id="memoPrompt">次の日本語を、${esc(LANG.name)}の初心者が会話で使える短く自然な言い方にしてください。ピンインも付けてください。\n${list.filter(m => !m.zh).map(m => "・" + m.ja).join("\n")}</pre><button class="btn small" onclick="__copy('memoPrompt')">コピー</button>` : ""}`;
+  return lessonShell({ exit: `#/day/${day}`, p: (S.blocks[day] || {}).memo ? 1 : 0.5, body, foot: `<button class="btn big primary wide" data-complete="memo" data-day="${day}">メモした！ +10 XP</button>` });
+};
+
+// ---------- 画面：1日クリア ----------
+views.clear = function (arg) {
+  const day = parseInt(arg, 10) || S.day - 1;
+  return doneScreen({ title: `${day}日目クリア！`, sub: day >= 90 ? "90日完走です。おつかれさまでした" : "明日もこの調子で",
+    tiles: [["今日のXP", "+" + (S.xpDay[today()] || 0), "gold"], ["連続日数", streak() + "日", "orange"], ["クリア", Object.keys(S.finished).length + "/90", "green"]],
+    actions: `<a class="btn primary big" href="#/today">つづける</a>` });
+};
+
+// ---------- 画面：練習・その他 ----------
+views.practice = function () {
+  const due = S.started ? dueCards().length : 0;
+  const row = (href, ic, color, title, sub) => `<a class="hub-row" href="${href}"><span class="lr-ic c-${color}">${icon(ic)}</span><span class="lr-text"><b>${title}</b><span class="muted">${sub}</span></span><span class="chev">›</span></a>`;
+  return `<h2 class="page-title">練習</h2>
+  ${row(`#/review/${S.day}`, "cards", "green", "復習カード", due ? `期限が来たカード ${due}枚` : "期限が来たカードはありません")}
+  ${row("#/quiz", "head", "blue", "聞き分けテスト", "声調と似た音を耳で聞き分ける")}
+  ${row("#/sounds", "head", "blue", "日本人がつまずく音 トップ10", "口の形と例の語")}
+  ${row("#/patterns", "dumbbell", "orange", "文型の入れ替えドリル", `${(window.PATTERNS || []).length}の型`)}
+  ${row("#/check", "trophy", "gold", "到達チェック", "1・30・60・90日目に録音して聞き比べ")}
+  ${row("#/known", "star", "purple", "実はもう知っている語", "漢字で読める語")}`;
+};
+views.more = function () {
+  const row = (href, ic, title) => `<a class="hub-row" href="${href}"><span class="lr-ic c-grey">${icon(ic)}</span><span class="lr-text"><b>${title}</b></span><span class="chev">›</span></a>`;
+  return `<h2 class="page-title">その他</h2>
+  <div class="card settings">
+    <label class="set-row"><span>ピンインを表示</span><input type="checkbox" id="setPy" ${S.pinyin ? "checked" : ""}></label>
+    <label class="set-row"><span>ダークモード</span><select id="setTheme"><option value="">端末に合わせる</option><option value="light" ${S.theme === "light" ? "selected" : ""}>ライト</option><option value="dark" ${S.theme === "dark" ? "selected" : ""}>ダーク</option></select></label>
+    <div class="tone-row"><span class="muted">声調の色</span>${toneLegend}</div>
   </div>
-  <div class="row"><button class="ok" data-block="memo" data-day="${day}" data-back="1">完了にして戻る</button></div>`;
+  ${row("#/plan", "book", "90日のテーマ表")}
+  ${row("#/grammar", "book", "文法の全体地図")}
+  ${row("#/vocab", "book", "よく使う動詞・副詞・言い回し")}
+  ${row("#/about", "star", "このプログラムについて")}
+  <div class="card"><b>記録</b><p class="muted">学習記録と録音は、この端末のブラウザの中にだけ保存されます。</p>
+    <div class="row">${EMBED ? "" : '<button class="btn small" id="exportBtn">記録を書き出す</button>'}<label class="btn small">記録を読み込む<input type="file" id="importFile" accept="application/json" hidden></label><button class="btn small" id="resetBtn">記録をリセット</button><button class="btn small red" id="resetYes" hidden>本当に消す（録音は残ります）</button></div></div>`;
+};
+
+// ---------- 画面：音トップ10・聞き分け ----------
+views.sounds = function (arg) {
+  const n = parseInt(arg, 10);
+  if (n && LANG.sounds[n - 1]) return `<a class="back" href="#/sounds">← 音トップ10</a>` + soundCard(LANG.sounds[n - 1]);
+  return `<h2 class="page-title">日本人がつまずく音 トップ10</h2>
+  <p class="muted">日本語は母音が5つで、子音の後に必ず母音が付きます。この癖で${esc(LANG.name)}がつまずく10の音を、1〜10日目に1つずつ練習します。${esc(LANG.strength)}。</p>
+  <div class="row" style="justify-content:space-between;margin:8px 0"><a class="btn blue" href="#/quiz">${icon("head")}聞き分けテスト</a>${toneLegend}</div>
+  ${LANG.sounds.map(soundCard).join("")}
+  ${window.HOMOPHONES ? `<h3>同音・声調違いの語</h3><div class="grid">${HOMOPHONES.map(h => `<div class="card"><span class="tag ${h.type === "tone" ? "" : h.type === "same" ? "warn" : "ok"}">${{ tone: "声調違い", same: "完全同音", multi: "多音字" }[h.type]}</span><strong>${esc(h.title)}</strong><table style="margin-top:6px">${h.items.map(i => `<tr><td class="zh" style="font-size:18px">${esc(i[0])} ${spk(i[0])}</td><td class="py">${esc(i[1])}</td><td class="ja">${esc(i[2])}</td></tr>`).join("")}</table><div class="muted">${esc(h.drill)}</div></div>`).join("")}</div>` : ""}`;
+};
+let quiz = null;
+function newQuiz() {
+  const pool = LANG.sounds.map(s => s.pairs).concat((window.HOMOPHONES || []).filter(h => h.type === "tone").map(h => h.items));
+  const set = pool[Math.floor(Math.random() * pool.length)].slice(0, 4);
+  return { set, ans: set[Math.floor(Math.random() * set.length)], picked: null };
+}
+views.quiz = function () {
+  if (!quiz) quiz = { q: newQuiz(), ok: 0, n: 0 };
+  if (quiz.q.picked && quiz.next) { quiz.q = newQuiz(); quiz.next = false; }
+  if (quiz.n >= 10 && !quiz.q.picked) {
+    const r = quiz; quiz = null;
+    return doneScreen({ title: "聞き分けテスト完了！", tiles: [["正解", `${r.ok}/10`, "green"], ["獲得XP", "+" + r.ok * 2, "gold"]], actions: `<a class="btn primary big" href="#/quiz">もう一度</a><a class="btn" href="#/practice">練習にもどる</a>` });
+  }
+  const q = quiz.q, picked = q.picked != null, right = picked && q.set[q.picked] === q.ans;
+  const body = `<div class="ltitle">聞こえたのはどれ？</div>
+    <div class="row center"><button class="play-big" id="qPlay" aria-label="再生">${icon("play")}</button><button class="btn small" id="qSlow">ゆっくり</button></div>
+    <div class="quiz-opts">${q.set.map((o, i) => `<button class="opt ${picked && o === q.ans ? "right" : ""} ${picked && i === q.picked && o !== q.ans ? "wrong" : ""}" data-opt="${i}" ${picked ? "disabled" : ""}><span class="zh">${esc(o[0])}</span><span class="py">${esc(o[1])}</span><span class="ja">${esc(o[2])}</span></button>`).join("")}</div>`;
+  const foot = picked ? `<div class="fb-msg">${icon(right ? "check" : "x", "fb-ic")}<div><b>${right ? "正解！ +2 XP" : "おしい！"}</b>${right ? "" : `<div>正解は ${esc(q.ans[0])}（${esc(q.ans[1])}）</div>`}</div></div><button class="btn big ${right ? "primary" : "orange"}" id="qNext">つづける</button>`
+    : `<button class="btn big wide" disabled>選んでください</button>`;
+  return lessonShell({ exit: "#/practice", p: quiz.n / 10, right: `<span class="lcount">${quiz.n}/10</span>`, body, foot, footClass: picked ? (right ? "fb-ok" : "fb-ng") : "" });
+};
+
+// ---------- 文型ドリル ----------
+let drill = null;
+views.drill = function (arg) {
+  const p = P[arg];
+  if (!p || !p.slots.length) return `<p>ドリルできる文型を選んでください。</p><a class="btn" href="#/patterns">文型一覧</a>`;
+  if (!drill || drill.id !== arg) {
+    const items = p.slots.map(s => {
+      const parts = s[0].split(" / "), pys = s[1].split(" / "), jas = s[2].split("／"); let i = 0, j = 0, k = 0;
+      return { zh: p.zh.replace(/〔[^〕]*〕/g, () => parts[Math.min(i++, parts.length - 1)]), py: p.py.replace(/\[[^\]]*\]/g, () => pys[Math.min(j++, pys.length - 1)]), ja: s[3] || p.ja.replace(/〔[^〕]*〕/g, () => jas[Math.min(k++, jas.length - 1)]) };
+    }).concat(p.ex.filter(e => !e.zh.includes("\n")));
+    drill = { id: arg, items, i: 0, shown: false };
+  }
+  if (drill.i >= drill.items.length) { const n = drill.items.length; drill = null; return doneScreen({ title: "ドリル完了！", tiles: [["文", n, "blue"], ["獲得XP", "+" + n * 2, "gold"]], actions: `<a class="btn primary big" href="#/today">道にもどる</a><a class="btn" href="#/patterns">ほかの文型</a>` }); }
+  const it = drill.items[drill.i];
+  const body = `<div class="ltitle">型に入れ替えて言おう</div><div class="muted center">型：${esc(p.zh)}</div>
+    <div class="speech">${mascot(80)}<div class="bubble-big">${esc(it.ja)}</div></div>
+    <div class="answer" data-target="${esc(it.zh)}">${drill.shown ? `<div class="ans-zh"><span class="zh lg">${esc(it.zh)}</span> ${spk(it.zh)}</div><div class="py">${esc(it.py)}</div><div class="row center" style="margin-top:10px">${micBtn()}</div><div class="result"></div>` : `<div class="answer-hint">声に出して言ってから、答えを見ましょう</div>`}</div>`;
+  return lessonShell({ exit: "#/patterns", p: drill.i / drill.items.length, right: `<span class="lcount">${drill.i + 1}/${drill.items.length}</span>`, body,
+    foot: drill.shown ? `<button class="btn big primary wide" id="dNext">つづける</button>` : `<button class="btn big primary wide" id="dShow">答えを見る</button>` });
 };
 
 // ---------- 画面：90日表 ----------
@@ -414,33 +613,6 @@ views.me = function () {
       ${me.zh ? `<div class="zh" style="font-size:18px;margin-top:6px">${esc(textOf(m.no).zh)} ${spk(textOf(m.no).zh)}</div>` : ""}</div>`; }).join("")}
   <div class="row"><button class="primary" id="meSave">保存</button></div>
   <h3>訳がわからないとき</h3><pre class="prompt" id="mePrompt">${esc(pr)}</pre><button class="small" onclick="__copy('mePrompt')">AIに聞くプロンプトをコピー</button>`;
-};
-
-// ---------- 画面：音トップ10・聞き分け ----------
-views.sounds = function (arg) {
-  const n = parseInt(arg, 10);
-  if (n && LANG.sounds[n - 1]) return `<p><a href="#/sounds">← 音トップ10</a></p>` + soundCard(LANG.sounds[n - 1]);
-  return `<h2>日本人がつまずく音 トップ10</h2>
-  <p class="muted">日本語は母音が5つで、子音の後に必ず母音が付きます。この癖が${esc(LANG.name)}で特につまずく10の音を、Day 1〜10 に1つずつ潰します。${esc(LANG.strength)}。</p>
-  <div class="row" style="justify-content:space-between"><a class="btn" href="#/quiz">聞き分けテスト</a>${toneLegend}</div>
-  ${LANG.sounds.map(soundCard).join("")}
-  ${window.HOMOPHONES ? `<h3>同音・声調違いの語（参考）</h3><p class="muted">声調だけ違う語、まったく同じ音の語、読みが複数ある漢字。</p><div class="grid">${HOMOPHONES.map(h => `<div class="card"><span class="tag ${h.type === "tone" ? "" : h.type === "same" ? "warn" : "ok"}">${{ tone: "声調違い", same: "完全同音", multi: "多音字" }[h.type]}</span><strong>${esc(h.title)}</strong><table style="margin-top:6px">${h.items.map(i => `<tr><td class="zh" style="font-size:18px">${esc(i[0])} ${spk(i[0])}</td><td class="py">${esc(i[1])}</td><td class="ja">${esc(i[2])}</td></tr>`).join("")}</table><div class="muted">${esc(h.drill)}</div></div>`).join("")}</div>` : ""}`;
-};
-let quiz = null;
-function newQuiz() {
-  const pool = LANG.sounds.flatMap(s => [s.pairs]).concat((window.HOMOPHONES || []).filter(h => h.type === "tone").map(h => h.items));
-  const set = pool[Math.floor(Math.random() * pool.length)].slice(0, 4);
-  const ans = set[Math.floor(Math.random() * set.length)];
-  return { set, ans, picked: null };
-}
-views.quiz = function () {
-  if (!quiz || quiz.q.picked) quiz = { q: newQuiz(), ok: (quiz || {}).ok || 0, n: (quiz || {}).n || 0 };
-  const q = quiz.q;
-  return `<h2>聞き分けテスト <span class="tag">${quiz.ok} / ${quiz.n}</span></h2>
-  <div class="card flash"><p class="muted">音を聞いて、どれかを選んでください（何度でも再生できます）</p>
-    <button class="primary" id="qPlay">▶ 再生</button> <button class="small" id="qSlow">ゆっくり</button>
-    <div class="quiz-opts">${q.set.map((o, i) => `<button data-opt="${i}"><span class="zh" style="font-size:22px">${esc(o[0])}</span><br><span class="py">${esc(o[1])}</span><br><span class="ja">${esc(o[2])}</span></button>`).join("")}</div>
-    <div class="result" id="qRes"></div><div class="row" style="justify-content:center;margin-top:8px"><button id="qNext" hidden>次へ</button></div></div>`;
 };
 
 // ---------- 画面：もう知っている語 ----------
@@ -490,24 +662,6 @@ views.vocab = function () {
   return `<h2>よく使う動詞・副詞・言い回し</h2><p class="muted">意味リストと文型の中で何度も出てくる語の早見表です。</p>
   <h3>動詞 ${VOCAB.verbs.length}</h3><div class="card">${tbl(VOCAB.verbs, "動詞")}</div><h3>副詞 ${VOCAB.adverbs.length}</h3><div class="card">${tbl(VOCAB.adverbs, "副詞")}</div><h3>言い回し ${VOCAB.phrases.length}</h3><div class="card">${tbl(VOCAB.phrases, "言い回し")}</div>`;
 };
-let drill = null;
-views.drill = function (arg) {
-  const p = P[arg];
-  if (!p || !p.slots.length) return `<p>ドリルできる文型を選んでください。</p><a class="btn" href="#/patterns">文型一覧</a>`;
-  if (!drill || drill.id !== arg || drill.i >= drill.items.length) {
-    const items = p.slots.map(s => {
-      const parts = s[0].split(" / "), pys = s[1].split(" / "), jas = s[2].split("／"); let i = 0, j = 0, k = 0;
-      return { zh: p.zh.replace(/〔[^〕]*〕/g, () => parts[Math.min(i++, parts.length - 1)]), py: p.py.replace(/\[[^\]]*\]/g, () => pys[Math.min(j++, pys.length - 1)]), ja: s[3] || p.ja.replace(/〔[^〕]*〕/g, () => jas[Math.min(k++, jas.length - 1)]) };
-    }).concat(p.ex.filter(e => !e.zh.includes("\n")));
-    drill = { id: arg, items, i: 0, shown: false };
-  }
-  const it = drill.items[drill.i];
-  return `<h2>入れ替えドリル <span class="tag">${drill.i + 1} / ${drill.items.length}</span></h2><p class="muted">型：${esc(p.zh)}</p>
-  <div class="card flash" data-target="${esc(it.zh)}"><div class="q">${esc(it.ja)}</div>
-    <div style="min-height:80px;margin-top:12px">${drill.shown ? `<div class="zh lg">${esc(it.zh)} ${spk(it.zh)}</div><div class="py">${esc(it.py)}</div>` : ""}</div>
-    <div class="row" style="justify-content:center">${drill.shown ? `${micBtn()}<button class="ok" id="dNext">次へ</button>` : `<button class="primary" id="dShow">答え</button>`}</div><div class="result"></div></div>`;
-};
-
 // ---------- 画面：このプログラムについて ----------
 views.about = function () {
   const byPri = p => MEANINGS.filter(m => m.pri === p).length;
@@ -553,45 +707,51 @@ function paintTones(root) { root.querySelectorAll(".py").forEach(el => { if (!el
 const toneLegend = `<div class="tone-legend"><span class="t1">1声 ā</span><span class="t2">2声 á</span><span class="t3">3声 ǎ</span><span class="t4">4声 à</span><span class="t5">軽声 a</span></div>`;
 
 // ---------- ルーティング ----------
+const TAB = { today: "today", day: "today", clear: "today", practice: "practice", quiz: "practice", sounds: "practice", patterns: "practice", drill: "practice", check: "practice", known: "practice", list: "list", me: "me", more: "more", plan: "more", grammar: "more", vocab: "more", about: "more" };
 function route() {
   const h = location.hash.replace(/^#\/?/, "") || "today";
   const [name, arg, arg2] = h.split("/");
   const fn = views[name] || views.today;
-  if (name !== "listen") speechSynthesis && speechSynthesis.cancel && speechSynthesis.cancel();
+  if (name !== "listen" && "speechSynthesis" in window) speechSynthesis.cancel();
   app.innerHTML = fn(arg, arg2);
   paintTones(app);
-  const navName = ["review", "listen", "speak", "memo"].includes(name) ? "today" : name;
-  $$("#nav a").forEach(a => a.classList.toggle("on", a.getAttribute("href") === "#/" + navName));
+  document.body.classList.toggle("in-lesson", !!app.querySelector(".lesson, .celebrate"));
+  const tab = TAB[name] || "today";
+  $$("#nav a").forEach(a => a.classList.toggle("on", a.dataset.tab === tab));
+  renderStats();
   window.scrollTo(0, 0);
+  requestAnimationFrame(() => { const cn = $("#curNode"); if (cn && cn.getBoundingClientRect().bottom > innerHeight - 90) cn.scrollIntoView({ block: "center" }); });
   if (window.trackPageView) trackPageView("/" + name, document.title);
-  bind(name, arg, arg2);
+  bind(name, arg);
 }
-function goToday() { location.hash = "#/today"; if (location.hash === "#/today") route(); }
+const go = h => { if (location.hash === h) route(); else location.hash = h; };
 
 function bind(name, arg) {
   bindRecorders();
   const on = (sel, fn) => { const el = $(sel); if (el) el.onclick = fn; };
-  on("#startBtn", () => { S.started = today(); S.day = 1; save(); introduce(1); location.hash = "#/today"; route(); });
-  $$("[data-goto]").forEach(b => b.onclick = () => { S.day = parseInt(b.dataset.goto, 10); save(); location.hash = "#/today"; route(); });
-  $$("[data-block]").forEach(b => b.onclick = () => {
-    const d = b.dataset.day, k = b.dataset.block; S.blocks[d] = S.blocks[d] || {};
-    if (S.blocks[d][k] && !b.dataset.back) delete S.blocks[d][k]; else S.blocks[d][k] = 1;
-    save(); if (b.dataset.back) location.hash = "#/today" + (parseInt(d, 10) === S.day ? "" : "/" + d); else route();
+  on("#startBtn", () => { S.started = today(); S.day = 1; save(); introduce(1); go("#/today"); });
+  $$("[data-goto]").forEach(b => b.onclick = () => { S.day = parseInt(b.dataset.goto, 10); introduce(S.day); deck = null; save(); go("#/today"); });
+  $$("[data-complete]").forEach(b => b.onclick = () => {
+    const d = parseInt(b.dataset.day, 10), k = b.dataset.complete;
+    completeBlock(d, k); if (k === "review") deck = null;
+    toast("+10 XP"); go(`#/day/${d}`);
   });
   on("#finishDay", () => {
-    S.finished[S.day] = today(); S.log[today()] = (S.log[today()] || 0) + 1;
-    if (window.trackConversion) trackConversion("app_action_complete", { site: "lang90", action: "day_complete", day: S.day, lang: LANG.code });
+    const d = S.day;
+    S.finished[d] = today(); S.log[today()] = (S.log[today()] || 0) + 1; gainXP(50);
+    if (window.trackConversion) trackConversion("app_action_complete", { site: "lang90", action: "day_complete", day: d, lang: LANG.code });
     if (S.day < 90) { S.day++; introduce(S.day); }
-    deck = null; save(); toast(S.day === 90 && S.finished[90] ? "90日完走です！" : `Day ${S.day} へ進みました`); route();
+    deck = null; save(); go(`#/clear/${d}`);
   });
   // 復習
   on("#reveal", () => { deck.shown = true; route(); });
   on("#again", () => { deck = null; route(); });
   $$("[data-grade]").forEach(b => b.onclick = () => {
     const id = deck.ids[deck.i], ok = b.dataset.grade === "1"; grade(id, ok);
-    if (ok) deck.ok++; else { deck.ng++; deck.ids.push(id); }
-    deck.i++; deck.shown = false; route();
+    if (ok) { deck.ok++; deck.xp += 10; gainXP(10); } else { deck.ng++; deck.ids.push(id); S.active[today()] = 1; save(); }
+    deck.fb = ok ? "ok" : "ng"; route();
   });
+  on("#fbNext", () => { deck.fb = null; deck.i++; deck.shown = false; route(); });
   on("#memoSave", () => { const id = deck.ids[deck.i], f = cardFace(id); if (f && f.memo) { f.memo.zh = $("#memoZh").value.trim(); f.memo.py = $("#memoPy").value.trim(); save(); route(); } });
   // 聞く
   on("#playAll", () => { const d = DAYS[parseInt(arg || S.day, 10) - 1]; playSeq(d.items.flatMap(no => { const t = textOf(no).audio; return [t, t]; }), 1.3); });
@@ -610,29 +770,29 @@ function bind(name, arg) {
   $$("[data-pick]").forEach(b => b.onclick = () => { const e = JSON.parse(b.dataset.pick), card = b.closest("[data-me]"); card.querySelector(".meJa").value = e[0]; card.querySelector(".meZh").value = e[1]; card.querySelector(".mePy").value = e[2]; });
   on("#meSave", () => { $$("[data-me]").forEach(c => { const no = c.dataset.me, ja = c.querySelector(".meJa").value.trim(), zh = c.querySelector(".meZh").value.trim(), py = c.querySelector(".mePy").value.trim(); if (ja || zh) S.me[no] = { ja, zh, py }; else delete S.me[no]; }); save(); toast("保存しました"); route(); });
   // 聞き分け
-  if (name === "quiz") {
-    const q = quiz.q; const play = r => speak(q.ans[0], r);
-    on("#qPlay", () => play()); on("#qSlow", () => play(0.6)); setTimeout(() => play(), 300);
+  if (name === "quiz" && quiz) {
+    const qq = quiz.q, play = r => speak(qq.ans[0], r);
+    on("#qPlay", () => play()); on("#qSlow", () => play(0.6));
+    if (qq.picked == null) setTimeout(() => play(), 300);
     $$("[data-opt]").forEach(b => b.onclick = () => {
-      if (q.picked) return; q.picked = true; quiz.n++;
-      const right = q.set[parseInt(b.dataset.opt, 10)] === q.ans; if (right) quiz.ok++;
-      $$("[data-opt]").forEach(x => { if (q.set[parseInt(x.dataset.opt, 10)] === q.ans) x.classList.add("right"); });
-      if (!right) b.classList.add("wrong");
-      $("#qRes").className = "result " + (right ? "good" : "bad"); $("#qRes").textContent = right ? "正解！" : `正解は ${q.ans[0]}（${q.ans[1]}）`;
-      $("#qNext").hidden = false;
+      if (qq.picked != null) return; qq.picked = parseInt(b.dataset.opt, 10); quiz.n++;
+      if (qq.set[qq.picked] === qq.ans) { quiz.ok++; gainXP(2); } route();
     });
-    on("#qNext", () => route());
+    on("#qNext", () => { quiz.next = true; route(); });
   }
   // ドリル
   on("#dShow", () => { drill.shown = true; route(); });
-  on("#dNext", () => { drill.i++; drill.shown = false; if (drill.i >= drill.items.length) { drill = null; toast("ドリル完了"); location.hash = "#/patterns"; } else route(); });
-  // 記録
+  on("#dNext", () => { drill.i++; drill.shown = false; gainXP(2); route(); });
+  // 設定・記録
+  const sp = $("#setPy"); if (sp) sp.onchange = () => { S.pinyin = sp.checked; save(); applyPrefs(); };
+  const stt = $("#setTheme"); if (stt) stt.onchange = () => { S.theme = stt.value || null; save(); applyPrefs(); };
   on("#exportBtn", () => { const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([JSON.stringify(S, null, 1)], { type: "application/json" })); a.download = `lang90-${LANG.code}-${today()}.json`; a.click(); });
   const imp = $("#importFile"); if (imp) imp.onchange = async () => { try { const v = JSON.parse(await imp.files[0].text()); S = Object.assign(blank(), v); save(); toast("読み込みました"); route(); } catch (e) { toast("読み込めませんでした"); } };
   on("#resetBtn", () => { const y = $("#resetYes"); y.hidden = false; $("#resetBtn").textContent = "やめる"; $("#resetBtn").onclick = () => route(); });
-  on("#resetYes", () => { S = Object.assign(blank(), { pinyin: S.pinyin, theme: S.theme }); save(); deck = null; goToday(); });
+  on("#resetYes", () => { S = Object.assign(blank(), { pinyin: S.pinyin, theme: S.theme }); save(); deck = null; go("#/today"); });
 }
 
+if ("scrollRestoration" in history) history.scrollRestoration = "manual";
 window.addEventListener("hashchange", route);
 if ("speechSynthesis" in window) { speechSynthesis.getVoices(); speechSynthesis.onvoiceschanged = () => {}; }
 if ("serviceWorker" in navigator && location.protocol === "https:") { navigator.serviceWorker.register("sw.js").catch(() => {}); }
