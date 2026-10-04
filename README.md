@@ -1,1 +1,42 @@
-# idea-
+# 90日外国語会話プログラム
+
+1日60分 × 90日で、日本人がネイティブと10〜15分、自分のことと日常の話ができるようにする学習プログラム。最初の言語は中国語。
+
+- 企画書：[企画書.md](企画書.md)
+- アプリ：`docs/`（ビルド不要の静的サイト。GitHub Pages で `docs/` を公開するとそのまま動く）
+- 意味リスト：`docs/data/meanings.csv` ／ 90日テーマ表：`docs/data/days.csv` ／ 差し替え単語：`docs/data/slots.csv`
+
+## ローカルで見る
+
+```bash
+cd docs && python3 -m http.server 8000
+# http://localhost:8000/
+```
+
+## 教材を直す・増やす
+
+原本は `docs/data/src/` の JSON。編集したら再生成する。
+
+```bash
+python3 tools/build.py
+```
+
+- `part*.json`：意味リスト（形式は `docs/data/src/SCHEMA.md`）
+- `slots.json`：差し替え単語
+- `sounds.json`：日本人がつまずく音トップ10
+- `known.json`：実はもう知っている語
+
+`meanings.js`・`lang/zh.js`・`days.js`・CSV は自動生成なので直接編集しない。文型・文法地図・同音セット・会話シーンは `docs/data/patterns.js` などを直接編集する。
+
+## 構成
+
+```
+docs/
+  index.html  style.css  app.js     アプリ本体
+  sw.js  manifest.webmanifest       オフライン対応・ホーム画面追加
+  data/meanings.js  data/days.js    意味リスト・90日表（自動生成）
+  data/lang/zh.js                   中国語の訳・音・差し替え語（自動生成）
+  data/patterns.js grammar.js homophones.js vocab.js scenes.js   中国語の参考教材
+tools/build.py                      意味リストからアプリ用データとCSVを生成
+google-ids.json                     GA4・広告・サイトURL
+```

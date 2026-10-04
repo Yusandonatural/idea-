@@ -1,0 +1,17 @@
+{
+  "site_name": "90日外国語会話",
+  "site_url": "https://lang90.yusando.com",
+  "ga4_measurement_id": "G-9JG1FFTL1B",
+  "ads_conversion_id": "AW-XXXXXXXXX",
+  "ads_conversion_labels": {
+    "app_action_complete": "",
+    "sign_up": ""
+  },
+  "search_console_verification": "",
+  "default_locale": "ja",
+  "locales": [
+    "ja"
+  ],
+  "og_image": "https://lang90.yusando.com/og.png",
+  "spa": true
+}
