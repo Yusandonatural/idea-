@@ -9,6 +9,7 @@ html = (D / "index.html").read_text(encoding="utf-8")
 body = html[html.index("<body>") + 6: html.index("</body>")]
 scripts = re.findall(r'<script src="([^"]+)"></script>', body)
 body = re.sub(r'<script src="[^"]+"></script>\n?', "", body)
+body = re.sub(r'<script type="module" src="[^"]+"></script>\n?', "", body)  # 同期（ログイン）は試用版では使わない
 css = (D / "style.css").read_text(encoding="utf-8").replace("header{position:sticky;top:0;", "header{position:sticky;top:env(safe-area-inset-top,0px);")
 js = "window.__EMBED__=true;\n" + "\n".join((D / s).read_text(encoding="utf-8") for s in scripts)
 js = js.replace("</script", "<\\/script")
