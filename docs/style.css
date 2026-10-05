@@ -285,3 +285,14 @@ pre.prompt{white-space:pre-wrap;background:var(--sunk);border-radius:12px;paddin
 .cb-actions{display:flex;flex-direction:column;gap:10px;width:100%}
 .lfoot{margin-inline:-16px;padding-inline:16px}
 body.in-lesson .toast{bottom:auto;top:calc(64px + env(safe-area-inset-top,0px))}
+
+/* ---- 動詞・副詞 ---- */
+.word{display:flex;flex-direction:column;gap:4px}
+.wd-head{display:flex;flex-wrap:wrap;align-items:center;gap:6px}
+.wd-rank{font-family:var(--font-py);font-weight:800;font-size:13px;color:var(--purple-d);margin-right:4px}
+.wd-main{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 10px}
+.wd-main .zh{font-size:24px}
+.wd-ja{font-weight:700}
+.wd-ex{background:var(--sunk);border-radius:12px;padding:8px 12px;margin-top:4px}
+.wd-ex .zh{font-size:17px}
+.wd-ex.left{text-align:left;margin-top:14px}
