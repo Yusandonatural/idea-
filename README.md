@@ -6,6 +6,11 @@
 - アプリ：`docs/`（ビルド不要の静的サイト。GitHub Pages で `docs/` を公開するとそのまま動く）
 - 意味リスト：`docs/data/meanings.csv` ／ 90日テーマ表：`docs/data/days.csv` ／ 差し替え単語：`docs/data/slots.csv`
 
+## 入口ページ（学ぶ言語を選ぶ）
+
+URL をそのまま開くと、学ぶ言語を選ぶ入口（`#/start`）が出ます。言語の一覧は `docs/data/langs.js`（言語を増やすときは1つ足す）。
+同じ `yusandonatural.github.io` の上にある各アプリの記録をこの端末から読んで、Day・XP・連続日数を表示します。ホーム画面に追加したアプリは、これまでどおり中国語の「学ぶ」から開きます。
+
 ## ローカルで見る
 
 ```bash
