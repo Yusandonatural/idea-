@@ -352,6 +352,30 @@ function welcome() {
   </section>`;
 }
 
+// ---------- 画面：入口（学ぶ言語を選ぶ） ----------
+views.start = function () {
+  const cards = (window.LANGS || []).map(l => {
+    const s = l.summary(), on = s && (s.started || s.xp);
+    const status = !on ? "まだ始めていません"
+      : `${s.started ? `${s.day}日目 ・ ` : ""}⚡ ${s.xp} XP${s.streak ? ` ・ 🔥 ${s.streak}日連続` : ""}`;
+    const ext = /^https?:/.test(l.url);
+    return `<a class="lang-card c-${l.color}" href="${esc(l.url)}"${ext ? "" : ` data-lang="${l.code}"`}>
+      <span class="lc-flag" aria-hidden="true">${l.flag}</span>
+      <span class="lc-text"><b>${esc(l.name)}</b><span class="lc-native">${esc(l.native)}</span>
+        <span class="lc-status">${status}</span>
+        ${on && s.started ? `<span class="lc-bar"><i style="width:${Math.min(100, s.done / 90 * 100)}%"></i></span><span class="lc-done">クリア ${s.done} / 90</span>` : ""}</span>
+      <span class="btn primary small lc-go">${on ? "つづける" : "はじめる"}</span></a>`;
+  }).join("");
+  return `<section class="start">
+    <div class="st-mascot">${mascot(110, "happy")}</div>
+    <h1 class="st-title">90日で、外国語で<br>話せるようになる</h1>
+    <p class="muted st-sub">1日60分 × 90日。学ぶ言語を選んでください。</p>
+    <div class="lang-list">${cards}</div>
+    <div id="syncCard"></div>
+    <p class="muted st-note">ログインはどの言語でも同じ Google アカウントで1回だけ。言語ごとの記録が iPhone と Web で同期されます。</p>
+  </section>`;
+};
+
 // ---------- 画面：1日（4レッスン） ----------
 views.day = function (arg) {
   if (!S.started) return welcome();
@@ -524,6 +548,7 @@ views.more = function () {
     <label class="set-row"><span>ダークモード</span><select id="setTheme"><option value="">端末に合わせる</option><option value="light" ${S.theme === "light" ? "selected" : ""}>ライト</option><option value="dark" ${S.theme === "dark" ? "selected" : ""}>ダーク</option></select></label>
     <div class="tone-row"><span class="muted">声調の色</span>${toneLegend}</div>
   </div>
+  ${row("#/start", "path", "学ぶ言語を選ぶ（入口へ）")}
   ${row("#/plan", "book", "90日のテーマ表")}
   ${row("#/grammar", "book", "文法の全体地図")}
   ${row("#/vocab", "book", "よく使う動詞・副詞・言い回し")}
@@ -723,13 +748,13 @@ const toneLegend = `<div class="tone-legend"><span class="t1">1声 ā</span><spa
 // ---------- ルーティング ----------
 const TAB = { today: "today", day: "today", clear: "today", practice: "practice", quiz: "practice", sounds: "practice", patterns: "practice", drill: "practice", check: "practice", known: "practice", list: "list", me: "me", more: "more", plan: "more", grammar: "more", vocab: "more", about: "more" };
 function route() {
-  const h = location.hash.replace(/^#\/?/, "") || "today";
+  const h = location.hash.replace(/^#\/?/, "") || "start";
   const [name, arg, arg2] = h.split("/");
   const fn = views[name] || views.today;
   if (name !== "listen" && "speechSynthesis" in window) speechSynthesis.cancel();
   app.innerHTML = fn(arg, arg2);
   paintTones(app);
-  document.body.classList.toggle("in-lesson", !!app.querySelector(".lesson, .celebrate"));
+  document.body.classList.toggle("in-lesson", !!app.querySelector(".lesson, .celebrate, .start"));
   const tab = TAB[name] || "today";
   $$("#nav a").forEach(a => a.classList.toggle("on", a.dataset.tab === tab));
   renderStats();
