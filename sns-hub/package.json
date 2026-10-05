@@ -1,0 +1,15 @@
+{
+  "name": "sns-hub",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "db:init": "wrangler d1 execute sns-hub --remote --file=schema.sql",
+    "db:init:local": "wrangler d1 execute sns-hub --local --file=schema.sql",
+    "test": "node --test test/*.test.js"
+  },
+  "devDependencies": {
+    "wrangler": "^4.40.0"
+  }
+}

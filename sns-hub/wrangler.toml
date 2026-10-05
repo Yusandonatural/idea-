@@ -1,0 +1,30 @@
+name = "sns-hub"
+main = "src/index.js"
+compatibility_date = "2026-09-01"
+
+# 管理画面（public/）。/api/* と /m/* はファイルが無いので Worker に回る
+[assets]
+directory = "./public"
+binding = "ASSETS"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "sns-hub"
+database_id = "00000000-0000-0000-0000-000000000000" # `wrangler d1 create sns-hub` の結果に差し替える
+
+[[r2_buckets]]
+binding = "MEDIA"
+bucket_name = "sns-hub-media"
+
+[triggers]
+# 毎分：予約投稿の実行 ／ 毎日 18:00 UTC（日本時間 3:00）：Threads・Instagram のトークン延長
+crons = ["* * * * *", "0 18 * * *"]
+
+[vars]
+# 公開URL。Instagram・Threads・LINE が画像を取りに来るので、予約投稿（cron）ではここを使う
+PUBLIC_URL = "https://sns.yusando.com"
+GRAPH_VERSION = "v23.0"
+
+# 秘密情報は `wrangler secret put` で入れる：
+#   ADMIN_PASSWORD  管理画面の合言葉
+#   APP_SECRET      ログインの署名と、各SNSの鍵の暗号化に使う（長いランダム文字列）
