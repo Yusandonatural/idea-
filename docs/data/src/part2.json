@@ -189,34 +189,34 @@
  {
   "no": "418",
   "cat": "plan",
-  "ja": "出張で来ました",
-  "pri": 3,
+  "ja": "午前中は会議があります",
+  "pri": 2,
   "slot": null,
   "self": false,
-  "zh": "我是来出差的。",
-  "py": "Wǒ shì lái chūchāi de.",
+  "zh": "我上午有个会。",
+  "py": "Wǒ shàngwǔ yǒu ge huì.",
   "note": ""
  },
  {
   "no": "419",
   "cat": "plan",
-  "ja": "旅行で来ました",
-  "pri": 3,
-  "slot": null,
+  "ja": "○○時以降なら大丈夫です",
+  "pri": 2,
+  "slot": "time",
   "self": false,
-  "zh": "我是来旅游的。",
-  "py": "Wǒ shì lái lǚyóu de.",
+  "zh": "我○○点以后都可以。",
+  "py": "Wǒ ○○ diǎn yǐhòu dōu kěyǐ.",
   "note": ""
  },
  {
   "no": "420",
   "cat": "plan",
-  "ja": "楽しみにしています",
-  "pri": 3,
-  "slot": null,
+  "ja": "○○日に帰国します",
+  "pri": 2,
+  "slot": "day",
   "self": false,
-  "zh": "我很期待。",
-  "py": "Wǒ hěn qīdài.",
+  "zh": "我○○号回国。",
+  "py": "Wǒ ○○ hào huíguó.",
   "note": ""
  },
  {
@@ -332,12 +332,12 @@
  {
   "no": "431",
   "cat": "plan",
-  "ja": "○○に行ったことがあります",
+  "ja": "○○はまだ行ったことがありません",
   "pri": 2,
   "slot": "place",
   "self": false,
-  "zh": "我去过○○。",
-  "py": "Wǒ qùguo ○○.",
+  "zh": "我还没去过○○。",
+  "py": "Wǒ hái méi qùguo ○○.",
   "note": ""
  },
  {
@@ -761,12 +761,12 @@
  {
   "no": "470",
   "cat": "plan",
-  "ja": "昔○○に住んでいました",
+  "ja": "次は家族と来たいです",
   "pri": 1,
-  "slot": "city",
-  "self": true,
-  "zh": "我以前在○○住过。",
-  "py": "Wǒ yǐqián zài ○○ zhùguo.",
+  "slot": null,
+  "self": false,
+  "zh": "下次想带家人来。",
+  "py": "Xià cì xiǎng dài jiārén lái.",
   "note": ""
  },
  {

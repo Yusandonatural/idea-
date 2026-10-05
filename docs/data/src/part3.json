@@ -13,13 +13,13 @@
  {
   "no": "602",
   "cat": "travel",
-  "ja": "○○をください",
-  "pri": 3,
-  "slot": "food",
+  "ja": "小さいサイズでお願いします",
+  "pri": 2,
+  "slot": null,
   "self": false,
-  "zh": "我要○○。",
-  "py": "Wǒ yào ○○.",
-  "note": ""
+  "zh": "要小份的。",
+  "py": "Yào xiǎo fèn de.",
+  "note": "料理・飲み物の量"
  },
  {
   "no": "603",
@@ -46,24 +46,24 @@
  {
   "no": "605",
   "cat": "travel",
-  "ja": "いくらですか",
-  "pri": 3,
+  "ja": "油は少なめでお願いします",
+  "pri": 2,
   "slot": null,
   "self": false,
-  "zh": "多少钱？",
-  "py": "Duōshao qián?",
+  "zh": "少放点儿油。",
+  "py": "Shǎo fàng diǎnr yóu.",
   "note": ""
  },
  {
   "no": "606",
   "cat": "travel",
-  "ja": "全部でいくらですか",
-  "pri": 3,
+  "ja": "取り皿をください",
+  "pri": 2,
   "slot": null,
   "self": false,
-  "zh": "一共多少钱？",
-  "py": "Yígòng duōshao qián?",
-  "note": ""
+  "zh": "请给我几个小盘子。",
+  "py": "Qǐng gěi wǒ jǐ ge xiǎo pánzi.",
+  "note": "シェアするときに"
  },
  {
   "no": "607",
@@ -90,12 +90,12 @@
  {
   "no": "609",
   "cat": "travel",
-  "ja": "おすすめは何ですか",
-  "pri": 3,
+  "ja": "みんなで分けて食べます",
+  "pri": 1,
   "slot": null,
   "self": false,
-  "zh": "有什么推荐的？",
-  "py": "Yǒu shénme tuījiàn de?",
+  "zh": "我们一起分着吃。",
+  "py": "Wǒmen yìqǐ fēnzhe chī.",
   "note": ""
  },
  {
@@ -123,13 +123,13 @@
  {
   "no": "612",
   "cat": "travel",
-  "ja": "これは辛いですか",
-  "pri": 3,
+  "ja": "温かいのをください",
+  "pri": 2,
   "slot": null,
   "self": false,
-  "zh": "这个辣吗？",
-  "py": "Zhège là ma?",
-  "note": ""
+  "zh": "要热的。",
+  "py": "Yào rè de.",
+  "note": "飲み物は冷たいのが出ることも"
  },
  {
   "no": "613",
@@ -211,23 +211,23 @@
  {
   "no": "620",
   "cat": "travel",
-  "ja": "これは何ですか",
-  "pri": 3,
+  "ja": "常温でお願いします",
+  "pri": 1,
   "slot": null,
   "self": false,
-  "zh": "这是什么？",
-  "py": "Zhè shì shénme?",
+  "zh": "要常温的。",
+  "py": "Yào chángwēn de.",
   "note": ""
  },
  {
   "no": "621",
   "cat": "travel",
-  "ja": "私は○○が食べられません",
-  "pri": 2,
+  "ja": "○○を追加できますか",
+  "pri": 1,
   "slot": "food",
   "self": false,
-  "zh": "我不能吃○○。",
-  "py": "Wǒ bù néng chī ○○.",
+  "zh": "能加○○吗？",
+  "py": "Néng jiā ○○ ma?",
   "note": ""
  },
  {
@@ -321,12 +321,12 @@
  {
   "no": "630",
   "cat": "travel",
-  "ja": "お腹いっぱいです",
-  "pri": 2,
+  "ja": "個室はありますか",
+  "pri": 1,
   "slot": null,
   "self": false,
-  "zh": "吃饱了。",
-  "py": "Chī bǎo le.",
+  "zh": "有包间吗？",
+  "py": "Yǒu bāojiān ma?",
   "note": ""
  },
  {
@@ -343,12 +343,12 @@
  {
   "no": "632",
   "cat": "travel",
-  "ja": "カードは使えますか",
+  "ja": "スマホで払えませんでした",
   "pri": 2,
   "slot": null,
   "self": false,
-  "zh": "能刷卡吗？",
-  "py": "Néng shuākǎ ma?",
+  "zh": "我手机支付不了。",
+  "py": "Wǒ shǒujī zhīfù bu liǎo.",
   "note": ""
  },
  {
@@ -464,23 +464,23 @@
  {
   "no": "643",
   "cat": "travel",
-  "ja": "○○はありますか",
-  "pri": 3,
-  "slot": "thing",
+  "ja": "もう一度スキャンしてもいいですか",
+  "pri": 1,
+  "slot": null,
   "self": false,
-  "zh": "有○○吗？",
-  "py": "Yǒu ○○ ma?",
+  "zh": "我再扫一次可以吗？",
+  "py": "Wǒ zài sǎo yí cì kěyǐ ma?",
   "note": ""
  },
  {
   "no": "644",
   "cat": "travel",
-  "ja": "高すぎます",
-  "pri": 3,
+  "ja": "返品できますか",
+  "pri": 1,
   "slot": null,
   "self": false,
-  "zh": "太贵了。",
-  "py": "Tài guì le.",
+  "zh": "可以退货吗？",
+  "py": "Kěyǐ tuìhuò ma?",
   "note": ""
  },
  {
@@ -541,24 +541,24 @@
  {
   "no": "650",
   "cat": "travel",
-  "ja": "試着してもいいですか",
-  "pri": 2,
+  "ja": "サイズを交換できますか",
+  "pri": 1,
   "slot": null,
   "self": false,
-  "zh": "可以试一下吗？",
-  "py": "Kěyǐ shì yíxià ma?",
+  "zh": "能换个尺码吗？",
+  "py": "Néng huàn ge chǐmǎ ma?",
   "note": ""
  },
  {
   "no": "651",
   "cat": "travel",
-  "ja": "他の色はありますか",
+  "ja": "もう少し見てから決めます",
   "pri": 2,
   "slot": null,
   "self": false,
-  "zh": "有别的颜色吗？",
-  "py": "Yǒu bié de yánsè ma?",
-  "note": ""
+  "zh": "我再看看。",
+  "py": "Wǒ zài kànkan.",
+  "note": "断るときにも使える"
  },
  {
   "no": "652",
@@ -618,23 +618,23 @@
  {
   "no": "657",
   "cat": "travel",
-  "ja": "日本に送れますか",
+  "ja": "これは正規品ですか",
   "pri": 1,
   "slot": null,
   "self": false,
-  "zh": "能寄到日本吗？",
-  "py": "Néng jì dào Rìběn ma?",
+  "zh": "这是正品吗？",
+  "py": "Zhè shì zhèngpǐn ma?",
   "note": ""
  },
  {
   "no": "658",
   "cat": "travel",
-  "ja": "○○はどこですか",
-  "pri": 3,
-  "slot": "place",
+  "ja": "部屋を替えてもらえますか",
+  "pri": 1,
+  "slot": null,
   "self": false,
-  "zh": "○○在哪儿？",
-  "py": "○○ zài nǎr?",
+  "zh": "能换个房间吗？",
+  "py": "Néng huàn ge fángjiān ma?",
   "note": ""
  },
  {
@@ -684,12 +684,12 @@
  {
   "no": "663",
   "cat": "travel",
-  "ja": "時間はどのくらいかかりますか",
-  "pri": 3,
+  "ja": "お湯が出ません",
+  "pri": 1,
   "slot": null,
   "self": false,
-  "zh": "要多长时间？",
-  "py": "Yào duō cháng shíjiān?",
+  "zh": "没有热水。",
+  "py": "Méiyǒu rèshuǐ.",
   "note": ""
  },
  {
@@ -706,45 +706,45 @@
  {
   "no": "665",
   "cat": "travel",
-  "ja": "歩いて行けますか",
-  "pri": 2,
+  "ja": "部屋の掃除をお願いします",
+  "pri": 1,
   "slot": null,
   "self": false,
-  "zh": "走路能到吗？",
-  "py": "Zǒulù néng dào ma?",
+  "zh": "请打扫一下房间。",
+  "py": "Qǐng dǎsǎo yíxià fángjiān.",
   "note": ""
  },
  {
   "no": "666",
   "cat": "travel",
-  "ja": "右ですか、左ですか",
+  "ja": "チェックアウトは何時ですか",
   "pri": 2,
   "slot": null,
   "self": false,
-  "zh": "往左还是往右？",
-  "py": "Wǎng zuǒ háishi wǎng yòu?",
+  "zh": "几点退房？",
+  "py": "Jǐ diǎn tuìfáng?",
   "note": ""
  },
  {
   "no": "667",
   "cat": "travel",
-  "ja": "地図で教えてもらえますか",
-  "pri": 2,
+  "ja": "一泊延長できますか",
+  "pri": 1,
   "slot": null,
   "self": false,
-  "zh": "能在地图上指给我看吗？",
-  "py": "Néng zài dìtú shang zhǐ gěi wǒ kàn ma?",
+  "zh": "能多住一晚吗？",
+  "py": "Néng duō zhù yì wǎn ma?",
   "note": ""
  },
  {
   "no": "668",
   "cat": "travel",
-  "ja": "タクシーを呼んでもらえますか",
-  "pri": 2,
-  "slot": null,
+  "ja": "明日の朝○○時に起こしてください",
+  "pri": 1,
+  "slot": "time",
   "self": false,
-  "zh": "能帮我叫辆出租车吗？",
-  "py": "Néng bāng wǒ jiào liàng chūzūchē ma?",
+  "zh": "明天早上○○点叫醒我。",
+  "py": "Míngtiān zǎoshang ○○ diǎn jiàoxǐng wǒ.",
   "note": ""
  },
  {
@@ -805,13 +805,13 @@
  {
   "no": "674",
   "cat": "travel",
-  "ja": "この電車は○○に行きますか",
+  "ja": "まっすぐ行ってください",
   "pri": 2,
-  "slot": "city",
+  "slot": null,
   "self": false,
-  "zh": "这趟车去○○吗？",
-  "py": "Zhè tàng chē qù ○○ ma?",
-  "note": ""
+  "zh": "一直往前开。",
+  "py": "Yìzhí wǎng qián kāi.",
+  "note": "タクシーで"
  },
  {
   "no": "675",
@@ -915,13 +915,13 @@
  {
   "no": "684",
   "cat": "travel",
-  "ja": "Wi-Fiのパスワードは何ですか",
-  "pri": 3,
+  "ja": "次の交差点を右に曲がってください",
+  "pri": 2,
   "slot": null,
   "self": false,
-  "zh": "WiFi密码是多少？",
-  "py": "WiFi mìmǎ shì duōshao?",
-  "note": ""
+  "zh": "下个路口右转。",
+  "py": "Xià ge lùkǒu yòu zhuǎn.",
+  "note": "左なら 左转 zuǒ zhuǎn"
  },
  {
   "no": "685",
@@ -948,13 +948,13 @@
  {
   "no": "687",
   "cat": "travel",
-  "ja": "荷物を預かってもらえますか",
+  "ja": "入口で待っています",
   "pri": 2,
   "slot": null,
   "self": false,
-  "zh": "能寄存行李吗？",
-  "py": "Néng jìcún xíngli ma?",
-  "note": ""
+  "zh": "我在门口等你。",
+  "py": "Wǒ zài ménkǒu děng nǐ.",
+  "note": "配車アプリの運転手に"
  },
  {
   "no": "688",
@@ -981,23 +981,23 @@
  {
   "no": "690",
   "cat": "travel",
-  "ja": "写真を撮ってもいいですか",
-  "pri": 3,
+  "ja": "大人2枚ください",
+  "pri": 2,
   "slot": null,
   "self": false,
-  "zh": "可以拍照吗？",
-  "py": "Kěyǐ pāizhào ma?",
+  "zh": "两张成人票。",
+  "py": "Liǎng zhāng chéngrén piào.",
   "note": ""
  },
  {
   "no": "691",
   "cat": "travel",
-  "ja": "写真を撮ってもらえますか",
-  "pri": 3,
+  "ja": "ガイドの説明はありますか",
+  "pri": 1,
   "slot": null,
   "self": false,
-  "zh": "能帮我拍张照吗？",
-  "py": "Néng bāng wǒ pāi zhāng zhào ma?",
+  "zh": "有导游讲解吗？",
+  "py": "Yǒu dǎoyóu jiǎngjiě ma?",
   "note": ""
  },
  {
@@ -1025,12 +1025,12 @@
  {
   "no": "694",
   "cat": "travel",
-  "ja": "何時に開きますか",
+  "ja": "ここに並べばいいですか",
   "pri": 2,
   "slot": null,
   "self": false,
-  "zh": "几点开门？",
-  "py": "Jǐ diǎn kāimén?",
+  "zh": "是在这儿排队吗？",
+  "py": "Shì zài zhèr páiduì ma?",
   "note": ""
  },
  {
