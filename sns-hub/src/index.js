@@ -1,4 +1,4 @@
-import { isAuthed, login, logoutCookie, sameOrigin } from './auth.js';
+import { currentUser, hashPassword, login, logoutCookie, sameOrigin, verifyPassword } from './auth.js';
 import { randomId } from './crypto.js';
 import { describe, platforms } from './platforms/index.js';
 import { AiError, DEFAULT_BRAND, generate } from './ai.js';
@@ -81,6 +81,17 @@ async function readPostInput(env, body) {
   return { text, media, rows, mode, scheduledAt };
 }
 
+const MAX_MEMBERS = 20;
+
+const publicUser = (u) => ({ id: u.id, name: u.name, login: u.login, role: u.role });
+
+function checkPassword(pw) {
+  const s = String(pw ?? '');
+  if (s.length < 8) throw new HttpError(400, 'パスワードは8文字以上にしてください');
+  if (s.length > 200) throw new HttpError(400, 'パスワードが長すぎます');
+  return s;
+}
+
 async function getSetting(env, key) {
   const row = await env.DB.prepare('SELECT value FROM settings WHERE key = ?').bind(key).first();
   return row?.value ?? null;
@@ -100,18 +111,72 @@ async function api(req, env, url) {
     : null;
 
   if (path === '/login' && method === 'POST') {
-    const cookie = await login(env, body?.password);
-    if (!cookie) {
-      await new Promise((r) => setTimeout(r, 800));
-      return fail('合言葉が違います', 401);
+    const r = await login(env, body?.login, body?.password);
+    if (!r) {
+      await new Promise((res) => setTimeout(res, 800));
+      return fail(body?.login ? 'ログインIDかパスワードが違います' : '合言葉が違います', 401);
     }
-    return json({ ok: true }, 200, { 'set-cookie': cookie });
+    return json({ ok: true, user: publicUser(r.user) }, 200, { 'set-cookie': r.cookie });
   }
   if (path === '/logout' && method === 'POST') return json({ ok: true }, 200, { 'set-cookie': logoutCookie() });
-  if (!(await isAuthed(req, env))) return fail('ログインしてください', 401);
+  const user = await currentUser(req, env);
+  if (!user) return fail('ログインしてください', 401);
   if (method !== 'GET' && !sameOrigin(req)) return fail('不正なリクエストです', 403);
+  const isAdmin = user.role === 'admin';
+  const adminOnly = () => fail('この操作は管理者だけができます', 403);
 
-  if (path === '/me') return json({ ok: true });
+  if (path === '/me' && method === 'GET') return json({ ok: true, user: publicUser(user) });
+  if (path === '/me/password' && method === 'PATCH') {
+    if (user.id === 0) return fail('オーナーの合言葉は Cloudflare の ADMIN_PASSWORD で変えてください');
+    const row = await env.DB.prepare('SELECT password_hash FROM users WHERE id = ?').bind(user.id).first();
+    if (!(await verifyPassword(String(body?.current ?? ''), row.password_hash))) return fail('今のパスワードが違います');
+    const next = checkPassword(body?.next);
+    // パスワードを変えると、ほかの端末のログインは切れる（この端末はログインし直す）
+    await env.DB.prepare('UPDATE users SET password_hash = ?, session_version = session_version + 1 WHERE id = ?').bind(await hashPassword(next), user.id).run();
+    return json({ ok: true, relogin: true }, 200, { 'set-cookie': logoutCookie() });
+  }
+
+  // ── メンバー（管理者だけ） ──
+  if (path === '/members' && method === 'GET') {
+    if (!isAdmin) return adminOnly();
+    const { results } = await env.DB.prepare('SELECT id, login, name, role, disabled, last_login_at, created_at FROM users ORDER BY id').all();
+    return json(results);
+  }
+  if (path === '/members' && method === 'POST') {
+    if (!isAdmin) return adminOnly();
+    const count = (await env.DB.prepare('SELECT COUNT(*) AS n FROM users').first()).n;
+    if (count >= MAX_MEMBERS) return fail(`メンバーは${MAX_MEMBERS}人までです`);
+    const loginId = String(body?.login ?? '').trim().toLowerCase();
+    if (!/^[a-z0-9._-]{3,32}$/.test(loginId)) return fail('ログインIDは半角英数字（. _ - も可）で3〜32文字にしてください');
+    const name = String(body?.name ?? '').trim().slice(0, 40);
+    if (!name) return fail('名前を入力してください');
+    const role = body?.role === 'admin' ? 'admin' : 'editor';
+    const exists = await env.DB.prepare('SELECT 1 FROM users WHERE login = ?').bind(loginId).first();
+    if (exists) return fail('そのログインIDはもう使われています');
+    const r = await env.DB.prepare('INSERT INTO users (login, name, password_hash, role, created_at) VALUES (?, ?, ?, ?, ?) RETURNING id, login, name, role, disabled, last_login_at, created_at')
+      .bind(loginId, name, await hashPassword(checkPassword(body?.password)), role, now()).first();
+    return json(r);
+  }
+  let mem = path.match(/^\/members\/(\d+)$/);
+  if (mem) {
+    if (!isAdmin) return adminOnly();
+    const id = Number(mem[1]);
+    const target = await env.DB.prepare('SELECT id FROM users WHERE id = ?').bind(id).first();
+    if (!target) return fail('メンバーが見つかりません', 404);
+    if (id === user.id && (method === 'DELETE' || body?.disabled || body?.role === 'editor')) return fail('自分自身は停止・削除・権限変更できません');
+    if (method === 'DELETE') {
+      await env.DB.prepare('DELETE FROM users WHERE id = ?').bind(id).run();
+      return json({ ok: true });
+    }
+    if (method === 'PATCH') {
+      if (typeof body.name === 'string' && body.name.trim()) await env.DB.prepare('UPDATE users SET name = ? WHERE id = ?').bind(body.name.trim().slice(0, 40), id).run();
+      if (body.role === 'admin' || body.role === 'editor') await env.DB.prepare('UPDATE users SET role = ? WHERE id = ?').bind(body.role, id).run();
+      // 停止・パスワード再設定は、その人のログインを切る
+      if (typeof body.disabled === 'boolean') await env.DB.prepare('UPDATE users SET disabled = ?, session_version = session_version + 1 WHERE id = ?').bind(body.disabled ? 1 : 0, id).run();
+      if (body.password) await env.DB.prepare('UPDATE users SET password_hash = ?, session_version = session_version + 1 WHERE id = ?').bind(await hashPassword(checkPassword(body.password)), id).run();
+      return json(await env.DB.prepare('SELECT id, login, name, role, disabled, last_login_at, created_at FROM users WHERE id = ?').bind(id).first());
+    }
+  }
   if (path === '/platforms') return json(describe());
 
   // ── AI で書き分け・設定 ──
@@ -120,6 +185,7 @@ async function api(req, env, url) {
     return json({ ai_enabled: !!env.ANTHROPIC_API_KEY, brand: brand ?? DEFAULT_BRAND, brand_is_default: brand == null });
   }
   if (path === '/settings' && method === 'PUT') {
+    if (!isAdmin) return adminOnly();
     const brand = String(body?.brand ?? '').trim();
     if (brand) await env.DB.prepare('INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value').bind('brand', brand.slice(0, 4000)).run();
     else await env.DB.prepare(`DELETE FROM settings WHERE key = 'brand'`).run();
@@ -145,6 +211,7 @@ async function api(req, env, url) {
     return json(results.map(publicAccount));
   }
   if (path === '/accounts' && method === 'POST') {
+    if (!isAdmin) return adminOnly();
     const creds = cleanCreds(body.platform, body.credentials);
     const v = await verifyCreds(env, body.platform, creds, url.origin);
     const name = String(body.name || '').trim() || v.name;
@@ -169,6 +236,7 @@ async function api(req, env, url) {
       }
     }
     if (method === 'PATCH') {
+      if (!isAdmin) return adminOnly();
       if (body.credentials) {
         // 空欄の項目は今の値を残す
         const merged = { ...acc.credentials };
@@ -187,6 +255,7 @@ async function api(req, env, url) {
       return json(publicAccount(await env.DB.prepare('SELECT * FROM accounts WHERE id = ?').bind(id).first()));
     }
     if (method === 'DELETE') {
+      if (!isAdmin) return adminOnly();
       await env.DB.batch([
         env.DB.prepare('DELETE FROM targets WHERE account_id = ?').bind(id),
         env.DB.prepare('DELETE FROM accounts WHERE id = ?').bind(id),
@@ -210,6 +279,17 @@ async function api(req, env, url) {
   }
 
   // ── 投稿 ──
+  if (path === '/posts' && method === 'GET' && url.searchParams.has('from')) {
+    // カレンダー：予約は予約日時、公開済みは公開日時で並べる
+    const from = Number(url.searchParams.get('from'));
+    const to = Number(url.searchParams.get('to'));
+    if (!Number.isFinite(from) || !Number.isFinite(to) || to - from > 62 * 86400e3) return fail('期間の指定が不正です');
+    const { results } = await env.DB.prepare(
+      `SELECT id FROM (SELECT id, CASE WHEN status IN ('done','partial','failed') THEN COALESCE(published_at, scheduled_at) ELSE scheduled_at END AS at FROM posts)
+       WHERE at >= ? AND at < ? ORDER BY at LIMIT 500`,
+    ).bind(from, to).all();
+    return json(await Promise.all(results.map((r) => getPost(env, r.id))));
+  }
   if (path === '/posts' && method === 'GET') {
     const status = url.searchParams.get('status');
     const limit = Math.min(Number(url.searchParams.get('limit')) || 50, 200);
@@ -223,11 +303,22 @@ async function api(req, env, url) {
     const input = await readPostInput(env, body);
     const status = input.mode === 'schedule' ? 'scheduled' : 'draft';
     const post = await env.DB.prepare(
-      'INSERT INTO posts (body, media, status, scheduled_at, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?) RETURNING id',
-    ).bind(input.text, JSON.stringify(input.media), status, input.scheduledAt, now(), now()).first();
+      'INSERT INTO posts (body, media, status, scheduled_at, created_by, updated_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?) RETURNING id',
+    ).bind(input.text, JSON.stringify(input.media), status, input.scheduledAt, user.name, user.name, now(), now()).first();
     await writeTargets(env, post.id, input.rows);
     if (input.mode === 'now') return json(await publishPost(env, post.id, url.origin));
     return json(await getPost(env, post.id));
+  }
+  m = path.match(/^\/posts\/(\d+)\/schedule$/);
+  if (m && method === 'PATCH') {
+    // カレンダーでのドラッグなど、予約日時だけを動かす
+    const at = Date.parse(body?.scheduled_at);
+    if (!Number.isFinite(at)) return fail('予約日時を指定してください');
+    if (at < now() - 60_000) return fail('予約日時が過去になっています');
+    const r = await env.DB.prepare(`UPDATE posts SET scheduled_at = ?, updated_by = ?, updated_at = ? WHERE id = ? AND status = 'scheduled'`)
+      .bind(at, user.name, now(), Number(m[1])).run();
+    if (!r.meta.changes) return fail('予約中の投稿だけ日時を動かせます', 409);
+    return json(await getPost(env, Number(m[1])));
   }
   m = path.match(/^\/posts\/(\d+)(\/publish)?$/);
   if (m) {
@@ -246,8 +337,8 @@ async function api(req, env, url) {
       if (!['draft', 'scheduled'].includes(post.status)) return fail('公開後の投稿は編集できません', 409);
       const input = await readPostInput(env, body);
       const status = input.mode === 'schedule' ? 'scheduled' : 'draft';
-      await env.DB.prepare('UPDATE posts SET body = ?, media = ?, status = ?, scheduled_at = ?, updated_at = ? WHERE id = ?')
-        .bind(input.text, JSON.stringify(input.media), status, input.scheduledAt, now(), id).run();
+      await env.DB.prepare('UPDATE posts SET body = ?, media = ?, status = ?, scheduled_at = ?, updated_by = ?, updated_at = ? WHERE id = ?')
+        .bind(input.text, JSON.stringify(input.media), status, input.scheduledAt, user.name, now(), id).run();
       await writeTargets(env, id, input.rows);
       if (input.mode === 'now') return json(await publishPost(env, id, url.origin));
       return json(await getPost(env, id));

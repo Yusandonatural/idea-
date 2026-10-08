@@ -77,7 +77,8 @@ $('#login-form').addEventListener('submit', async (e) => {
   e.preventDefault();
   $('#login-error').textContent = '';
   try {
-    await api('/login', { method: 'POST', json: { password: e.target.password.value } });
+    await api('/login', { method: 'POST', json: { login: e.target.login.value, password: e.target.password.value } });
+    e.target.password.value = '';
     await start();
   } catch (err) {
     $('#login-error').textContent = err.message;
@@ -95,8 +96,14 @@ function showTab(name) {
   for (const s of document.querySelectorAll('main > section')) s.hidden = s.id !== `tab-${name}`;
   if (name === 'queue') loadPosts('queue');
   if (name === 'history') loadPosts('history');
-  if (name === 'accounts') renderAccounts();
+  if (name === 'accounts') {
+    renderAccounts();
+    if (isAdmin()) loadMembers();
+  }
+  if (name === 'calendar') renderCalendar();
 }
+
+const isAdmin = () => state.user?.role === 'admin';
 for (const b of document.querySelectorAll('nav button')) b.addEventListener('click', () => showTab(b.dataset.tab));
 
 // ── 投稿画面 ──
@@ -376,7 +383,7 @@ async function loadPosts(kind) {
     const when = p.status === 'scheduled' ? `🕒 ${fmt(p.scheduled_at)}` : p.published_at ? fmt(p.published_at) : `更新 ${fmt(p.updated_at)}`;
     return `
       <article class="post" data-id="${p.id}">
-        <div class="post-meta"><span class="status ${p.status}">${STATUS[p.status]}</span><span>${when}</span></div>
+        <div class="post-meta"><span class="status ${p.status}">${STATUS[p.status]}</span><span>${when}</span>${p.updated_by ? `<span class="by">${p.created_by && p.created_by !== p.updated_by ? `作成 ${esc(p.created_by)}・` : ''}${p.created_by === p.updated_by ? '作成' : '更新'} ${esc(p.updated_by)}</span>` : ''}</div>
         <div class="post-body">${esc(p.body) || '<span class="muted">（本文なし）</span>'}</div>
         ${p.media.length ? `<div class="media">${p.media.map((m) => `<div class="thumb">${isVideo(m) ? `<video src="/m/${esc(m.key)}" muted preload="metadata"></video><span class="badge-video">動画</span>` : `<img src="/m/${esc(m.key)}" alt="${esc(m.alt)}" loading="lazy">`}</div>`).join('')}</div>` : ''}
         <div class="post-targets">${p.targets.map((t) => {
@@ -439,10 +446,10 @@ function renderAccounts() {
         ${a.last_error ? `<p class="error">${esc(a.last_error)}</p>` : ''}
       </div>
       <button class="small" data-act="verify">接続テスト</button>
-      <button class="small" data-act="rename">名前</button>
-      <button class="small" data-act="creds">鍵を更新</button>
-      <button class="small" data-act="toggle">${a.enabled ? '停止' : '再開'}</button>
-      <button class="small ghost danger" data-act="delete">削除</button>
+      <button class="small admin-only" data-act="rename">名前</button>
+      <button class="small admin-only" data-act="creds">鍵を更新</button>
+      <button class="small admin-only" data-act="toggle">${a.enabled ? '停止' : '再開'}</button>
+      <button class="small ghost danger admin-only" data-act="delete">削除</button>
     </div>`).join('') : '';
 }
 
@@ -596,12 +603,187 @@ function ask(message) {
   return Promise.resolve(confirm(message));
 }
 
+// ── カレンダー ──
+const cal = { month: (() => { const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), 1); })(), posts: {} };
+const DOW = ['日', '月', '火', '水', '木', '金', '土'];
+const dayKey = (d) => `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`;
+const postAt = (p) => (['done', 'partial', 'failed'].includes(p.status) ? p.published_at ?? p.scheduled_at : p.scheduled_at);
+const hhmm = (ms) => new Date(ms).toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' });
+
+async function renderCalendar() {
+  const y = cal.month.getFullYear();
+  const mo = cal.month.getMonth();
+  $('#cal-title').textContent = `${y}年${mo + 1}月`;
+  const start = new Date(y, mo, 1 - new Date(y, mo, 1).getDay());
+  const end = new Date(start.getFullYear(), start.getMonth(), start.getDate() + 42);
+  const posts = await api(`/posts?from=${start.getTime()}&to=${end.getTime()}`);
+  cal.posts = Object.fromEntries(posts.map((p) => [p.id, p]));
+  const byDay = {};
+  for (const p of posts) (byDay[dayKey(new Date(postAt(p)))] ||= []).push(p);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  let html = DOW.map((d, i) => `<div class="dow ${i === 0 ? 'sun' : i === 6 ? 'sat' : ''}">${d}</div>`).join('');
+  for (let i = 0; i < 42; i++) {
+    const d = new Date(start.getFullYear(), start.getMonth(), start.getDate() + i);
+    const cls = ['day', d.getMonth() !== mo && 'other', d < today && 'past', +d === +today && 'today', d.getDay() === 0 && 'sun', d.getDay() === 6 && 'sat'].filter(Boolean).join(' ');
+    const evs = (byDay[dayKey(d)] || []).map((p) => {
+      const plats = [...new Set(p.targets.map((t) => t.platform))];
+      return `<div class="ev ${p.status}" data-id="${p.id}" ${p.status === 'scheduled' ? 'draggable="true"' : ''} title="${esc(STATUS[p.status])}：${esc(p.body.slice(0, 80))}">
+        <span class="t">${hhmm(postAt(p))}</span><span class="dots">${plats.map(dot).join('')}</span>
+        <span class="s">${esc(p.targets.find((t) => t.title)?.title || p.body.split('\n')[0] || '（本文なし）')}</span></div>`;
+    }).join('');
+    html += `<div class="${cls}" data-date="${d.getTime()}"><span class="num">${d.getDate()}</span>${evs}</div>`;
+  }
+  $('#cal').innerHTML = html;
+}
+
+$('#cal-prev').addEventListener('click', () => { cal.month = new Date(cal.month.getFullYear(), cal.month.getMonth() - 1, 1); renderCalendar(); });
+$('#cal-next').addEventListener('click', () => { cal.month = new Date(cal.month.getFullYear(), cal.month.getMonth() + 1, 1); renderCalendar(); });
+$('#cal-today').addEventListener('click', () => { const d = new Date(); cal.month = new Date(d.getFullYear(), d.getMonth(), 1); renderCalendar(); });
+
+$('#cal').addEventListener('click', (e) => {
+  const ev = e.target.closest('.ev');
+  if (ev) {
+    const p = cal.posts[ev.dataset.id];
+    return ['draft', 'scheduled'].includes(p.status) ? loadIntoCompose(p, false) : showResult(p);
+  }
+  const day = e.target.closest('.day');
+  if (!day || day.classList.contains('past')) return;
+  newPostOn(new Date(Number(day.dataset.date)));
+});
+
+// その日の予約投稿を作り始める（今日なら1時間後、ほかの日は朝9時）
+function newPostOn(date) {
+  resetCompose();
+  useSchedule.checked = true;
+  useSchedule.dispatchEvent(new Event('change'));
+  const at = new Date(date);
+  at.setHours(9, 0, 0, 0);
+  if (at.getTime() < Date.now() + 10 * 60_000) {
+    at.setTime(Date.now() + 3600_000);
+    at.setMinutes(0, 0, 0);
+  }
+  $('#scheduled-at').value = localInput(at.getTime());
+  showTab('compose');
+  bodyEl.focus();
+}
+
+let dragId = null;
+$('#cal').addEventListener('dragstart', (e) => {
+  const ev = e.target.closest('.ev.scheduled');
+  if (!ev) return;
+  dragId = ev.dataset.id;
+  e.dataTransfer.effectAllowed = 'move';
+  e.dataTransfer.setData('text/plain', dragId);
+});
+$('#cal').addEventListener('dragover', (e) => {
+  const day = e.target.closest('.day');
+  if (!dragId || !day) return;
+  e.preventDefault();
+  for (const d of document.querySelectorAll('.day.drop')) if (d !== day) d.classList.remove('drop');
+  day.classList.add('drop');
+});
+$('#cal').addEventListener('dragleave', (e) => e.target.closest?.('.day')?.classList.remove('drop'));
+$('#cal').addEventListener('drop', async (e) => {
+  const day = e.target.closest('.day');
+  for (const d of document.querySelectorAll('.day.drop')) d.classList.remove('drop');
+  if (!dragId || !day) return;
+  e.preventDefault();
+  const p = cal.posts[dragId];
+  dragId = null;
+  const old = new Date(p.scheduled_at);
+  const to = new Date(Number(day.dataset.date));
+  to.setHours(old.getHours(), old.getMinutes(), 0, 0);
+  if (dayKey(to) === dayKey(old)) return;
+  try {
+    await api(`/posts/${p.id}/schedule`, { method: 'PATCH', json: { scheduled_at: to.toISOString() } });
+    toast(`${fmt(to.getTime())} に移しました`);
+  } catch (err) {
+    toast(err.message);
+  }
+  renderCalendar();
+});
+
+// ── メンバー ──
+async function loadMembers() {
+  const list = await api('/members');
+  $('#member-list').innerHTML = (list.length ? list : []).map((m) => `
+    <div class="member" data-id="${m.id}">
+      <div class="info"><b>${esc(m.name)}</b> <span class="pill ${m.role}">${m.role === 'admin' ? '管理者' : '投稿担当'}</span>${m.disabled ? ' <span class="pill">停止中</span>' : ''}
+        <small>ID：${esc(m.login)}・${m.last_login_at ? `最終ログイン ${fmt(m.last_login_at)}` : 'まだログインしていません'}</small></div>
+      ${m.id === state.user.id ? '<span class="muted small">あなた</span>' : `
+      <button class="small" data-act="role">${m.role === 'admin' ? '投稿担当にする' : '管理者にする'}</button>
+      <button class="small" data-act="password">パスワード再設定</button>
+      <button class="small" data-act="toggle">${m.disabled ? '再開' : '停止'}</button>
+      <button class="small ghost danger" data-act="delete">削除</button>`}
+    </div>`).join('') || '<p class="muted small">まだメンバーはいません。下のフォームから追加してください（オーナーは合言葉でいつでもログインできます）。</p>';
+  $('#member-list')._list = list;
+}
+
+$('#member-list').addEventListener('click', async (e) => {
+  const btn = e.target.closest('[data-act]');
+  if (!btn) return;
+  const id = Number(btn.closest('.member').dataset.id);
+  const m = $('#member-list')._list.find((x) => x.id === id);
+  try {
+    if (btn.dataset.act === 'role') await api(`/members/${id}`, { method: 'PATCH', json: { role: m.role === 'admin' ? 'editor' : 'admin' } });
+    if (btn.dataset.act === 'toggle') await api(`/members/${id}`, { method: 'PATCH', json: { disabled: !m.disabled } });
+    if (btn.dataset.act === 'password') {
+      const pw = prompt(`${m.name} さんの新しいパスワード（8文字以上）`);
+      if (!pw) return;
+      await api(`/members/${id}`, { method: 'PATCH', json: { password: pw } });
+      toast('パスワードを変えました。本人に伝えてください');
+    }
+    if (btn.dataset.act === 'delete') {
+      if (!await ask(`${m.name} さんを削除しますか？（作った投稿は残ります）`)) return;
+      await api(`/members/${id}`, { method: 'DELETE' });
+    }
+  } catch (err) {
+    toast(err.message);
+  }
+  loadMembers();
+});
+
+$('#member-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const f = e.target;
+  $('#member-error').textContent = '';
+  await busy(f.querySelector('button'), async () => {
+    try {
+      const m = await api('/members', { method: 'POST', json: { name: f.name.value, login: f.login.value, password: f.password.value, role: f.role.value } });
+      f.reset();
+      toast(`${m.name} さんを追加しました（ID：${m.login}）`);
+      loadMembers();
+    } catch (err) {
+      $('#member-error').textContent = err.message;
+    }
+  });
+});
+
+$('#password-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const f = e.target;
+  try {
+    await api('/me/password', { method: 'PATCH', json: { current: f.current.value, next: f.next.value } });
+    f.reset();
+    toast('パスワードを変えました。新しいパスワードでログインし直してください');
+    showLogin();
+  } catch (err) {
+    toast(err.message);
+  }
+});
+
 async function loadAccounts() {
   state.accounts = await api('/accounts');
   renderTargets();
 }
 
 async function start() {
+  state.user = (await api('/me')).user;
+  document.body.classList.toggle('role-editor', !isAdmin());
+  $('#who').textContent = `${state.user.name}（${isAdmin() ? '管理者' : '投稿担当'}）`;
+  $('#my-password').hidden = state.user.id === 0;
+  $('#brand').readOnly = !isAdmin();
   const platforms = await api('/platforms');
   state.platforms = Object.fromEntries(platforms.map((p) => [p.id, p]));
   $('#login').hidden = true;
@@ -615,4 +797,4 @@ async function start() {
   renderPicker();
 }
 
-api('/me').then(start).catch(showLogin);
+start().catch(showLogin);
