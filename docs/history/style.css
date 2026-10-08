@@ -9,12 +9,12 @@
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     --bg: #1c1917; --card: #27221f; --ink: #f2ebe3; --sub: #b0a397; --line: #3b342f;
-    --ok-bg: #173826; --ng-bg: #43201d; --sel: #1f3150; --sel-b: #5d8bd0;
+    --ok-bg: #173826; --ng-bg: #43201d; --sel: #1f3150; --sel-b: #5d8bd0; color-scheme: dark;
   }
 }
 :root[data-theme="dark"] {
   --bg: #1c1917; --card: #27221f; --ink: #f2ebe3; --sub: #b0a397; --line: #3b342f;
-  --ok-bg: #173826; --ng-bg: #43201d; --sel: #1f3150; --sel-b: #5d8bd0;
+  --ok-bg: #173826; --ng-bg: #43201d; --sel: #1f3150; --sel-b: #5d8bd0; color-scheme: dark;
 }
 * { box-sizing: border-box; }
 html { -webkit-text-size-adjust: 100%; }
