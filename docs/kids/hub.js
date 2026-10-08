@@ -31,7 +31,7 @@
     APPS.forEach(function (a) {
       if (!a.url || /^https?:/.test(a.url) || !window.fetch) return;
       fetch(a.url, { method: "HEAD", cache: "no-store" }).then(function (r) {
-        var was = !!missing[a.id]; missing[a.id] = !r.ok;
+        var was = !!missing[a.id]; missing[a.id] = r.status === 404;
         if (was !== missing[a.id]) render();
       }).catch(function () {});
     });
