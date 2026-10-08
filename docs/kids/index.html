@@ -29,7 +29,7 @@
     <div class="stats">
       <div><b id="today">0</b><span>きょう</span></div>
       <div><b id="streak">0</b><span>れんぞく（日）</span></div>
-      <div><b id="earned">0</b><span>これまで</span></div>
+      <div><b id="week">0</b><span>この7日</span></div>
     </div>
   </section>
 
@@ -40,7 +40,7 @@
   <section class="card"><ul id="recent" class="recent"></ul></section>
 
   <details class="card parent" id="parent">
-    <summary>保護者の方へ（子どもの追加・ポイントを使う・バックアップ）</summary>
+    <summary>保護者の方へ（子どもの追加・バックアップ）</summary>
     <div class="row">
       <h3>子ども</h3>
       <ul id="kidlist" class="kidlist"></ul>
@@ -48,15 +48,6 @@
         <input name="name" placeholder="なまえ" maxlength="20" required>
         <button>追加</button>
       </form>
-    </div>
-    <div class="row">
-      <h3>ポイントを使う（ごほうびと交換など）</h3>
-      <form id="spend" class="inline">
-        <input name="points" type="number" min="1" step="1" placeholder="点" required>
-        <input name="reason" placeholder="なにと交換？（例：ゲーム10分）" maxlength="60">
-        <button>使う</button>
-      </form>
-      <p class="note" id="spendmsg"></p>
     </div>
     <div class="row">
       <h3>バックアップ</h3>

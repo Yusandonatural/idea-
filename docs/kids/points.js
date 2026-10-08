@@ -143,6 +143,12 @@
       var t = ymd(Date.now());
       return eventsOf(load(), kidId || KP.current().id).reduce(function (n, e) { return n + (e.points > 0 && ymd(e.at) === t ? e.points : 0); }, 0);
     },
+    /** この7日（今日をふくむ）にもらった合計 */
+    week: function (kidId) {
+      var d = new Date(); d.setHours(0, 0, 0, 0); d.setDate(d.getDate() - 6);
+      var from = d.getTime();
+      return eventsOf(load(), kidId || KP.current().id).reduce(function (n, e) { return n + (e.points > 0 && e.at >= from ? e.points : 0); }, 0);
+    },
     /** 今日（今日がまだなら昨日）からさかのぼって、ポイントをもらった日が何日続いているか */
     streak: function (kidId) {
       var days = {};

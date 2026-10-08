@@ -43,7 +43,7 @@
     $("lvrest").textContent = "つぎまで " + lv.rest;
     $("today").textContent = KP.today(kid.id);
     $("streak").textContent = KP.streak(kid.id);
-    $("earned").textContent = earned;
+    $("week").textContent = KP.week(kid.id);
 
     var by = KP.byApp(kid.id), max = 1, ids = APPS.map(function (a) { return a.id; });
     Object.keys(by).forEach(function (id) { if (ids.indexOf(id) < 0) ids.push(id); max = Math.max(max, by[id]); });
@@ -94,15 +94,6 @@
     var k = KP.addKid(n);
     KP.setCurrent(k.id);
     e.target.reset();
-  };
-  $("spend").onsubmit = function (e) {
-    e.preventDefault();
-    var f = e.target, pts = Math.round(Number(f.points.value)), kid = KP.current();
-    if (!(pts > 0)) return;
-    if (pts > KP.balance(kid.id)) { $("spendmsg").textContent = "ポイントが足りません（今 " + KP.balance(kid.id) + "）"; return; }
-    KP.spend(pts, f.reason.value.trim() || "ごほうび", kid.id);
-    $("spendmsg").textContent = kid.name + " の " + pts + " ポイントを使いました";
-    f.reset();
   };
   $("export").onclick = function () {
     var blob = new Blob([KP.exportData()], { type: "application/json" });
