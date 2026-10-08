@@ -27,7 +27,7 @@
    KidsPoints.award({ app: "nihonshi", points: 30, reason: "縄文時代 はじめてクリア", key: "era-jomon" });
    ```
 
-   - `app`：`apps.js` の id（百人一首 `hyakunin`、日本史 `nihonshi`、まいにち30ぷん `study`）
+   - `app`：`apps.js` の id（百人一首 `hyakunin`、れきしドリル `nihonshi`、せかいしドリル `sekaishi`、ちりドリル `chiri`、まいにち30ぷん `study`）
    - 画面下に「⭐ +10 ポイント　ぜんぶで 230」が出る。自分で表示するなら `toast: false`
    - その日はじめてのポイントには、アプリ共通の「まいにちボーナス」+5 が自動でつく
    - 返り値 `{ added, bonus, balance, kid }`（`added` が 0 なら二重だった）

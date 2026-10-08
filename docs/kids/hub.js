@@ -25,6 +25,18 @@
     return (d.getMonth() + 1) + "/" + d.getDate();
   }
 
+  // 同じサイト内のアプリが まだ公開されていないときは「じゅんびちゅう」にする（公開されたら自動で開けるようになる）
+  var missing = {};
+  function probe() {
+    APPS.forEach(function (a) {
+      if (!a.url || /^https?:/.test(a.url) || !window.fetch) return;
+      fetch(a.url, { method: "HEAD", cache: "no-store" }).then(function (r) {
+        var was = !!missing[a.id]; missing[a.id] = !r.ok;
+        if (was !== missing[a.id]) render();
+      }).catch(function () {});
+    });
+  }
+
   function render() {
     var kid = KP.current(), kids = KP.kids();
 
@@ -50,7 +62,7 @@
     var box = $("apps"); box.textContent = "";
     var hasSoon = false;
     ids.forEach(function (id) {
-      var a = appInfo(id), pts = by[id] || 0, url = a.url;
+      var a = appInfo(id), pts = by[id] || 0, url = missing[id] ? null : a.url;
       var isApp = APPS.indexOf(a) >= 0, soon = isApp && !url, showPts = a.points !== false;
       if (soon) hasSoon = true;
       var el = h(url ? "a" : "div", {
@@ -132,4 +144,5 @@
   KP.current(); // はじめてなら1人目を作っておく
   KP.onChange(render);
   render();
+  probe();
 })();
