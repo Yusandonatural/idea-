@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>こども学習アプリ えらぶ画面</title>
+<meta name="description" content="まいにち30ぷん・百人一首・日本史・世界史 など、こども学習アプリをえらんで ひらく入口。まなびポイントもここで見られます">
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#fff8ec">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@500;700;800&display=swap">
+<link rel="stylesheet" href="hub.css">
+</head>
+<body>
+<header>
+  <h1>🎒 どの アプリで べんきょうする？</h1>
+  <nav id="kids" aria-label="だれのポイント？"></nav>
+</header>
+<main>
+
+  <section id="apps" class="apps" aria-label="アプリをえらぶ"></section>
+  <p class="note center" id="soonnote" hidden>「じゅんびちゅう」の アプリは もうすぐ あそべるように なるよ。</p>
+
+  <h2>⭐ まなびポイント</h2>
+  <section class="card hero" aria-live="polite">
+    <div class="who" id="who"></div>
+    <div class="balance"><b id="balance">0</b><span>ポイント</span></div>
+    <div class="lv">
+      <span id="lv">Lv.1</span>
+      <span class="bar"><i id="lvbar"></i></span>
+      <small id="lvrest"></small>
+    </div>
+    <div class="stats">
+      <div><b id="today">0</b><span>きょう</span></div>
+      <div><b id="streak">0</b><span>れんぞく（日）</span></div>
+      <div><b id="week">0</b><span>この7日</span></div>
+    </div>
+  </section>
+
+  <h2>さいきん</h2>
+  <section class="card"><ul id="recent" class="recent"></ul></section>
+
+  <details class="card parent" id="parent">
+    <summary>保護者の方へ（子どもの追加・バックアップ）</summary>
+    <div class="row">
+      <h3>子ども</h3>
+      <ul id="kidlist" class="kidlist"></ul>
+      <form id="addkid" class="inline">
+        <input name="name" placeholder="なまえ" maxlength="20" required>
+        <button>追加</button>
+      </form>
+    </div>
+    <div class="row">
+      <h3>バックアップ</h3>
+      <p class="note">記録はこの端末（ブラウザ）に保存されています。別の端末へ移すときは、書き出したファイルを向こうで読み込んでください（今の記録は消さずに合わせます）。</p>
+      <div class="inline">
+        <button id="export" type="button">書き出す</button>
+        <label class="btn">読み込む<input id="import" type="file" accept="application/json,.json" hidden></label>
+      </div>
+      <p class="note" id="iomsg"></p>
+    </div>
+    <div class="row" id="demo" hidden>
+      <h3>テスト（?demo のときだけ）</h3>
+      <div class="inline" id="demobtns"></div>
+    </div>
+  </details>
+</main>
+<script src="points.js"></script>
+<script src="apps.js"></script>
+<script src="hub.js"></script>
+</body>
+</html>

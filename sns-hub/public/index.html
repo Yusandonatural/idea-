@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>SNS一括投稿</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📣</text></svg>">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="login" class="login" hidden>
+  <form id="login-form" class="card">
+    <h1>SNS一括投稿</h1>
+    <label>合言葉<input type="password" name="password" autocomplete="current-password" required autofocus></label>
+    <button class="primary">ログイン</button>
+    <p class="error" id="login-error"></p>
+  </form>
+</div>
+
+<div id="app" hidden>
+  <header>
+    <h1>📣 SNS一括投稿</h1>
+    <nav>
+      <button data-tab="compose" class="active">投稿する</button>
+      <button data-tab="queue">予約・下書き</button>
+      <button data-tab="history">履歴</button>
+      <button data-tab="accounts">アカウント</button>
+    </nav>
+    <button id="logout" class="ghost small">ログアウト</button>
+  </header>
+
+  <main>
+    <section id="tab-compose">
+      <div class="compose">
+        <div class="card editor">
+          <div class="editing-banner" id="editing-banner" hidden>
+            <span id="editing-label"></span>
+            <button class="ghost small" id="cancel-edit">新しい投稿にする</button>
+          </div>
+          <textarea id="body" rows="8" placeholder="投稿する内容を書きます。#ハッシュタグ や URL もそのまま書けます"></textarea>
+          <div class="media" id="media"></div>
+          <div class="row">
+            <label class="button ghost">🖼 画像を追加<input type="file" id="file" accept="image/jpeg,image/png,image/webp,image/gif" multiple hidden></label>
+            <span class="muted small">Instagram は JPEG のみ・1枚以上必須</span>
+          </div>
+        </div>
+
+        <div class="card">
+          <h2>投稿先</h2>
+          <div id="targets" class="targets"></div>
+          <p class="muted small" id="no-accounts" hidden>まだアカウントがありません。「アカウント」タブから追加してください。</p>
+        </div>
+
+        <div class="card actions">
+          <label class="row"><input type="checkbox" id="use-schedule"> 日時を予約する</label>
+          <input type="datetime-local" id="scheduled-at" hidden>
+          <div class="row wrap">
+            <button class="primary" id="post-now">今すぐ投稿</button>
+            <button class="primary" id="post-schedule" hidden>予約する</button>
+            <button class="ghost" id="post-draft">下書き保存</button>
+          </div>
+          <p class="error" id="compose-error"></p>
+        </div>
+      </div>
+    </section>
+
+    <section id="tab-queue" hidden><div id="queue-list" class="list"></div></section>
+    <section id="tab-history" hidden><div id="history-list" class="list"></div></section>
+
+    <section id="tab-accounts" hidden>
+      <div id="account-list" class="list"></div>
+      <div class="card">
+        <h2>アカウントを追加</h2>
+        <div class="platform-picker" id="platform-picker"></div>
+        <form id="account-form" hidden>
+          <p class="muted small" id="account-note"></p>
+          <div id="account-fields"></div>
+          <label>表示名（空欄ならSNSの名前）<input name="display_name"></label>
+          <div class="row"><button class="primary">接続して追加</button></div>
+          <p class="error" id="account-error"></p>
+        </form>
+      </div>
+    </section>
+  </main>
+</div>
+
+<dialog id="dialog"><div id="dialog-body"></div><form method="dialog"><button class="primary">閉じる</button></form></dialog>
+<div id="toast" class="toast" hidden></div>
+<script type="module" src="app.js"></script>
+</body>
+</html>

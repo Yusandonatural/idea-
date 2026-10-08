@@ -1,0 +1,3 @@
+ADMIN_PASSWORD=dev
+APP_SECRET=change-me-to-a-long-random-string
+PUBLIC_URL=http://localhost:8787
