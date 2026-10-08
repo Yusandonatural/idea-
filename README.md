@@ -65,3 +65,11 @@ google-ids.json                     GA4・広告・サイトURL
 - 1単元2レッスン（各10問前後）。問題は4択・〇×・年代ならべかえ・組み合わせ。まちがえた問題はレッスンの最後にもう一度出て、そのあと間隔反復の「ふくしゅう」に入る。
 - XP・連続日数・1日の目標・バッジ・年表（検索つき）。記録はこの端末の localStorage（`rekishi:v1`）のみ。
 - 教材：`docs/history/data/u01.js`〜`u15.js`（形式は `docs/history/data/SCHEMA.md`）。直したら `node tools/check_history.js` で形式チェック。
+
+## 世界史版「せかいしドリル」（`docs/world/`）・地理版「ちりドリル」（`docs/geo/`）
+
+日本史版と同じアプリ本体（`docs/history/app.js`・`style.css`）を使い、科目ごとの名前・ステージ・保存キーは各フォルダの `app-data.js`（`HIST.app`）で決める。
+
+- 世界史：古代オリエント〜現代の16単元 × 入門（中学）・基礎（歴史総合）・共通テスト・難関大。
+- 地理：地図・地形・気候・産業・地誌・日本の16単元 × 小学・中学・高校・受験。並べかえは「北にあるじゅん」「人口が多いじゅん」のように `events` の `k` ごとに出し、年表タブは「データ帳」になる（形式は `docs/geo/data/SCHEMA.md`）。
+- 形式チェック：`node tools/check_history.js --dir docs/world/data`／`--dir docs/geo/data`
