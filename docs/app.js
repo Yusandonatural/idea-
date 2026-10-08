@@ -312,7 +312,7 @@ function buildDrill(opt) {
 let sd = null;
 let sdSetup = { scope: "learned", mode: "mix" };
 function startDrill(opt) { sd = buildDrill(opt); go("#/sdrill/go"); }
-views.sdrill = function (arg) {
+function viewSdrill(arg) {
   if (!SENTS.length) return `<h2 class="page-title">例文ドリル</h2><p class="muted">この言語の例文はまだありません。</p>`;
   if (arg !== "go" || !sd) {
     const learned = wordsLearned().length;
@@ -372,10 +372,10 @@ function sdGrade(ok) {
   route();
 }
 function bindDrill() {
-  if (!sd) return;
   const on = (sel, fn) => { const el = $(sel); if (el) el.onclick = fn; };
   $$("#sdScope [data-v]").forEach(b => b.onclick = () => { sdSetup.scope = b.dataset.v; route(); });
   $$("#sdMode [data-v]").forEach(b => b.onclick = () => { sdSetup.mode = b.dataset.v; route(); });
+  if (!sd) return;
   const q = sd.qs[sd.i];
   if (q && location.hash === "#/sdrill/go") {
     on("#sdPlay", () => speak(q.s.zh)); on("#sdSlow", () => speak(q.s.zh, 0.6));
@@ -441,6 +441,7 @@ ${me ? "\n私についての情報（自己紹介に使ってください）：\
 
 // ---------- 1日の4レッスン ----------
 const views = {};
+views.sdrill = viewSdrill;
 const BLOCKS = [
   { min: 15, key: "review", name: "フレーズの復習", short: "復習", ic: "cards", color: "green", what: "今日の新しい「言いたいこと」と、期限が来たものを声に出す" },
   { min: 20, key: "listen", name: "聞く＋まねる", short: "聞く", ic: "head", color: "blue", what: "音と会話をシャドーイング" },
