@@ -1,7 +1,8 @@
 /* 90日外国語会話プログラム — アプリ本体（ゲーム風UI）
  * データ: data/meanings.js（意味リスト・言語共通）, data/lang/<code>.js（訳・音・差し替え語）, data/days.js（90日表）
  *         data/patterns.js, grammar.js, homophones.js, vocab.js, scenes.js（中国語の参考教材）
- * 学習記録はこの端末の localStorage（記録）と IndexedDB（録音）にだけ保存する。
+ * 学習記録はこの端末の localStorage（記録）と IndexedDB（録音）に保存する。
+ * Google でログインすると、記録（録音以外）を sync/app.js がクラウドと同期する。
  */
 (function () {
 "use strict";
@@ -26,7 +27,19 @@ const store = {
 const blank = () => ({ day: 1, started: null, blocks: {}, finished: {}, srs: {}, me: {}, memos: [], log: {}, xp: 0, xpDay: {}, active: {} });
 let S = Object.assign(blank(), { pinyin: true, theme: null }, store.get());
 Object.keys(S.log || {}).forEach(d => { S.active[d] = 1; }); // 旧版の記録から連続日数を復元
-const save = () => store.set(S);
+// updatedAt：端末どうしの記録を合わせるとき、どちらが新しいかの目印
+const savedHooks = [];
+const save = () => { S.updatedAt = Date.now(); store.set(S); savedHooks.forEach(f => f()); };
+
+// 同期（sync/app.js）とのつなぎ口
+window.LANG90 = {
+  code: LANG.code,
+  get: () => S,
+  /** 別の端末の記録を合わせた結果に置き換えて、画面を描き直す */
+  replace(v) { S = Object.assign(blank(), v); store.set(S); applyPrefs(); if (typeof route === "function" && !document.body.classList.contains("in-lesson")) route(); else renderStats(); },
+  onSaved: f => savedHooks.push(f),
+  mountSync: null,
+};
 
 function today() { const d = new Date(); return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); }
 function addDays(key, n) { const d = new Date(key + "T00:00:00"); d.setDate(d.getDate() + n); return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); }
@@ -354,6 +367,30 @@ function welcome() {
   </section>`;
 }
 
+// ---------- 画面：入口（学ぶ言語を選ぶ） ----------
+views.start = function () {
+  const cards = (window.LANGS || []).map(l => {
+    const s = l.summary(), on = s && (s.started || s.xp);
+    const status = !on ? "まだ始めていません"
+      : `${s.started ? `${s.day}日目 ・ ` : ""}⚡ ${s.xp} XP${s.streak ? ` ・ 🔥 ${s.streak}日連続` : ""}`;
+    const ext = /^https?:/.test(l.url);
+    return `<a class="lang-card c-${l.color}" href="${esc(l.url)}"${ext ? "" : ` data-lang="${l.code}"`}>
+      <span class="lc-flag" aria-hidden="true">${l.flag}</span>
+      <span class="lc-text"><b>${esc(l.name)}</b><span class="lc-native">${esc(l.native)}</span>
+        <span class="lc-status">${status}</span>
+        ${on && s.started ? `<span class="lc-bar"><i style="width:${Math.min(100, s.done / 90 * 100)}%"></i></span><span class="lc-done">クリア ${s.done} / 90</span>` : ""}</span>
+      <span class="btn primary small lc-go">${on ? "つづける" : "はじめる"}</span></a>`;
+  }).join("");
+  return `<section class="start">
+    <div class="st-mascot">${mascot(110, "happy")}</div>
+    <h1 class="st-title">90日で、外国語で<br>話せるようになる</h1>
+    <p class="muted st-sub">1日60分 × 90日。学ぶ言語を選んでください。</p>
+    <div class="lang-list">${cards}</div>
+    <div id="syncCard"></div>
+    <p class="muted st-note">ログインはどの言語でも同じ Google アカウントで1回だけ。言語ごとの記録が iPhone と Web で同期されます。</p>
+  </section>`;
+};
+
 // ---------- 画面：1日（4レッスン） ----------
 views.day = function (arg) {
   if (!S.started) return welcome();
@@ -528,10 +565,12 @@ views.more = function () {
     <label class="set-row"><span>ダークモード</span><select id="setTheme"><option value="">端末に合わせる</option><option value="light" ${S.theme === "light" ? "selected" : ""}>ライト</option><option value="dark" ${S.theme === "dark" ? "selected" : ""}>ダーク</option></select></label>
     <div class="tone-row"><span class="muted">声調の色</span>${toneLegend}</div>
   </div>
+  ${row("#/start", "path", "学ぶ言語を選ぶ（入口へ）")}
   ${row("#/plan", "book", "90日のテーマ表")}
   ${row("#/grammar", "book", "文法の全体地図")}
   ${row("#/about", "star", "このプログラムについて")}
-  <div class="card"><b>記録</b><p class="muted">学習記録と録音は、この端末のブラウザの中にだけ保存されます。</p>
+  <div id="syncCard"></div>
+  <div class="card"><b>記録</b><p class="muted">学習記録と録音は、この端末のブラウザの中に保存されます。Google でログインすると、記録（録音以外）を iPhone と Web で同期できます。</p>
     <div class="row">${EMBED ? "" : '<button class="btn small" id="exportBtn">記録を書き出す</button>'}<label class="btn small">記録を読み込む<input type="file" id="importFile" accept="application/json" hidden></label><button class="btn small" id="resetBtn">記録をリセット</button><button class="btn small red" id="resetYes" hidden>本当に消す（録音は残ります）</button></div></div>`;
 };
 
@@ -712,7 +751,7 @@ views.about = function () {
   <div class="card"><h3 style="margin-top:0">意味リスト</h3><p>日本人が実際に口にしたくなる「言いたいこと」${MEANINGS.length}項目を、会話の役割で7カテゴリに分けています。言語に依存しない共通の土台で、各言語に訳して横展開します。</p>
     <table>${CATS.map(c => `<tr><td>${esc(c.name)}</td><td>${MEANINGS.filter(m => m.cat === c.id).length}</td></tr>`).join("")}</table>
     <p class="muted">差し替え単語 ${Object.values(LANG.slots || {}).reduce((a, b) => a + b.length, 0)}語・自分専用スロット ${MEANINGS.filter(m => m.self).length}項目。${EMBED ? "" : '<a href="data/meanings.csv" download>CSV</a>'}</p></div>
-  <div class="card"><h3 style="margin-top:0">記録について</h3><p class="muted">学習記録と録音は、この端末のブラウザの中にだけ保存されます。サーバーには送りません。</p>
+  <div class="card"><h3 style="margin-top:0">記録について</h3><p class="muted">学習記録と録音は、この端末のブラウザの中に保存されます。「その他」で Google ログインをすると、記録（録音以外）だけをクラウド（Firebase）に保存して、iPhone と Web で同期します。</p>
     <div class="row">${EMBED ? "" : '<button class="small" id="exportBtn">記録を書き出す</button>'}<label class="btn small">記録を読み込む<input type="file" id="importFile" accept="application/json" hidden></label><button class="small" id="resetBtn">記録をリセット</button><button class="small" id="resetYes" hidden>本当に消す（録音は残ります）</button></div></div>`;
 };
 
@@ -735,13 +774,13 @@ const toneLegend = `<div class="tone-legend"><span class="t1">1声 ā</span><spa
 // ---------- ルーティング ----------
 const TAB = { today: "today", day: "today", clear: "today", practice: "practice", quiz: "practice", sounds: "practice", patterns: "practice", drill: "practice", check: "practice", known: "practice", list: "list", me: "me", more: "more", plan: "more", grammar: "more", vocab: "practice", about: "more" };
 function route() {
-  const h = location.hash.replace(/^#\/?/, "") || "today";
+  const h = location.hash.replace(/^#\/?/, "") || "start";
   const [name, arg, arg2] = h.split("/");
   const fn = views[name] || views.today;
   if (name !== "listen" && "speechSynthesis" in window) speechSynthesis.cancel();
   app.innerHTML = fn(arg, arg2);
   paintTones(app);
-  document.body.classList.toggle("in-lesson", !!app.querySelector(".lesson, .celebrate"));
+  document.body.classList.toggle("in-lesson", !!app.querySelector(".lesson, .celebrate, .start"));
   const tab = TAB[name] || "today";
   $$("#nav a").forEach(a => a.classList.toggle("on", a.dataset.tab === tab));
   renderStats();
@@ -754,6 +793,7 @@ const go = h => { if (location.hash === h) route(); else location.hash = h; };
 
 function bind(name, arg) {
   bindRecorders();
+  const syncEl = $("#syncCard"); if (syncEl && window.LANG90.mountSync) window.LANG90.mountSync(syncEl);
   const on = (sel, fn) => { const el = $(sel); if (el) el.onclick = fn; };
   on("#startBtn", () => { S.started = today(); S.day = 1; save(); introduce(1); go("#/today"); });
   $$("[data-goto]").forEach(b => b.onclick = () => { S.day = parseInt(b.dataset.goto, 10); introduce(S.day); deck = null; save(); go("#/today"); });
@@ -817,9 +857,9 @@ function bind(name, arg) {
   const sp = $("#setPy"); if (sp) sp.onchange = () => { S.pinyin = sp.checked; save(); applyPrefs(); };
   const stt = $("#setTheme"); if (stt) stt.onchange = () => { S.theme = stt.value || null; save(); applyPrefs(); };
   on("#exportBtn", () => { const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([JSON.stringify(S, null, 1)], { type: "application/json" })); a.download = `lang90-${LANG.code}-${today()}.json`; a.click(); });
-  const imp = $("#importFile"); if (imp) imp.onchange = async () => { try { const v = JSON.parse(await imp.files[0].text()); S = Object.assign(blank(), v); save(); toast("読み込みました"); route(); } catch (e) { toast("読み込めませんでした"); } };
+  const imp = $("#importFile"); if (imp) imp.onchange = async () => { try { const v = JSON.parse(await imp.files[0].text()); S = Object.assign(blank(), v, { epoch: Date.now() }); save(); toast("読み込みました"); route(); } catch (e) { toast("読み込めませんでした"); } };
   on("#resetBtn", () => { const y = $("#resetYes"); y.hidden = false; $("#resetBtn").textContent = "やめる"; $("#resetBtn").onclick = () => route(); });
-  on("#resetYes", () => { S = Object.assign(blank(), { pinyin: S.pinyin, theme: S.theme }); save(); deck = null; go("#/today"); });
+  on("#resetYes", () => { S = Object.assign(blank(), { pinyin: S.pinyin, theme: S.theme, epoch: Date.now() }); save(); deck = null; go("#/today"); });
 }
 
 if ("scrollRestoration" in history) history.scrollRestoration = "manual";
