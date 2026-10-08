@@ -56,3 +56,12 @@ google-ids.json                     GA4・広告・サイトURL
 - `docs/vendor/firebase/`：Firebase SDK のブラウザ用ファイル（自前で置いているので CDN 不要・オフライン可）。
 - 手元で試す：Firebase エミュレーター（auth :9099・firestore :8085、`--project demo-french`）を起動し、`http://localhost:8000/?emulator#/more` を開く。
 - 詳しくは french-90days の `SYNC_HANDOFF.md`。
+
+## 日本史アプリ「れきしドリル」（`docs/history/`）
+
+小学6年〜大学受験の日本史を、Duolingo のようなクイズで進める別アプリ。公開先は `/history/`。
+
+- 通史（旧石器〜現代の15単元）を **4周** する：小6 → 中学 → 高校（共通テスト）→ 受験（難関大）。学年を選ぶとそのステージから始まり、「飛び級テスト」で先へ進める。
+- 1単元2レッスン（各10問前後）。問題は4択・〇×・年代ならべかえ・組み合わせ。まちがえた問題はレッスンの最後にもう一度出て、そのあと間隔反復の「ふくしゅう」に入る。
+- XP・連続日数・1日の目標・バッジ・年表（検索つき）。記録はこの端末の localStorage（`rekishi:v1`）のみ。
+- 教材：`docs/history/data/u01.js`〜`u15.js`（形式は `docs/history/data/SCHEMA.md`）。直したら `node tools/check_history.js` で形式チェック。
