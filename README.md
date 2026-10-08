@@ -56,3 +56,14 @@ google-ids.json                     GA4・広告・サイトURL
 - `docs/vendor/firebase/`：Firebase SDK のブラウザ用ファイル（自前で置いているので CDN 不要・オフライン可）。
 - 手元で試す：Firebase エミュレーター（auth :9099・firestore :8085、`--project demo-french`）を起動し、`http://localhost:8000/?emulator#/more` を開く。
 - 詳しくは french-90days の `SYNC_HANDOFF.md`。
+
+## 百人一首まなび（`docs/hyakunin/`）
+
+小倉百人一首100首を、20首ずつ5つの巻に分けて覚えるアプリ。公開URLは `https://lang90.yusando.com/hyakunin/`（同じ GitHub Pages に同居、ビルド不要）。
+
+- 5つの巻：一の巻 1〜20番 ／ 二の巻 21〜40 ／ 三の巻 41〜60 ／ 四の巻 61〜80 ／ 五の巻 81〜100
+- 巻ごとに ①暗記カード ②下の句クイズ ③決まり字クイズ（取り札はひらがな縦書き） ④作者クイズ ⑤巻のテスト（20問中16問で修了）
+- ほかに 百首一覧・苦手復習（まちがえた歌が集まる）・記録。歌ごとに現代語訳と読み上げ（端末の音声）つき
+- 歌のデータは `docs/hyakunin/data/poems.js`（1行1首。決まり字は競技かるたの標準、1字7・2字42・3字37・4字6・5字2・6字6）
+- 記録はこの端末の localStorage（`hyakunin:v1`）。ログイン同期はなし
+- 巻のテスト修了時に `app_action_complete`（site: hyakunin, action: section_pass）を送る
