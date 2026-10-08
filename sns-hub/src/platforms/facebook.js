@@ -7,6 +7,7 @@ export default {
   id: 'facebook',
   label: 'Facebookページ',
   color: '#0866ff',
+  aiGuide: 'Facebookページ。背景や想いを少し丁寧に説明し、最後にURLで案内。400〜800字。ハッシュタグは0〜2個。',
   limits: { text: 63206, images: 10, requiresImage: false, imageTypes: ['image/jpeg', 'image/png', 'image/gif'], publicMedia: true },
   fields: [
     { key: 'page_id', label: 'ページID' },

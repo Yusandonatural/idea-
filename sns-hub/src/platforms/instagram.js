@@ -7,6 +7,7 @@ export default {
   id: 'instagram',
   label: 'Instagram',
   color: '#e1306c',
+  aiGuide: 'Instagramのキャプション。1行目で惹きつけ、短い段落と改行で読みやすく。本文にURLは貼っても押せないので「プロフィールのリンクから」と案内する。末尾にハッシュタグ5〜10個（#日本茶 #自然栽培 など）。600字前後。',
   limits: { text: 2200, images: 10, requiresImage: true, imageTypes: ['image/jpeg'], publicMedia: true },
   fields: [
     { key: 'user_id', label: 'Instagram ユーザーID（プロアカウント）' },
