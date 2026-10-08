@@ -698,7 +698,7 @@
     "id": "j19-2",
     "focus": "j19",
     "zh": "你什么时候比较方便？我去找你。",
-    "py": "Nǐ shénme shíhou bǐjiào fāngbiàn? wǒ qù zhǎo nǐ.",
+    "py": "Nǐ shénme shíhou bǐjiào fāngbiàn? Wǒ qù zhǎo nǐ.",
     "ja": "いつが都合いいですか？会いに行きます。",
     "tokens": [
       "你",
@@ -1218,7 +1218,7 @@
     "id": "j33-2",
     "focus": "j33",
     "zh": "种茶的时候，土和水都特别重要。",
-    "py": "Zhǒng chá de shíhou, tǔ hé shuǐ dōu tèbié zhòngyào.",
+    "py": "Zhòng chá de shíhou, tǔ hé shuǐ dōu tèbié zhòngyào.",
     "ja": "お茶を育てるときは、土も水もとても大切です。",
     "tokens": [
       "种",
@@ -1328,7 +1328,7 @@
     "id": "j36-2",
     "focus": "j36",
     "zh": "奈良的鹿非常可爱，但是有时候有点儿凶。",
-    "py": "Nàiliáng de lù fēicháng kě'ài, dànshì yǒushíhòu yǒudiǎnr xiōng.",
+    "py": "Nàiliáng de lù fēicháng kě'ài, dànshì yǒushíhou yǒudiǎnr xiōng.",
     "ja": "奈良の鹿はとてもかわいいけど、たまにちょっと気が荒いです。",
     "tokens": [
       "奈良",
@@ -1479,7 +1479,7 @@
     "id": "j40-2",
     "focus": "j40",
     "zh": "昨天只睡了四个小时，现在特别困。",
-    "py": "Zuótiān zhǐ shuì le sì gè xiǎoshí, xiànzài tèbié kùn.",
+    "py": "Zuótiān zhǐ shuì le sì ge xiǎoshí, xiànzài tèbié kùn.",
     "ja": "昨日は4時間しか寝ていないので、今すごく眠いです。",
     "tokens": [
       "昨天",
@@ -2825,7 +2825,7 @@
     "id": "j76-2",
     "focus": "j76",
     "zh": "一箱茶叶不太重，我一个人拿得动。",
-    "py": "Yì xiāng cháyè bú tài zhòng, wǒ yí gè rén ná de dòng.",
+    "py": "Yì xiāng cháyè bú tài zhòng, wǒ yí ge rén ná de dòng.",
     "ja": "茶葉1箱はそれほど重くないので、ひとりで持てます。",
     "tokens": [
       "一",
@@ -3187,7 +3187,7 @@
     "id": "j86-1",
     "focus": "j86",
     "zh": "周末过得挺轻松的。",
-    "py": "Zhōumò guo de tǐng qīngsōng de.",
+    "py": "Zhōumò guò de tǐng qīngsōng de.",
     "ja": "週末はのんびり過ごしました。",
     "tokens": [
       "周末",
@@ -3224,7 +3224,7 @@
     "id": "j87-1",
     "focus": "j87",
     "zh": "一个人在家有点儿无聊。",
-    "py": "Yí gè rén zài jiā yǒudiǎnr wúliáo.",
+    "py": "Yí ge rén zài jiā yǒudiǎnr wúliáo.",
     "ja": "ひとりで家にいるのはちょっと退屈です。",
     "tokens": [
       "一",
@@ -3263,7 +3263,7 @@
     "id": "j88-1",
     "focus": "j88",
     "zh": "一个人吃饭太没意思了。",
-    "py": "Yí gè rén chīfàn tài méi yìsi le.",
+    "py": "Yí ge rén chīfàn tài méi yìsi le.",
     "ja": "ひとりでご飯を食べるのはつまらなすぎる。",
     "tokens": [
       "一",
@@ -4635,7 +4635,7 @@
     "id": "j123-2",
     "focus": "j123",
     "zh": "这里的交通特别乱，过马路要小心。",
-    "py": "Zhèlǐ de jiāotōng tèbié luàn, guo mǎlù yào xiǎoxīn.",
+    "py": "Zhèlǐ de jiāotōng tèbié luàn, guò mǎlù yào xiǎoxīn.",
     "ja": "ここは交通がとても乱れているので、道を渡るときは気をつけて。",
     "tokens": [
       "这里",
@@ -5059,7 +5059,7 @@
     "id": "j134-2",
     "focus": "j134",
     "zh": "在网上买机票有时候更划算。",
-    "py": "Zài wǎngshàng mǎi jīpiào yǒushíhòu gèng huásuàn.",
+    "py": "Zài wǎngshàng mǎi jīpiào yǒushíhou gèng huásuàn.",
     "ja": "航空券はネットで買うほうがお得なこともあります。",
     "tokens": [
       "在",
@@ -5588,7 +5588,7 @@
     "id": "j148-1",
     "focus": "j148",
     "zh": "这种舞特别好学。",
-    "py": "Zhè zhǒng wǔ tèbié hàoxué.",
+    "py": "Zhè zhǒng wǔ tèbié hǎoxué.",
     "ja": "このダンスはすごく覚えやすいです。",
     "tokens": [
       "这",
@@ -5604,7 +5604,7 @@
     "id": "j148-2",
     "focus": "j148",
     "zh": "用这本书学中文，真的很好学。",
-    "py": "Yòng zhè běn shū xué Zhōngwén, zhēnde hěn hàoxué.",
+    "py": "Yòng zhè běn shū xué Zhōngwén, zhēnde hěn hǎoxué.",
     "ja": "この本で中国語を勉強すると、本当に覚えやすいです。",
     "tokens": [
       "用",

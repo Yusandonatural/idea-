@@ -462,7 +462,7 @@
     "group": "色・見た目",
     "ex": [
       "这只小狗太可爱了！",
-      "Zhè zhǐ xiǎogǒu tài kě'ài le!",
+      "Zhè zhī xiǎogǒu tài kě'ài le!",
       "この子犬、かわいすぎる！"
     ],
     "note": ""
@@ -553,7 +553,7 @@
     "group": "その他",
     "ex": [
       "这两个的价钱都一样。",
-      "Zhè liǎng gè de jiàqián dōu yíyàng.",
+      "Zhè liǎng ge de jiàqián dōu yíyàng.",
       "この2つは値段が同じです。"
     ],
     "note": "「A跟B一样」の形でよく使う"
@@ -904,7 +904,7 @@
     "group": "その他",
     "ex": [
       "晚上一个人出去很危险。",
-      "Wǎnshang yí gè rén chūqu hěn wēixiǎn.",
+      "Wǎnshang yí ge rén chūqu hěn wēixiǎn.",
       "夜にひとりで出かけるのは危ないです。"
     ],
     "note": ""
@@ -1736,7 +1736,7 @@
     "group": "値段・量",
     "ex": [
       "买两个比较划算。",
-      "Mǎi liǎng gè bǐjiào huásuàn.",
+      "Mǎi liǎng ge bǐjiào huásuàn.",
       "2つ買うほうがお得です。"
     ],
     "note": ""
@@ -1892,7 +1892,7 @@
     "group": "その他",
     "ex": [
       "每个地方的茶都不同。",
-      "Měi gè dìfang de chá dōu bùtóng.",
+      "Měi ge dìfang de chá dōu bùtóng.",
       "地域ごとにお茶の味は違います。"
     ],
     "note": "話し言葉では「不一样」も多い"
@@ -1913,12 +1913,12 @@
   {
     "rank": 148,
     "zh": "好学",
-    "py": "hàoxué",
+    "py": "hǎoxué",
     "ja": "学びやすい",
     "group": "難易・便利",
     "ex": [
       "中文的语法挺好学的。",
-      "Zhōngwén de yǔfǎ tǐng hàoxué de.",
+      "Zhōngwén de yǔfǎ tǐng hǎoxué de.",
       "中国語の文法はけっこう学びやすいです。"
     ],
     "note": ""

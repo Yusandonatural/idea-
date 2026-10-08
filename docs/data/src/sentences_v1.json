@@ -146,7 +146,7 @@
   "id": "v5-1",
   "focus": "v5",
   "zh": "我只会说一点儿中文。",
-  "py": "Wǒ zhī huì shuō yìdiǎnr Zhōngwén.",
+  "py": "Wǒ zhǐ huì shuō yìdiǎnr Zhōngwén.",
   "ja": "中国語は少ししか話せません。",
   "tokens": [
    "我",
@@ -237,7 +237,7 @@
   "id": "v7-2",
   "focus": "v7",
   "zh": "天气太热了，我只想喝冰的。",
-  "py": "Tiānqì tài rè le, wǒ zhī xiǎng hē bīng de.",
+  "py": "Tiānqì tài rè le, wǒ zhǐ xiǎng hē bīng de.",
   "ja": "暑すぎて、冷たいものしか飲みたくないです。",
   "tokens": [
    "天气",
@@ -350,7 +350,7 @@
   "id": "v10-2",
   "focus": "v10",
   "zh": "这部电影非常有意思，你一定要去看。",
-  "py": "Zhè bù diànyǐng fēicháng yǒu yìsi, nǐ yídìng yào qù kàn.",
+  "py": "Zhè bù diànyǐng fēicháng yǒuyìsi, nǐ yídìng yào qù kàn.",
   "ja": "この映画はとても面白いので、ぜひ見に行ってください。",
   "tokens": [
    "这",
@@ -724,7 +724,7 @@
   "id": "v20-2",
   "focus": "v20",
   "zh": "这杯奶茶太甜了，我只喝了一半。",
-  "py": "Zhè bēi nǎichá tài tián le, wǒ zhī hē le yíbàn.",
+  "py": "Zhè bēi nǎichá tài tián le, wǒ zhǐ hē le yíbàn.",
   "ja": "このミルクティーは甘すぎて、半分しか飲めませんでした。",
   "tokens": [
    "这",
@@ -802,7 +802,7 @@
   "id": "v22-2",
   "focus": "v22",
   "zh": "我回日本的时候，一定给你带好吃的点心。",
-  "py": "Wǒ huí Rìběn de shíhou, yídìng gěi nǐ dài hǎochī de diǎnxīn.",
+  "py": "Wǒ huí Rìběn de shíhou, yídìng gěi nǐ dài hǎochī de diǎnxin.",
   "ja": "日本に帰るときは、必ずおいしいお菓子を持ってきますね。",
   "tokens": [
    "我",
@@ -1271,11 +1271,10 @@
  {
   "id": "v34-2",
   "focus": "v34",
-  "zh": "我刚来的时候什么都不懂，大家都特别照顾我。",
-  "py": "Wǒ gāng lái de shíhou shénme dōu bù dǒng, dàjiā dōu tèbié zhàogu wǒ.",
+  "zh": "刚来的时候什么都不懂，大家都特别照顾我。",
+  "py": "Gāng lái de shíhou shénme dōu bù dǒng, dàjiā dōu tèbié zhàogù wǒ.",
   "ja": "来たばかりの頃は何もわからなくて、みんなにすごくお世話になりました。",
   "tokens": [
-   "我",
    "刚",
    "来",
    "的",
@@ -1292,7 +1291,7 @@
    "我",
    "。"
   ],
-  "level": 99
+  "level": 3
  },
  {
   "id": "v35-1",
@@ -1742,7 +1741,7 @@
   "id": "v46-2",
   "focus": "v46",
   "zh": "你看起来特别累，昨天晚上干什么了？",
-  "py": "Nǐ kàn qilai tèbié lèi, zuótiān wǎnshang gàn shénme le?",
+  "py": "Nǐ kànqǐlai tèbié lèi, zuótiān wǎnshang gàn shénme le?",
   "ja": "すごく疲れてるみたいだけど、昨日の夜何してたの？",
   "tokens": [
    "你",
@@ -2497,7 +2496,7 @@
   "id": "v66-1",
   "focus": "v66",
   "zh": "我只带了一点儿现金。",
-  "py": "Wǒ zhī dài le yìdiǎnr xiànjīn.",
+  "py": "Wǒ zhǐ dài le yìdiǎnr xiànjīn.",
   "ja": "現金は少ししか持ってきていません。",
   "tokens": [
    "我",
@@ -2759,7 +2758,7 @@
   "id": "v72-2",
   "focus": "v72",
   "zh": "这么多工作，今天肯定做不完。",
-  "py": "Zhème duō gōngzuò, jīntiān kěndìng zuò bù wán.",
+  "py": "Zhème duō gōngzuò, jīntiān kěndìng zuò bu wán.",
   "ja": "こんなに仕事が多いと、今日中には絶対終わりません。",
   "tokens": [
    "这么",
@@ -2793,7 +2792,7 @@
   "id": "v73-2",
   "focus": "v73",
   "zh": "谢谢你们这几天的照顾，我玩得特别开心。",
-  "py": "Xièxie nǐmen zhè jǐ tiān de zhàogu, wǒ wán de tèbié kāixīn.",
+  "py": "Xièxie nǐmen zhè jǐ tiān de zhàogù, wǒ wán de tèbié kāixīn.",
   "ja": "この数日お世話になりました。すごく楽しかったです。",
   "tokens": [
    "谢谢",
@@ -2910,7 +2909,7 @@
   "id": "v76-2",
   "focus": "v76",
   "zh": "那位老师姓什么？我一直想不起来。",
-  "py": "Nà wèi lǎoshī xìng shénme? Wǒ yìzhí xiǎng bù qǐlai.",
+  "py": "Nà wèi lǎoshī xìng shénme? Wǒ yìzhí xiǎng bu qǐlai.",
   "ja": "あの先生の名字は何でしたっけ？ずっと思い出せなくて。",
   "tokens": [
    "那",
@@ -3302,7 +3301,7 @@
   "id": "v86-2",
   "focus": "v86",
   "zh": "这几天太忙了，周末我只想在家休息。",
-  "py": "Zhè jǐ tiān tài máng le, zhōumò wǒ zhī xiǎng zài jiā xiūxi.",
+  "py": "Zhè jǐ tiān tài máng le, zhōumò wǒ zhǐ xiǎng zài jiā xiūxi.",
   "ja": "ここ数日忙しすぎたので、週末は家で休みたいだけです。",
   "tokens": [
    "这",
@@ -3342,7 +3341,7 @@
   "id": "v87-2",
   "focus": "v87",
   "zh": "昨天走了一天，今天腿还疼得厉害。",
-  "py": "Zuótiān zǒu le yì tiān, jīntiān tuǐ hái téng de lìhài.",
+  "py": "Zuótiān zǒu le yì tiān, jīntiān tuǐ hái téng de lìhai.",
   "ja": "昨日一日中歩いたので、今日もまだ脚がすごく痛いです。",
   "tokens": [
    "昨天",
@@ -3418,8 +3417,8 @@
  {
   "id": "v89-2",
   "focus": "v89",
-  "zh": "听说那家火锅店特别好吃，我们周末去试试吧。",
-  "py": "Tīngshuō nà jiā huǒguō diàn tèbié hǎochī, wǒmen zhōumò qù shìshi ba.",
+  "zh": "听说那家火锅店特别好吃，周末去试试吧。",
+  "py": "Tīngshuō nà jiā huǒguō diàn tèbié hǎochī, zhōumò qù shìshi ba.",
   "ja": "あの火鍋の店がすごくおいしいらしいから、週末に行ってみよう。",
   "tokens": [
    "听说",
@@ -3430,14 +3429,13 @@
    "特别",
    "好吃",
    "，",
-   "我们",
    "周末",
    "去",
    "试试",
    "吧",
    "。"
   ],
-  "level": 99
+  "level": 3
  },
  {
   "id": "v90-1",
@@ -3458,7 +3456,7 @@
   "id": "v90-2",
   "focus": "v90",
   "zh": "跟你聊天真有意思，时间过得特别快。",
-  "py": "Gēn nǐ liáotiān zhēn yǒu yìsi, shíjiān guò de tèbié kuài.",
+  "py": "Gēn nǐ liáotiān zhēn yǒuyìsi, shíjiān guò de tèbié kuài.",
   "ja": "あなたと話すのは本当に楽しくて、時間があっという間に過ぎますね。",
   "tokens": [
    "跟",
@@ -4218,7 +4216,7 @@
   "id": "v110-2",
   "focus": "v110",
   "zh": "他说得太快了，我只听懂了一半。",
-  "py": "Tā shuō de tài kuài le, wǒ zhī tīngdǒng le yíbàn.",
+  "py": "Tā shuō de tài kuài le, wǒ zhǐ tīngdǒng le yíbàn.",
   "ja": "彼は話すのが速すぎて、半分しか聞き取れませんでした。",
   "tokens": [
    "他",
@@ -4375,7 +4373,7 @@
   "id": "v114-2",
   "focus": "v114",
   "zh": "我一直联系不上他，真着急。",
-  "py": "Wǒ yìzhí liánxì bú shàng tā, zhēn zháojí.",
+  "py": "Wǒ yìzhí liánxì bu shàng tā, zhēn zháojí.",
   "ja": "ずっと彼と連絡がつかなくて、本当に焦っています。",
   "tokens": [
    "我",
@@ -4412,7 +4410,7 @@
   "id": "v115-2",
   "focus": "v115",
   "zh": "这两件都挺好看的，我实在决定不了。",
-  "py": "Zhè liǎng jiàn dōu tǐng hǎokàn de, wǒ shízài juédìng bù liǎo.",
+  "py": "Zhè liǎng jiàn dōu tǐng hǎokàn de, wǒ shízài juédìng bu liǎo.",
   "ja": "どっちもすごく素敵で、なかなか決められません。",
   "tokens": [
    "这",
@@ -4566,7 +4564,7 @@
   "id": "v119-2",
   "focus": "v119",
   "zh": "那个节目特别有意思，我一直笑个不停。",
-  "py": "Nà ge jiémù tèbié yǒu yìsi, wǒ yìzhí xiào ge bù tíng.",
+  "py": "Nà ge jiémù tèbié yǒuyìsi, wǒ yìzhí xiào ge bù tíng.",
   "ja": "あの番組がすごく面白くて、ずっと笑いが止まりませんでした。",
   "tokens": [
    "那",
@@ -4728,13 +4726,12 @@
  {
   "id": "v123-2",
   "focus": "v123",
-  "zh": "我发现了一家特别安静的咖啡店，离公司很近。",
-  "py": "Wǒ fāxiàn le yì jiā tèbié ānjìng de kāfēidiàn, lí gōngsī hěn jìn.",
+  "zh": "我发现一家特别安静的咖啡店，离公司很近。",
+  "py": "Wǒ fāxiàn yì jiā tèbié ānjìng de kāfēidiàn, lí gōngsī hěn jìn.",
   "ja": "すごく静かなカフェを見つけました。会社からも近いんです。",
   "tokens": [
    "我",
    "发现",
-   "了",
    "一",
    "家",
    "特别",
@@ -4748,7 +4745,7 @@
    "近",
    "。"
   ],
-  "level": 99
+  "level": 3
  },
  {
   "id": "v124-1",
@@ -4814,11 +4811,10 @@
  {
   "id": "v125-2",
   "focus": "v125",
-  "zh": "我们公司的中文老师教得特别好，也很有耐心。",
-  "py": "Wǒmen gōngsī de Zhōngwén lǎoshī jiào de tèbié hǎo, yě hěn yǒu nàixīn.",
-  "ja": "うちの会社の中国語の先生は教え方がすごく上手で、とても辛抱強いです。",
+  "zh": "公司的中文老师教得特别好，也很有耐心。",
+  "py": "Gōngsī de Zhōngwén lǎoshī jiào de tèbié hǎo, yě hěn yǒu nàixīn.",
+  "ja": "会社の中国語の先生は教え方がすごく上手で、とても辛抱強いです。",
   "tokens": [
-   "我们",
    "公司",
    "的",
    "中文",
@@ -4834,7 +4830,7 @@
    "耐心",
    "。"
   ],
-  "level": 99
+  "level": 3
  },
  {
   "id": "v126-1",
@@ -4859,7 +4855,7 @@
   "id": "v126-2",
   "focus": "v126",
   "zh": "这本书特别有意思，我一个晚上就读完了。",
-  "py": "Zhè běn shū tèbié yǒu yìsi, wǒ yí ge wǎnshang jiù dú wán le.",
+  "py": "Zhè běn shū tèbié yǒuyìsi, wǒ yí ge wǎnshang jiù dú wán le.",
   "ja": "この本はすごく面白くて、一晩で読み終えてしまいました。",
   "tokens": [
    "这",
@@ -4939,14 +4935,13 @@
  {
   "id": "v128-2",
   "focus": "v128",
-  "zh": "导游讲的历史故事特别有意思，大家都很喜欢。",
-  "py": "Dǎoyóu jiǎng de lìshǐ gùshì tèbié yǒu yìsi, dàjiā dōu hěn xǐhuan.",
-  "ja": "ガイドさんが話してくれた歴史の話がすごく面白くて、みんな気に入っていました。",
+  "zh": "导游讲的故事特别有意思，大家都很喜欢。",
+  "py": "Dǎoyóu jiǎng de gùshi tèbié yǒuyìsi, dàjiā dōu hěn xǐhuan.",
+  "ja": "ガイドさんの話がすごく面白くて、みんな気に入っていました。",
   "tokens": [
    "导游",
    "讲",
    "的",
-   "历史",
    "故事",
    "特别",
    "有意思",
@@ -4957,7 +4952,7 @@
    "喜欢",
    "。"
   ],
-  "level": 99
+  "level": 3
  },
  {
   "id": "v129-1",
@@ -5250,7 +5245,7 @@
   "id": "v136-2",
   "focus": "v136",
   "zh": "今年生日我只想跟家人一起过。",
-  "py": "Jīnnián shēngrì wǒ zhī xiǎng gēn jiārén yìqǐ guò.",
+  "py": "Jīnnián shēngrì wǒ zhǐ xiǎng gēn jiārén yìqǐ guò.",
   "ja": "今年の誕生日は、家族とだけ過ごしたいです。",
   "tokens": [
    "今年",
