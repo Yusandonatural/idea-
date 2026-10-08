@@ -201,7 +201,7 @@ function renderTargets() {
     const skip = t.on ? skipped(a.platform) : '';
     const titleLabel = a.platform === 'newsletter' ? '件名' : 'タイトル';
     return `
-      <div class="target ${t.on ? '' : 'off'}" data-id="${a.id}">
+      <div class="target ${t.on ? '' : 'off'}" data-id="${a.id}" style="--pc:${p.color}">
         <div class="target-head">
           <input type="checkbox" data-on ${t.on ? 'checked' : ''} id="t${a.id}">
           ${dot(a.platform)}
