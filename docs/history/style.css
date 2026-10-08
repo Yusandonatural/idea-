@@ -164,6 +164,7 @@ button:disabled { cursor: default; }
 .qlabel { font-weight: 700; font-size: 12px; }
 .qkind { color: var(--shu); font-weight: 800; margin: 4px 0 0; font-size: 14px; }
 .qtext { font-size: 21px; margin: 8px 0 20px; }
+.qtext.long { font-size: 16px; line-height: 1.75; font-weight: 700; white-space: pre-line; }
 .opts { display: grid; gap: 12px; }
 .tfshown { font-size: 18px; background: var(--card); border: 2px dashed var(--line); border-radius: var(--r); padding: 14px 16px; margin-bottom: 18px; }
 .tfshown b { color: var(--ai); font-size: 21px; }
@@ -268,7 +269,7 @@ button:disabled { cursor: default; }
 .srow { display: grid; grid-template-columns: 7em 1fr 3.5em; align-items: center; gap: 8px; font-size: 14px; font-weight: 700; margin: 6px 0; }
 .srow .sbar { background: var(--line); }
 .srow .sbar i { background: var(--c); }
-.badges { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; text-align: center; }
+.badges { display: grid; grid-template-columns: repeat(auto-fill, minmax(72px, 1fr)); gap: 8px; text-align: center; }
 .badges div { opacity: .35; filter: grayscale(1); }
 .badges div.got { opacity: 1; filter: none; }
 .badges span { font-size: 30px; display: block; }

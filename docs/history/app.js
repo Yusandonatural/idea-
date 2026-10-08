@@ -1,4 +1,4 @@
-/* れきしドリル（日本史）／せかいしドリル（世界史）共通：通史を4周するクイズアプリ。
+/* れきしドリル（日本史）／せかいしドリル（世界史）共通：通史を何周もする（ステージ数は app-data.js）クイズアプリ。
  * 科目ごとの名前・文言・保存キーは app-data.js の HIST.app で決める。
  * 画面：#/welcome（はじめて）・#/（道）・#/node/s/uid（単元のまとめ）・#/play（レッスン）・#/review・#/timeline・#/me
  * 記録はこの端末の localStorage（HIST.app.key）だけに保存する。 */
@@ -85,7 +85,7 @@
   }
   /* いま進めるべき単元 */
   function currentNode() {
-    for (var lv = 1; lv <= 4; lv++) {
+    for (var lv = 1; lv <= STAGES.length; lv++) {
       if (!stageOpen(lv)) continue;
       for (var i = 0; i < UNITS.length; i++) if (!nodeComplete(lv, UNITS[i].id) && nodeOpen(lv, i)) return { lv: lv, uid: UNITS[i].id };
       if (!S.passed[lv]) return { lv: lv, check: true };
@@ -391,7 +391,7 @@
   }
 
   function renderChoice(q) {
-    $app.innerHTML = playShell('<h2 class="qtext">' + esc(q.q) + '</h2><div class="opts">' +
+    $app.innerHTML = playShell('<h2 class="qtext' + (q.q.length > 60 ? " long" : "") + '">' + esc(q.q) + '</h2><div class="opts">' +
       q.opts.map(function (o, i) { return '<button class="opt ans" data-i="' + i + '"><kbd>' + (i + 1) + '</kbd><span>' + esc(o) + '</span></button>'; }).join("") + '</div>');
     var bs = $app.querySelectorAll(".ans");
     [].forEach.call(bs, function (b) {
@@ -405,7 +405,7 @@
     });
   }
   function renderTF(q) {
-    $app.innerHTML = playShell('<p class="qkind">〇か×か？</p><h2 class="qtext">' + esc(q.q) + '</h2>' +
+    $app.innerHTML = playShell('<p class="qkind">〇か×か？</p><h2 class="qtext' + (q.q.length > 60 ? " long" : "") + '">' + esc(q.q) + '</h2>' +
       '<div class="tfshown">答え：<b>' + esc(q.shown) + '</b></div>' +
       '<div class="tfrow"><button class="opt tf maru" data-v="1"><span>〇</span></button><button class="opt tf batsu" data-v="0"><span>×</span></button></div>');
     var bs = $app.querySelectorAll(".tf");
@@ -529,7 +529,7 @@
         S.passed[P.lv] = true;
         if (P.jump) UNITS.forEach(function (u) { S.nodes[nodeKey(P.lv, u.id)] = Math.max(nodeDone(P.lv, u.id), LESSONS); });
         title = P.jump ? "飛び級成功！" : "まとめテスト合格！";
-        note = P.lv < 4 ? "ステージ" + (P.lv + 1) + "「" + stageOf(P.lv + 1).name + "」がひらきました" : APP.finale;
+        note = P.lv < STAGES.length ? "ステージ" + (P.lv + 1) + "「" + stageOf(P.lv + 1).name + "」がひらきました" : APP.finale;
       } else {
         mood = "sad"; title = "あと少し！";
         note = "合格は" + Math.round(PASS * 100) + "%から。" + (P.jump ? "ステージ" + P.lv + "の単元で力をつけてから、もう一度。" : "苦手を復習してからもう一度。");
@@ -595,7 +595,7 @@
   var tlLv = 0, tlQ = "";
   function viewTimeline() {
     chrome(true); setTab("timeline"); renderTop();
-    if (!tlLv) tlLv = Math.max(1, Math.min(4, S.start));
+    if (!tlLv) tlLv = Math.max(1, Math.min(STAGES.length, S.start));
     $app.innerHTML = '<div class="wrap"><h1 class="ptitle">' + tlIcon() + ' ' + esc(tlName()) + '</h1>' +
       '<div class="seg">' + STAGES.map(function (s) { return '<button data-lv="' + s.lv + '" class="' + (s.lv === tlLv ? "on" : "") + '" style="--c:' + s.color + '">' + esc(s.name) + '</button>'; }).join("") + '</div>' +
       '<input class="search" id="q" type="search" placeholder="' + esc(APP.searchHint || "できごと・人物でさがす") + '" value="' + esc(tlQ) + '">' +
@@ -630,9 +630,8 @@
     var acc = S.ans ? Math.round(S.ok / S.ans * 100) : 0;
     var badges = [
       [S.lessons >= 1, "🎉", "はじめの一歩"], [streak() >= 3 || S.best >= 3, "🔥", "3日連続"], [S.best >= 7 || streak() >= 7, "📅", "1週間連続"],
-      [S.xp >= 500, "⭐", "500 XP"], [!!S.passed[1], "🌱", "小6ステージ合格"], [!!S.passed[2], "📘", "中学ステージ合格"],
-      [!!S.passed[3], "🎓", "高校ステージ合格"], [!!S.passed[4], "🏯", "受験ステージ合格"],
-    ];
+      [S.xp >= 500, "⭐", "500 XP"], [S.xp >= 3000, "🌟", "3000 XP"],
+    ].concat(STAGES.map(function (s) { return [!!S.passed[s.lv], s.icon, s.name + "ステージ合格"]; }));
     $app.innerHTML = '<div class="wrap"><h1 class="ptitle">🏅 きろく</h1>' +
       '<div class="statgrid"><div class="card"><small>連続日数</small><b>🔥 ' + streak() + '日</b></div><div class="card"><small>合計</small><b>⭐ ' + S.xp + ' XP</b></div>' +
       '<div class="card"><small>レッスン</small><b>' + S.lessons + '回</b></div><div class="card"><small>正答率</small><b>' + acc + '%</b></div></div>' +

@@ -9,7 +9,8 @@ const di = args.indexOf("--dir");
 const dir = di >= 0 ? path.resolve(args.splice(di, 2)[1]) : path.join(__dirname, "..", "docs", "history", "data");
 const only = args;
 const files = fs.readdirSync(dir).filter(f => /^u\d\d\.js$/.test(f) && (!only.length || only.includes(f.slice(0, 3)))).sort();
-const MIN = { facts: { 1: 12, 2: 12, 3: 15, 4: 12 }, events: 6, pairs: 6 };
+const LVS = [1, 2, 3, 4, 5];
+const MIN = { facts: { 1: 12, 2: 12, 3: 15, 4: 12, 5: 20 }, events: 6, pairs: 6 };
 let errors = 0, warns = 0;
 const err = (f, m) => { errors++; console.log(`✗ ${f}: ${m}`); };
 const warn = (f, m) => { warns++; console.log(`△ ${f}: ${m}`); };
@@ -23,11 +24,11 @@ for (const f of files) {
   const u = units[0];
   if (u.id !== f.slice(0, 3)) err(f, `id が ${u.id}`);
   for (const k of ["title", "period", "emoji"]) if (!u[k]) err(f, `${k} がない`);
-  for (const lv of [1, 2, 3, 4]) if (!u.intro || !u.intro[lv]) err(f, `intro[${lv}] がない`);
+  for (const lv of LVS) if (!u.intro || !u.intro[lv]) err(f, `intro[${lv}] がない`);
   const qs = new Set();
   (u.facts || []).forEach((x, i) => {
     const w = `facts[${i}] ${x.q || ""}`;
-    if (![1, 2, 3, 4].includes(x.lv)) err(f, `${w}: lv`);
+    if (!LVS.includes(x.lv)) err(f, `${w}: lv`);
     if (!x.q || !x.a || !x.e) err(f, `${w}: q/a/e がない`);
     if (!Array.isArray(x.d) || x.d.length < 3) err(f, `${w}: d が3つ未満`);
     else {
@@ -39,7 +40,7 @@ for (const f of files) {
     if (qs.has(x.q)) err(f, `${w}: 同じ問いが2回`);
     qs.add(x.q);
   });
-  for (const lv of [1, 2, 3, 4]) {
+  for (const lv of LVS) {
     const n = (u.facts || []).filter(x => x.lv === lv).length;
     if (n < MIN.facts[lv]) err(f, `lv${lv} の facts が ${n}（${MIN.facts[lv]}以上）`);
     const ev = (u.events || []).filter(x => x.lv === lv);
@@ -57,7 +58,7 @@ for (const f of files) {
     if (new Set(ls).size !== ls.length || new Set(rs).size !== rs.length) err(f, `lv${lv} の pairs に重複`);
   }
   const c = lv => (u.facts || []).filter(x => x.lv === lv).length;
-  console.log(`  ${f} ${u.title}: facts ${c(1)}/${c(2)}/${c(3)}/${c(4)}  events ${(u.events || []).length}  pairs ${(u.pairs || []).length}`);
+  console.log(`  ${f} ${u.title}: facts ${c(1)}/${c(2)}/${c(3)}/${c(4)}/${c(5)}  events ${(u.events || []).length}  pairs ${(u.pairs || []).length}`);
 }
 console.log(`\n${files.length} 単元  エラー ${errors}  注意 ${warns}`);
 process.exit(errors ? 1 : 0);
