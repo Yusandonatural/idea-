@@ -246,8 +246,150 @@ function wordRow(id) {
   const c = S.srs["w:" + id], lv = !c ? "" : c.box >= 2 ? '<span class="tag ok">覚えた</span>' : '<span class="tag">学習中</span>';
   return `<div class="ex word" data-target="${esc(w.ex[0])}"><div class="wd-head"><span class="wd-rank">${w.pos} #${w.rank}</span>${lv}<span class="tag grey">${esc(w.group || "")}</span><span class="muted">${w.day}日目</span></div>
     <div class="wd-main"><span class="zh">${esc(w.zh)}</span> ${spk(w.zh)}<span class="py">${esc(w.py)}</span><span class="wd-ja">${esc(w.ja)}</span></div>
-    <div class="wd-ex"><span class="zh">${esc(w.ex[0])}</span> ${spk(w.ex[0])}<div class="py">${esc(w.ex[1])}</div><div class="ja">${esc(w.ex[2])}</div></div>
-    ${w.note ? `<div class="muted">${esc(w.note)}</div>` : ""}</div>`;
+    ${(typeof SBYW !== "undefined" && SBYW[id] ? SBYW[id].slice(0, 3).map(sentRow).join("") : `<div class="wd-ex"><span class="zh">${esc(w.ex[0])}</span> ${spk(w.ex[0])}<div class="py">${esc(w.ex[1])}</div><div class="ja">${esc(w.ex[2])}</div></div>`)}
+    ${w.note ? `<div class="muted">${esc(w.note)}</div>` : ""}
+    ${typeof SBYW !== "undefined" && SBYW[id] ? `<button class="btn small" data-wdrill="${id}" style="align-self:flex-start;margin-top:4px">${icon("dumbbell")}この語の例文ドリル</button>` : ""}</div>`;
+}
+
+// ---------- 例文バンクと例文ドリル ----------
+// 文の形：[id, 対象語ID, 中国語, ピンイン, 日本語, 語の区切り, レベル, 使っている単語ID]
+const SENTS = (LANG.sentences || []).map(x => ({ id: x[0], focus: x[1], zh: x[2], py: x[3], ja: x[4], tokens: x[5], level: x[6], uses: x[7] || [] }));
+const SBYW = {};
+SENTS.forEach(s => { (SBYW[s.focus] = SBYW[s.focus] || []).push(s); });
+const PUNCT = /^[，。！？、,.!?…：:；;“”"'（）()]+$/;
+const shuffle = a => { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+const MODES = { mix: "ミックス", order: "並べ替え", blank: "穴埋め", listen: "聞いて並べる", say: "言ってみる" };
+function sentRow(s) {
+  return `<div class="wd-ex" data-target="${esc(s.zh)}"><span class="zh">${esc(s.zh)}</span> ${spk(s.zh)}<div class="py">${esc(s.py)}</div><div class="ja">${esc(s.ja)}</div></div>`;
+}
+function makeQ(s, mode) {
+  if (mode === "mix") {
+    const pool = ["order", "order", "blank", "blank", "listen", "say"];
+    mode = pool[Math.floor(Math.random() * pool.length)];
+  }
+  const body = s.tokens.filter(t => !PUNCT.test(t));
+  if ((mode === "order" || mode === "listen") && body.length < 3) mode = "blank";
+  if (mode === "blank") {
+    // 穴にする語：対象語が副詞・形容詞ならそれ、なければ文中の副詞・形容詞、最後は対象語
+    const pick = [s.focus, ...s.uses].map(id => W[id]).filter(Boolean);
+    const target = pick.find((w, i) => i === 0 && w.pos !== "動詞") || pick.slice(1).find(w => w.pos !== "動詞" && s.tokens.includes(w.zh)) || W[s.focus];
+    if (!target || !s.tokens.includes(target.zh)) mode = "say";
+    else {
+      const same = WORDS.filter(w => w.pos === target.pos && w.zh !== target.zh && !s.tokens.includes(w.zh));
+      const near = same.filter(w => w.group === target.group);
+      const opts = shuffle([target.zh, ...shuffle(near.length >= 3 ? near : same).slice(0, 3).map(w => w.zh)]);
+      return { s, mode, target: target.zh, targetWord: target, opts, picked: null };
+    }
+  }
+  if (mode === "order" || mode === "listen") {
+    let chips = shuffle(body.map((t, i) => ({ t, i })));
+    if (chips.map(c => c.t).join("") === body.join("")) chips = chips.reverse();
+    return { s, mode, answer: body.join(""), chips, sel: [] };
+  }
+  return { s, mode: "say", shown: false };
+}
+function wordsLearned() { return WORDS.filter(w => S.srs["w:" + w.id]).map(w => w.id); }
+function buildDrill(opt) {
+  // opt: {scope: today|learned|動詞|副詞|形容詞|w:<id>, mode, n, exit, onDone}
+  let ids;
+  const d = DAYS[S.day - 1] || {};
+  if (opt.scope === "today") ids = (d.words || []).slice();
+  else if (opt.scope && opt.scope.startsWith("w:")) ids = [opt.scope.slice(2)];
+  else {
+    ids = wordsLearned();
+    if (["動詞", "副詞", "形容詞"].includes(opt.scope)) ids = ids.filter(id => W[id].pos === opt.scope);
+  }
+  if (ids.length < 3 && !(opt.scope || "").startsWith("w:")) { // 始めたばかりで少ないときは、頻度の高い語から補う
+    const extra = WORDS.filter(w => !ids.includes(w.id) && (!["動詞", "副詞", "形容詞"].includes(opt.scope) || w.pos === opt.scope)).slice(0, 6).map(w => w.id);
+    ids = ids.concat(extra);
+  }
+  let pool = ids.flatMap(id => SBYW[id] || []);
+  const miss = S.sentMiss || {};
+  pool = shuffle(pool).sort((a, b) => (miss[b.id] || 0) - (miss[a.id] || 0));
+  const n = Math.min(opt.n || 10, pool.length);
+  return { opt, qs: pool.slice(0, n).map(s => makeQ(s, opt.mode || "mix")), i: 0, ok: 0, ng: 0, xp: 0, fb: null };
+}
+let sd = null;
+let sdSetup = { scope: "learned", mode: "mix" };
+function startDrill(opt) { sd = buildDrill(opt); go("#/sdrill/go"); }
+views.sdrill = function (arg) {
+  if (!SENTS.length) return `<h2 class="page-title">例文ドリル</h2><p class="muted">この言語の例文はまだありません。</p>`;
+  if (arg !== "go" || !sd) {
+    const learned = wordsLearned().length;
+    const scopes = [["today", "今日の単語"], ["learned", `学んだ単語すべて（${learned}語）`], ["動詞", "動詞"], ["副詞", "副詞"], ["形容詞", "形容詞"]];
+    return `<h2 class="page-title">例文ドリル</h2>
+    <p class="muted">動詞・副詞・形容詞を、例文ごと覚えます。どの文にも副詞が入っています。間違えた文は次から優先して出ます。例文は全部で ${SENTS.length}文。</p>
+    <div class="card"><b>範囲</b><div class="chips" id="sdScope" style="margin-top:6px">${scopes.map(([k, l]) => `<button data-v="${k}" class="${sdSetup.scope === k ? "on" : ""}">${esc(l)}</button>`).join("")}</div>
+      <b style="display:block;margin-top:12px">形式</b><div class="chips" id="sdMode" style="margin-top:6px">${Object.entries(MODES).map(([k, l]) => `<button data-v="${k}" class="${sdSetup.mode === k ? "on" : ""}">${l}</button>`).join("")}</div>
+      <div class="sd-modes muted">
+        <div><b>並べ替え</b>：日本語を見て、語を正しい順に並べる</div>
+        <div><b>穴埋め</b>：抜けた副詞・形容詞を4つから選ぶ</div>
+        <div><b>聞いて並べる</b>：音だけを聞いて、語を並べる</div>
+        <div><b>言ってみる</b>：日本語を見て、文ごと声に出す</div></div>
+      <button class="btn primary big wide" id="sdStart" style="margin-top:14px">10問はじめる</button></div>`;
+  }
+  const exit = sd.opt.exit || "#/sdrill";
+  if (sd.i >= sd.qs.length) {
+    const n = sd.ok + sd.ng;
+    return doneScreen({ title: sd.qs.length ? "例文ドリル完了！" : "出せる例文がありません", sub: sd.qs.length ? "間違えた文は、次のドリルで先に出ます" : "単語を学ぶと、その語の例文が出るようになります",
+      tiles: [["獲得XP", "+" + sd.xp, "gold"], ["正解", n ? Math.round(sd.ok / n * 100) + "%" : "—", "green"], ["文", n, "blue"]],
+      actions: `<button class="btn primary big" id="sdFinish">つづける</button>${sd.opt.onDone ? "" : '<button class="btn" id="sdAgain">もう一度</button>'}` });
+  }
+  const q = sd.qs[sd.i], s = q.s, fw = W[s.focus];
+  const head = `<div class="ltitle"><span class="new-badge">${esc(MODES[q.mode])} ・ ${esc(fw ? `${fw.pos}「${fw.zh}」` : "")}</span>${
+    q.mode === "listen" ? "聞こえた文を並べよう" : q.mode === "blank" ? "＿＿に入る語は？" : q.mode === "say" ? "中国語で言ってみよう" : "中国語の語順に並べよう"}</div>`;
+  let body = head, foot = "", fc = "";
+  const done = sd.fb != null;
+  if (q.mode === "order" || q.mode === "listen") {
+    body += q.mode === "listen" ? `<div class="row center"><button class="play-big" id="sdPlay" aria-label="再生">${icon("play")}</button><button class="btn small" id="sdSlow">ゆっくり</button></div>${done ? `<p class="center ja">${esc(s.ja)}</p>` : ""}`
+                                : `<div class="speech">${mascot(72)}<div class="bubble-big">${esc(s.ja)}</div></div>`;
+    body += `<div class="tray ${done ? (sd.fb === "ok" ? "ok" : "ng") : ""}" id="sdTray">${q.sel.map((ci, k) => `<button class="chip-w zh" data-un="${k}" ${done ? "disabled" : ""}>${esc(q.chips[ci].t)}</button>`).join("") || '<span class="muted">下の語を順にタップ</span>'}</div>
+      <div class="bank">${q.chips.map((c, ci) => `<button class="chip-w zh ${q.sel.includes(ci) ? "used" : ""}" data-ch="${ci}" ${q.sel.includes(ci) || done ? "disabled" : ""}>${esc(c.t)}</button>`).join("")}</div>`;
+    foot = done ? "" : `<button class="btn big primary wide" id="sdCheck" ${q.sel.length === q.chips.length ? "" : "disabled"}>チェック</button>`;
+  } else if (q.mode === "blank") {
+    const shownZh = s.tokens.map(t => t === q.target ? `<span class="gap">${done ? esc(t) : "＿＿"}</span>` : esc(t)).join("");
+    body += `<div class="blank-q"><div class="zh lg">${shownZh}</div><div class="ja">${esc(s.ja)}</div></div>
+      <div class="quiz-opts">${q.opts.map((o, i) => `<button class="opt ${done && o === q.target ? "right" : ""} ${done && q.picked === i && o !== q.target ? "wrong" : ""}" data-bo="${i}" ${done ? "disabled" : ""}><span class="zh">${esc(o)}</span>${done ? `<span class="ja">${esc((WORDS.find(w => w.zh === o) || {}).ja || "")}</span>` : ""}</button>`).join("")}</div>`;
+  } else {
+    body += `<div class="speech">${mascot(72)}<div class="bubble-big">${esc(s.ja)}</div></div>
+      <div class="answer" data-target="${esc(s.zh)}">${q.shown ? `<div class="ans-zh"><span class="zh lg">${esc(s.zh)}</span> ${spk(s.zh)}</div><div class="row center" style="margin-top:10px">${micBtn()}</div><div class="result"></div>` : `<div class="answer-hint">声に出して言ってから、答えを見ましょう</div>`}</div>`;
+    foot = done ? "" : q.shown ? `<button class="btn big" data-sg="0">もう一回</button><button class="btn big primary" data-sg="1">言えた</button>` : `<button class="btn big primary wide" id="sdReveal">答えを見る</button>`;
+  }
+  if (done) {
+    fc = sd.fb === "ok" ? "fb-ok" : "fb-ng";
+    foot = `<div class="fb-msg">${icon(sd.fb === "ok" ? "check" : "x", "fb-ic")}<div><b>${sd.fb === "ok" ? "正解！ +3 XP" : "おしい！ 正解はこちら"}</b>
+      <div class="fb-sent"><span class="zh">${esc(s.zh)}</span> ${spk(s.zh)}</div><div class="py">${esc(s.py)}</div></div></div>
+      <button class="btn big ${sd.fb === "ok" ? "primary" : "orange"}" id="sdNext">つづける</button>`;
+  }
+  return lessonShell({ exit, p: sd.i / sd.qs.length, right: `<span class="lcount">${sd.i + 1}/${sd.qs.length}</span>`, body, foot, footClass: fc });
+};
+function sdGrade(ok) {
+  const q = sd.qs[sd.i];
+  sd.fb = ok ? "ok" : "ng";
+  if (ok) { sd.ok++; sd.xp += 3; gainXP(3); if (S.sentMiss && S.sentMiss[q.s.id]) { S.sentMiss[q.s.id]--; save(); } }
+  else { sd.ng++; S.sentMiss = S.sentMiss || {}; S.sentMiss[q.s.id] = (S.sentMiss[q.s.id] || 0) + 1; S.active[today()] = 1; save(); }
+  speak(q.s.zh);
+  route();
+}
+function bindDrill() {
+  if (!sd) return;
+  const on = (sel, fn) => { const el = $(sel); if (el) el.onclick = fn; };
+  $$("#sdScope [data-v]").forEach(b => b.onclick = () => { sdSetup.scope = b.dataset.v; route(); });
+  $$("#sdMode [data-v]").forEach(b => b.onclick = () => { sdSetup.mode = b.dataset.v; route(); });
+  const q = sd.qs[sd.i];
+  if (q && location.hash === "#/sdrill/go") {
+    on("#sdPlay", () => speak(q.s.zh)); on("#sdSlow", () => speak(q.s.zh, 0.6));
+    if (q.mode === "listen" && sd.fb == null && !q.sel.length && !q.played) { q.played = true; setTimeout(() => speak(q.s.zh), 300); }
+    $$("[data-ch]").forEach(b => b.onclick = () => { q.sel.push(parseInt(b.dataset.ch, 10)); route(); });
+    $$("[data-un]").forEach(b => b.onclick = () => { q.sel.splice(parseInt(b.dataset.un, 10), 1); route(); });
+    on("#sdCheck", () => sdGrade(q.sel.map(ci => q.chips[ci].t).join("") === q.answer));
+    $$("[data-bo]").forEach(b => b.onclick = () => { q.picked = parseInt(b.dataset.bo, 10); sdGrade(q.opts[q.picked] === q.target); });
+    on("#sdReveal", () => { q.shown = true; speak(q.s.zh); route(); });
+    $$("[data-sg]").forEach(b => b.onclick = () => sdGrade(b.dataset.sg === "1"));
+    on("#sdNext", () => { sd.fb = null; sd.i++; route(); });
+  }
+  on("#sdAgain", () => startDrill(sd.opt));
+  on("#sdFinish", () => { const o = sd.opt; sd = null; if (o.onDone) o.onDone(); else go("#/practice"); });
 }
 
 // ---------- 間隔反復 ----------
@@ -448,7 +590,9 @@ views.review = function (arg) {
     return doneScreen({ title: deck.ids.length ? "復習クリア！" : "今日の復習はありません",
       sub: deck.ids.length ? "言えたカードは 1→3→7→14→30日後 にまた出ます" : "期限が来たカードはありません。次のレッスンへ進みましょう",
       tiles: [["獲得XP", "+" + (deck.xp + 10), "gold"], ["言えた", n ? Math.round(deck.ok / n * 100) + "%" : "—", "green"], ["カード", n, "blue"]],
-      actions: `<button class="btn primary big" data-complete="review" data-day="${day}">つづける</button><button class="btn" id="again">もう一周</button>` });
+      actions: (day === S.day && (DAYS[day - 1].words || []).some(id => SBYW[id])
+        ? `<button class="btn primary big" id="toSdrill" data-day="${day}">つづけて例文ドリル（8問）</button><button class="btn" data-complete="review" data-day="${day}">ドリルをとばして完了</button>`
+        : `<button class="btn primary big" data-complete="review" data-day="${day}">つづける</button>`) + `<button class="btn" id="again">もう一周</button>` });
   }
   const id = deck.ids[deck.i], f = cardFace(id);
   if (!f) { deck.i++; return views.review(arg); }
@@ -456,7 +600,7 @@ views.review = function (arg) {
   const body = `<div class="ltitle">${isNew ? `<span class="new-badge">${f.kind === "w" ? "新しい単語" : "新しいフレーズ"}</span>` : ""}${f.kind === "w" ? `この${f.word.pos}を${esc(LANG.name)}で言おう` : `${esc(LANG.name)}で言ってみよう`}</div>
     <div class="speech">${mascot(88)}<div class="bubble-big">${f.mine ? '<span class="self">自分</span>' : ""}${esc(f.ja)}
       ${f.kind === "m" && M[f.no].slot && !f.mine ? `<div class="muted" style="font-size:13px">○○ は ${esc(SLOT_NAME[M[f.no].slot])} を入れる</div>` : ""}</div></div>
-    <div class="answer" data-target="${esc(f.audio)}">${deck.shown ? (f.zh ? `<div class="ans-zh"><span class="zh lg">${esc(f.zh)}</span> ${spk(f.audio)}</div><div class="py">${esc(f.py)}</div>${exChips(f)}${f.kind === "w" ? `<div class="wd-ex left"><span class="zh">${esc(f.word.ex[0])}</span> ${spk(f.word.ex[0])}<div class="py">${esc(f.word.ex[1])}</div><div class="ja">${esc(f.word.ex[2])}</div></div>` : ""}<div class="row center" style="margin-top:10px">${micBtn()}</div><div class="result"></div>` :
+    <div class="answer" data-target="${esc(f.audio)}">${deck.shown ? (f.zh ? `<div class="ans-zh"><span class="zh lg">${esc(f.zh)}</span> ${spk(f.audio)}</div><div class="py">${esc(f.py)}</div>${exChips(f)}${f.kind === "w" ? `<div class="left-exs">${(SBYW[deck.ids[deck.i].slice(2)] || []).slice(0, 2).map(sentRow).join("") || `<div class="wd-ex"><span class="zh">${esc(f.word.ex[0])}</span> ${spk(f.word.ex[0])}<div class="py">${esc(f.word.ex[1])}</div><div class="ja">${esc(f.word.ex[2])}</div></div>`}</div>` : ""}<div class="row center" style="margin-top:10px">${micBtn()}</div><div class="result"></div>` :
       `<div class="notice">このメモにはまだ訳がありません。調べるかAIに聞いて書き込みましょう。</div><div class="row" style="margin-top:8px"><input type="text" id="memoZh" placeholder="${esc(LANG.name)}"><input type="text" id="memoPy" placeholder="ピンイン（任意）"><button class="btn small" id="memoSave">保存</button></div>`)
       : `<div class="answer-hint">声に出して言ってから、答えを見ましょう</div>`}</div>`;
   let foot, fc = "";
@@ -549,12 +693,13 @@ views.practice = function () {
   const due = S.started ? dueCards().length : 0;
   const row = (href, ic, color, title, sub) => `<a class="hub-row" href="${href}"><span class="lr-ic c-${color}">${icon(ic)}</span><span class="lr-text"><b>${title}</b><span class="muted">${sub}</span></span><span class="chev">›</span></a>`;
   return `<h2 class="page-title">練習</h2>
+  ${SENTS.length ? row("#/sdrill", "dumbbell", "orange", "例文ドリル", `並べ替え・穴埋め・聞き取り・言ってみる（${SENTS.length}文）`) : ""}
   ${row(`#/review/${S.day}`, "cards", "green", "復習カード", due ? `期限が来たカード ${due}枚` : "期限が来たカードはありません")}
   ${row("#/quiz", "head", "blue", "聞き分けテスト", "声調と似た音を耳で聞き分ける")}
   ${row("#/sounds", "head", "blue", "日本人がつまずく音 トップ10", "口の形と例の語")}
   ${row("#/patterns", "dumbbell", "orange", "文型の入れ替えドリル", `${(window.PATTERNS || []).length}の型`)}
   ${row("#/check", "trophy", "gold", "到達チェック", "1・30・60・90日目に録音して聞き比べ")}
-  ${row("#/vocab", "book", "green", "よく使う動詞・副詞", `動詞 ${WORDS.filter(w => w.pos === "動詞").length}・副詞 ${WORDS.filter(w => w.pos === "副詞").length}（頻度順）`)}
+  ${row("#/vocab", "book", "green", "よく使う動詞・副詞・形容詞", `動詞 ${WORDS.filter(w => w.pos === "動詞").length}・副詞 ${WORDS.filter(w => w.pos === "副詞").length}・形容詞 ${WORDS.filter(w => w.pos === "形容詞").length}（頻度順）`)}
   ${row("#/known", "star", "purple", "実はもう知っている語", "漢字で読める語")}`;
 };
 views.more = function () {
@@ -713,14 +858,15 @@ views.grammar = function (arg) {
 };
 let vocabFilter = { pos: "動詞", group: "" };
 views.vocab = function () {
-  if (!WORDS.length) return `<h2 class="page-title">動詞・副詞</h2><p class="muted">この言語の単語リストはまだありません。</p>`;
+  if (!WORDS.length) return `<h2 class="page-title">動詞・副詞・形容詞</h2><p class="muted">この言語の単語リストはまだありません。</p>`;
   const list = WORDS.filter(w => w.pos === vocabFilter.pos);
   const groups = [...new Set(list.map(w => w.group))];
   const shown = (vocabFilter.group ? list.filter(w => w.group === vocabFilter.group) : list).sort((x, y) => x.rank - y.rank);
   const learned = list.filter(w => (S.srs["w:" + w.id] || {}).box >= 2).length;
-  return `<h2 class="page-title">よく使う動詞・副詞</h2>
-  <p class="muted">会話でよく使う順に並んでいます。1〜80日目に、頻度の高い順に1日5語ずつ復習カードへ入ります。動詞と副詞はおよそ3：1で混ざります。</p>
-  <div class="chips" id="posChips">${["動詞", "副詞"].map(p => `<button data-pos="${p}" class="${vocabFilter.pos === p ? "on" : ""}">${p} ${WORDS.filter(w => w.pos === p).length}</button>`).join("")}</div>
+  return `<h2 class="page-title">よく使う動詞・副詞・形容詞</h2>
+  <p class="muted">会話でよく使う順に並んでいます。1〜84日目に、頻度の高い順に1日6〜7語ずつ復習カードへ入ります。各語に副詞を使った例文が2〜3文あり、例文ドリルで練習できます。</p>
+  <a class="btn primary" href="#/sdrill" style="margin-bottom:10px">${icon("dumbbell")}例文ドリル</a>
+  <div class="chips" id="posChips">${["動詞", "副詞", "形容詞"].filter(p => WORDS.some(w => w.pos === p)).map(p => `<button data-pos="${p}" class="${vocabFilter.pos === p ? "on" : ""}">${p} ${WORDS.filter(w => w.pos === p).length}</button>`).join("")}</div>
   <div class="chips" style="margin-top:6px" id="grpChips"><button data-grp="" class="${vocabFilter.group ? "" : "on"}">すべて</button>${groups.map(g => `<button data-grp="${esc(g)}" class="${vocabFilter.group === g ? "on" : ""}">${esc(g)}</button>`).join("")}</div>
   <p class="muted">覚えた ${learned} / ${list.length}</p>
   ${shown.map(w => wordRow(w.id)).join("")}
@@ -772,7 +918,7 @@ function paintTones(root) { root.querySelectorAll(".py").forEach(el => { if (!el
 const toneLegend = `<div class="tone-legend"><span class="t1">1声 ā</span><span class="t2">2声 á</span><span class="t3">3声 ǎ</span><span class="t4">4声 à</span><span class="t5">軽声 a</span></div>`;
 
 // ---------- ルーティング ----------
-const TAB = { today: "today", day: "today", clear: "today", practice: "practice", quiz: "practice", sounds: "practice", patterns: "practice", drill: "practice", check: "practice", known: "practice", list: "list", me: "me", more: "more", plan: "more", grammar: "more", vocab: "practice", about: "more" };
+const TAB = { today: "today", day: "today", clear: "today", practice: "practice", quiz: "practice", sounds: "practice", patterns: "practice", drill: "practice", check: "practice", known: "practice", list: "list", me: "me", more: "more", plan: "more", grammar: "more", vocab: "practice", sdrill: "practice", about: "more" };
 function route() {
   const h = location.hash.replace(/^#\/?/, "") || "start";
   const [name, arg, arg2] = h.split("/");
@@ -828,7 +974,12 @@ function bind(name, arg) {
   on("#mAdd", () => { const ja = $("#mJa").value.trim(); if (!ja) return toast("日本語を入力してください"); const id = Date.now().toString(36); const day = parseInt(arg || S.day, 10);
     S.memos.push({ id, ja, zh: $("#mZh").value.trim(), py: $("#mPy").value.trim(), day }); S.srs["x:" + id] = { box: 0, due: addDays(today(), 1), intro: day + 1 }; save(); route(); });
   $$("[data-delmemo]").forEach(b => b.onclick = () => { const id = b.dataset.delmemo; S.memos = S.memos.filter(m => m.id !== id); delete S.srs["x:" + id]; save(); route(); });
-  // 単語
+  // 単語・例文ドリル
+  bindDrill();
+  on("#sdStart", () => startDrill({ scope: sdSetup.scope, mode: sdSetup.mode, n: 10 }));
+  $$("[data-wdrill]").forEach(b => b.onclick = () => startDrill({ scope: "w:" + b.dataset.wdrill, mode: "mix", n: 6, exit: "#/vocab" }));
+  on("#toSdrill", () => { const d = parseInt($("#toSdrill").dataset.day, 10); deck = null;
+    startDrill({ scope: "today", mode: "mix", n: 8, exit: `#/day/${d}`, onDone: () => { completeBlock(d, "review"); toast("+10 XP"); go(`#/day/${d}`); } }); });
   $$("#posChips [data-pos]").forEach(b => b.onclick = () => { vocabFilter = { pos: b.dataset.pos, group: "" }; route(); });
   $$("#grpChips [data-grp]").forEach(b => b.onclick = () => { vocabFilter.group = b.dataset.grp; route(); });
   on("#playWords", () => { const d = DAYS[parseInt(arg || S.day, 10) - 1]; playSeq((d.words || []).flatMap(id => W[id] ? [W[id].zh, W[id].ex[0]] : []), 1.3); });

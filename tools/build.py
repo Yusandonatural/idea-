@@ -110,13 +110,13 @@ def build_days(items, sounds, words=()):
     return days
 
 
-WORD_DAYS = 80  # 動詞・副詞は Day1〜80 に均等に配る（残り10日は総仕上げ）
+WORD_DAYS = 84  # 動詞・副詞・形容詞は Day1〜84 に均等に配る（残りは総仕上げ）
 
 
 def load_words():
-    """動詞・副詞を読み込み、頻度の割合で1本の順番に混ぜる（動詞3：副詞1 くらいの割合になる）"""
+    """動詞・副詞・形容詞を読み込み、頻度の割合で1本の順番に混ぜる（動詞6：形容詞3：副詞2 くらい）"""
     words = []
-    for fname, pos, prefix in (("verbs.json", "動詞", "v"), ("adverbs.json", "副詞", "a")):
+    for fname, pos, prefix in (("verbs.json", "動詞", "v"), ("adverbs.json", "副詞", "a"), ("adjectives.json", "形容詞", "j")):
         f = SRC / fname
         if not f.exists():
             continue
@@ -135,6 +135,29 @@ def load_words():
     return words
 
 
+def load_sentences(words):
+    """例文バンク（sentences_*.json）を読み込み、検証して、各文が使う単語IDを語の区切りから求める"""
+    by_zh = {}
+    for w in words:
+        by_zh.setdefault(w["zh"], []).append(w["id"])
+    ids = {w["id"] for w in words}
+    out, bad, seen = [], [], set()
+    for f in sorted(SRC.glob("sentences_*.json")):
+        for x in json.loads(f.read_text(encoding="utf-8")):
+            if "".join(x["tokens"]) != x["zh"]:
+                bad.append(f"{x['id']}: tokens と zh が不一致"); continue
+            if x["focus"] not in ids:
+                bad.append(f"{x['id']}: focus {x['focus']} が単語リストにない"); continue
+            if x["zh"] in seen:
+                continue  # 重複文は1つだけ残す
+            seen.add(x["zh"])
+            uses = sorted({i for t in x["tokens"] for i in by_zh.get(t, [])})
+            out.append([x["id"], x["focus"], x["zh"], x["py"], x["ja"], x["tokens"], x.get("level", 2), uses])
+    if bad:
+        print("例文の警告:", len(bad), bad[:5])
+    return out
+
+
 def js(name, obj):
     return f"window.{name} = " + json.dumps(obj, ensure_ascii=False, separators=(",", ":")) + ";\n"
 
@@ -144,6 +167,7 @@ def main():
     ranked = apply_freq(items)
     assign_days(items)
     words = load_words()
+    sentences = load_sentences(words)
     slots = json.loads((SRC / "slots.json").read_text(encoding="utf-8"))
     sounds = json.loads((SRC / "sounds.json").read_text(encoding="utf-8"))
     known = json.loads((SRC / "known.json").read_text(encoding="utf-8"))
@@ -165,6 +189,7 @@ def main():
         "items": {i["no"]: [i["zh"], i["py"]] for i in items},
         "slots": slots, "sounds": sounds, "known": known,
         "words": {w["id"]: {k: w.get(k) for k in ("zh", "py", "ja", "pos", "group", "ex", "note", "rank", "order", "day")} for w in words},
+        "sentences": sentences,
     }
     (OUT / "lang/zh.js").write_text("// 自動生成（tools/build.py）\n" + js("LANG", lang), encoding="utf-8")
     (OUT / "days.js").write_text("// 自動生成（tools/build.py）\n" + js("DAYS", days), encoding="utf-8")
@@ -190,6 +215,12 @@ def main():
             w.writerow([d["day"], f"{d['month']}ヶ月目", d["theme"], " / ".join(by_no[n]["ja"] for n in d["items"]),
                         len(d["items"]), " / ".join(lang_words[x]["zh"] for x in d["words"]), snd, "" if d["pattern"] is None else f"文型{d['pattern'] + 1}",
                         "○" if d["session"] else "", "○" if d["check"] else ""])
+    with (OUT / "sentences.csv").open("w", encoding="utf-8-sig", newline="") as f:
+        w = csv.writer(f)
+        w.writerow(["ID", "対象語", "品詞", "中国語", "ピンイン", "日本語", "レベル", "使っている単語"])
+        wz = lang["words"]
+        for x in sentences:
+            w.writerow([x[0], wz[x[1]]["zh"], wz[x[1]]["pos"], x[2], x[3], x[4], x[6], " ".join(wz[i]["zh"] for i in x[7])])
     with (OUT / "slots.csv").open("w", encoding="utf-8-sig", newline="") as f:
         w = csv.writer(f)
         w.writerow(["種類", "日本語", "中国語", "ピンイン"])
@@ -202,7 +233,7 @@ def main():
     nslot = sum(len(v) for v in slots.values())
     print(f"意味リスト {len(items)} 項目  優先度 {by_pri}  カテゴリ {by_cat}")
     print(f"差し替え単語 {nslot}  音トップ {len(sounds)}  もう知っている語 {len(known)}")
-    print(f"頻度順: {'あり' if ranked else 'なし（カテゴリ順）'}  単語 {len(words)}（動詞 {sum(w['pos']=='動詞' for w in words)} / 副詞 {sum(w['pos']=='副詞' for w in words)}）")
+    print(f"頻度順: {'あり' if ranked else 'なし（カテゴリ順）'}  単語 {len(words)}（動詞 {sum(w['pos']=='動詞' for w in words)} / 副詞 {sum(w['pos']=='副詞' for w in words)} / 形容詞 {sum(w['pos']=='形容詞' for w in words)}）  例文 {len(sentences)}")
     print("1日あたりの新規:", [len(d['items']) for d in days[:3]], "...", [len(d['items']) for d in days[-3:]])
 
 
