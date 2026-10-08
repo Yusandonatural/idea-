@@ -26,10 +26,16 @@ CREATE TABLE IF NOT EXISTS targets (
   post_id INTEGER NOT NULL REFERENCES posts(id) ON DELETE CASCADE,
   account_id INTEGER NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
   body TEXT,                          -- SNSごとに書き分けた本文（NULLなら共通本文）
-  status TEXT NOT NULL DEFAULT 'pending', -- pending | ok | error
+  title TEXT,                         -- YouTube・ブログ・note の題名、メルマガの件名
+  status TEXT NOT NULL DEFAULT 'pending', -- pending | ok | manual（コピーして手で投稿） | error
   remote_id TEXT,
   url TEXT,
   error TEXT,
   published_at INTEGER
 );
 CREATE INDEX IF NOT EXISTS targets_post ON targets(post_id);
+
+CREATE TABLE IF NOT EXISTS settings (
+  key TEXT PRIMARY KEY,
+  value TEXT NOT NULL
+);

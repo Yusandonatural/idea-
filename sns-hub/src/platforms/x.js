@@ -12,6 +12,7 @@ export default {
   id: 'x',
   label: 'X',
   color: '#000000',
+  aiGuide: 'X（旧Twitter）。日本語は1字を2と数え合計280なので、日本語なら130字以内に収める。要点を1つに絞り、ハッシュタグは1〜2個。URLは23字として数える。',
   limits: { text: 280, images: 4, requiresImage: false, imageTypes: ['image/jpeg', 'image/png', 'image/webp', 'image/gif'] },
   fields: [
     { key: 'api_key', label: 'API Key（Consumer Key）' },

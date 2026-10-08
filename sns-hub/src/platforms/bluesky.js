@@ -38,6 +38,7 @@ export default {
   id: 'bluesky',
   label: 'Bluesky',
   color: '#1185fe',
+  aiGuide: 'Bluesky。書記素で300字以内（日本語なら280字以内に収める）。ハッシュタグは1〜2個。',
   limits: { text: 300, images: 4, requiresImage: false, imageTypes: ['image/jpeg', 'image/png', 'image/webp', 'image/gif'] },
   fields: [
     { key: 'identifier', label: 'ハンドル', placeholder: 'yusando.bsky.social' },

@@ -1,11 +1,17 @@
 import { isAuthed, login, logoutCookie, sameOrigin } from './auth.js';
 import { randomId } from './crypto.js';
 import { describe, platforms } from './platforms/index.js';
+import { AiError, DEFAULT_BRAND, generate } from './ai.js';
 import { check, makeCtx, publishPost, refreshTokens, runDue } from './publish.js';
 import { encryptCreds, getPost, loadAccount, now, publicAccount, saveCredentials } from './store.js';
 
 const MAX_IMAGE = 8 * 1024 * 1024;
-const EXT = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp', 'image/gif': 'gif' };
+const MAX_VIDEO = 95 * 1024 * 1024; // Workers が1回に受け取れるのは100MBまで
+const EXT = {
+  'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp', 'image/gif': 'gif',
+  'video/mp4': 'mp4', 'video/quicktime': 'mov', 'video/webm': 'webm',
+};
+const MEDIA_KEY = /^[a-f0-9]{32}\.(jpg|png|webp|gif|mp4|mov|webm)$/;
 
 const json = (data, status = 200, headers = {}) =>
   new Response(JSON.stringify(data), { status, headers: { 'content-type': 'application/json; charset=utf-8', ...headers } });
@@ -23,8 +29,9 @@ function cleanCreds(platform, input) {
   if (!p) throw new HttpError(400, '未対応のSNSです');
   const out = {};
   for (const f of p.fields) {
-    const v = String(input?.[f.key] ?? '').trim();
+    const v = String(input?.[f.key] ?? f.default ?? '').trim();
     if (!v && !f.optional) throw new HttpError(400, `${f.label} を入力してください`);
+    if (f.options && !f.options.some(([val]) => val === v)) throw new HttpError(400, `${f.label} の値が不正です`);
     if (v) out[f.key] = v;
   }
   return out;
@@ -44,7 +51,7 @@ async function readPostInput(env, body) {
   const media = (Array.isArray(body.media) ? body.media : []).map((m) => ({
     key: String(m.key), type: String(m.type), size: Number(m.size) || 0, alt: String(m.alt ?? '').slice(0, 1000),
   }));
-  if (media.some((m) => !/^[a-f0-9]{32}\.(jpg|png|webp|gif)$/.test(m.key))) throw new HttpError(400, '画像の指定が不正です');
+  if (media.some((m) => !MEDIA_KEY.test(m.key))) throw new HttpError(400, '画像・動画の指定が不正です');
   const targets = Array.isArray(body.targets) ? body.targets : [];
   if (!targets.length) throw new HttpError(400, '投稿先を1つ以上選んでください');
   const rows = [];
@@ -52,12 +59,13 @@ async function readPostInput(env, body) {
     const acc = await env.DB.prepare('SELECT id, platform, name FROM accounts WHERE id = ?').bind(Number(t.account_id)).first();
     if (!acc) throw new HttpError(400, 'アカウントが見つかりません');
     const own = typeof t.body === 'string' && t.body !== '' ? t.body : null;
-    rows.push({ account_id: acc.id, body: own, platform: acc.platform, name: acc.name });
+    const title = typeof t.title === 'string' && t.title.trim() ? t.title.trim() : null;
+    rows.push({ account_id: acc.id, body: own, title, platform: acc.platform, name: acc.name });
   }
   const mode = body.mode;
   if (mode !== 'draft') {
     const problems = rows.map((r) => {
-      const msg = check(r.platform, r.body ?? text, media);
+      const msg = check(r.platform, r.body ?? text, media, r.title);
       return msg && `${r.name}：${msg}`;
     }).filter(Boolean);
     if (problems.length) throw new HttpError(400, problems.join('\n'));
@@ -73,16 +81,21 @@ async function readPostInput(env, body) {
   return { text, media, rows, mode, scheduledAt };
 }
 
+async function getSetting(env, key) {
+  const row = await env.DB.prepare('SELECT value FROM settings WHERE key = ?').bind(key).first();
+  return row?.value ?? null;
+}
+
 async function writeTargets(env, postId, rows) {
   await env.DB.prepare('DELETE FROM targets WHERE post_id = ?').bind(postId).run();
   await env.DB.batch(rows.map((r) =>
-    env.DB.prepare('INSERT INTO targets (post_id, account_id, body) VALUES (?, ?, ?)').bind(postId, r.account_id, r.body)));
+    env.DB.prepare('INSERT INTO targets (post_id, account_id, body, title) VALUES (?, ?, ?, ?)').bind(postId, r.account_id, r.body, r.title)));
 }
 
 async function api(req, env, url) {
   const path = url.pathname.replace(/^\/api/, '');
   const method = req.method;
-  const body = method === 'POST' || method === 'PATCH'
+  const body = ['POST', 'PATCH', 'PUT'].includes(method)
     ? (req.headers.get('content-type') || '').includes('application/json') ? await req.json().catch(() => ({})) : null
     : null;
 
@@ -100,6 +113,31 @@ async function api(req, env, url) {
 
   if (path === '/me') return json({ ok: true });
   if (path === '/platforms') return json(describe());
+
+  // ── AI で書き分け・設定 ──
+  if (path === '/settings' && method === 'GET') {
+    const brand = await getSetting(env, 'brand');
+    return json({ ai_enabled: !!env.ANTHROPIC_API_KEY, brand: brand ?? DEFAULT_BRAND, brand_is_default: brand == null });
+  }
+  if (path === '/settings' && method === 'PUT') {
+    const brand = String(body?.brand ?? '').trim();
+    if (brand) await env.DB.prepare('INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value').bind('brand', brand.slice(0, 4000)).run();
+    else await env.DB.prepare(`DELETE FROM settings WHERE key = 'brand'`).run();
+    return json({ ok: true });
+  }
+  if (path === '/generate' && method === 'POST') {
+    try {
+      const brand = await getSetting(env, 'brand');
+      return json(await generate(env, {
+        brand,
+        source: String(body?.source ?? '').slice(0, 20000),
+        platformIds: Array.isArray(body?.platforms) ? body.platforms.map(String) : [],
+      }));
+    } catch (e) {
+      if (e instanceof AiError) return fail(e.message, 400);
+      throw e;
+    }
+  }
 
   // ── アカウント ──
   if (path === '/accounts' && method === 'GET') {
@@ -162,8 +200,10 @@ async function api(req, env, url) {
     const fd = await req.formData();
     const file = fd.get('file');
     if (!file || typeof file === 'string') return fail('画像を選んでください');
-    if (!EXT[file.type]) return fail('JPEG / PNG / WebP / GIF の画像を選んでください');
-    if (file.size > MAX_IMAGE) return fail('画像は8MBまでです');
+    if (!EXT[file.type]) return fail('JPEG / PNG / WebP / GIF の画像か、MP4 / MOV / WebM の動画を選んでください');
+    const video = file.type.startsWith('video/');
+    if (!video && file.size > MAX_IMAGE) return fail('画像は8MBまでです');
+    if (video && file.size > MAX_VIDEO) return fail('動画は95MBまでです');
     const key = `${randomId()}.${EXT[file.type]}`;
     await env.MEDIA.put(key, file.stream(), { httpMetadata: { contentType: file.type } });
     return json({ key, type: file.type, size: file.size, url: `/m/${key}` });
@@ -231,7 +271,7 @@ export default {
     try {
       if (url.pathname.startsWith('/api/')) return await api(req, env, url);
       // SNSが画像を取りに来る公開URL（推測できないランダムな名前）
-      const mm = url.pathname.match(/^\/m\/([a-f0-9]{32}\.(?:jpg|png|webp|gif))$/);
+      const mm = url.pathname.match(/^\/m\/([a-f0-9]{32}\.(?:jpg|png|webp|gif|mp4|mov|webm))$/);
       if (mm && (req.method === 'GET' || req.method === 'HEAD')) {
         const obj = await env.MEDIA.get(mm[1]);
         if (!obj) return new Response('Not found', { status: 404 });

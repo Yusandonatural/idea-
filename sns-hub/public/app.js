@@ -8,7 +8,8 @@ const state = {
   accounts: [],
   body: '',
   media: [],              // {key,type,size,alt,url,uploading}
-  targets: new Map(),     // accountId -> {on, custom, body}
+  targets: new Map(),     // accountId -> {on, custom, body, title}
+  ai: { ai_enabled: false },
   editingId: null,
 };
 
@@ -47,6 +48,23 @@ async function busy(btn, fn) {
 
 const fmt = (ms) => ms ? new Date(ms).toLocaleString('ja-JP', { month: 'numeric', day: 'numeric', weekday: 'short', hour: '2-digit', minute: '2-digit' }) : '';
 const STATUS = { draft: '下書き', scheduled: '予約', publishing: '公開中…', done: '公開済み', partial: '一部失敗', failed: '失敗' };
+const isVideo = (m) => (m.type || '').startsWith('video/');
+const newTarget = (on) => ({ on, custom: false, body: '', title: '' });
+
+async function copyText(text) {
+  try {
+    await navigator.clipboard.writeText(text);
+    toast('コピーしました');
+  } catch {
+    const ta = Object.assign(document.createElement('textarea'), { value: text });
+    document.body.append(ta);
+    ta.select();
+    document.execCommand('copy');
+    ta.remove();
+    toast('コピーしました');
+  }
+}
+
 const dot = (pid) => `<span class="dot" style="background:${state.platforms[pid]?.color || '#999'}"></span>`;
 
 // ── ログイン ──
@@ -91,7 +109,7 @@ bodyEl.addEventListener('input', () => {
 function renderMedia() {
   $('#media').innerHTML = state.media.map((m, i) => `
     <div class="thumb ${m.uploading ? 'loading' : ''}">
-      <img src="${esc(m.url)}" alt="">
+      ${isVideo(m) ? `<video src="${esc(m.url)}" muted playsinline preload="metadata"></video><span class="badge-video">動画</span>` : `<img src="${esc(m.url)}" alt="">`}
       <button class="x" data-remove="${i}" title="外す">✕</button>
       <input data-alt="${i}" placeholder="代替テキスト" value="${esc(m.alt)}">
     </div>`).join('');
@@ -131,27 +149,50 @@ $('#file').addEventListener('change', async (e) => {
   }
 });
 
-function problems(platformId, text) {
-  const p = state.platforms[platformId];
+// サーバーの mediaFor と同じ：そのSNSに送るファイルだけ
+function mediaFor(platformId) {
+  const l = state.platforms[platformId].limits;
+  if (l.ignoreMedia) return [];
+  return state.media.filter((m) => (isVideo(m) ? (l.videos ?? 0) > 0 : !l.ignoreImages));
+}
+
+function problems(platformId, text, title) {
+  const l = state.platforms[platformId].limits;
   const out = [];
-  const media = state.media;
-  if (countFor(platformId, text) > p.limits.text) out.push('文字数オーバー');
-  if (p.limits.requiresImage && !media.length) out.push('画像が必要');
-  if (media.length > p.limits.images) out.push(`画像は${p.limits.images}枚まで`);
-  const bad = media.find((m) => m.type && !p.limits.imageTypes.includes(m.type));
-  if (bad) out.push(`${bad.type.replace('image/', '')} 非対応`);
+  const media = mediaFor(platformId);
+  const images = media.filter((m) => !isVideo(m));
+  const videos = media.filter(isVideo);
+  if (countFor(platformId, text) > l.text) out.push('文字数オーバー');
+  if (title && l.title && [...title].length > l.title) out.push(`タイトルは${l.title}字まで`);
+  if (l.requiresImage && !images.length) out.push('画像が必要');
+  if (l.requiresVideo && !videos.length) out.push('動画が必要');
+  if (images.length > l.images) out.push(`画像は${l.images}枚まで`);
+  if (videos.length > (l.videos ?? 0)) out.push(`動画は${l.videos}本まで`);
+  const bad = images.find((m) => m.type && !l.imageTypes.includes(m.type)) || videos.find((m) => !(l.videoTypes ?? []).includes(m.type));
+  if (bad) out.push(`${bad.type.split('/')[1]} 非対応`);
   return out;
+}
+
+// 送られないファイルがあることを知らせる
+function skipped(platformId) {
+  const l = state.platforms[platformId].limits;
+  if (l.ignoreMedia) return state.media.length ? '画像・動画は使いません（文章だけ）' : '';
+  const n = state.media.length - mediaFor(platformId).length;
+  if (!n) return '';
+  return l.ignoreImages ? '画像は使いません' : '動画は送られません';
 }
 
 function renderTargets() {
   const el = $('#targets');
   $('#no-accounts').hidden = state.accounts.length > 0;
   el.innerHTML = state.accounts.filter((a) => a.enabled).map((a) => {
-    const t = state.targets.get(a.id) ?? { on: false, custom: false, body: '' };
+    const t = state.targets.get(a.id) ?? newTarget(false);
     const p = state.platforms[a.platform];
     const text = t.custom ? t.body : state.body;
     const n = countFor(a.platform, text);
-    const probs = t.on ? problems(a.platform, text) : [];
+    const probs = t.on ? problems(a.platform, text, t.title) : [];
+    const skip = t.on ? skipped(a.platform) : '';
+    const titleLabel = a.platform === 'newsletter' ? '件名' : 'タイトル';
     return `
       <div class="target ${t.on ? '' : 'off'}" data-id="${a.id}">
         <div class="target-head">
@@ -161,8 +202,10 @@ function renderTargets() {
           <span class="count ${n > p.limits.text ? 'over' : ''}">${n} / ${p.limits.text}</span>
           ${t.on ? `<button class="ghost small" data-custom>${t.custom ? '共通に戻す' : '個別に編集'}</button>` : ''}
         </div>
+        ${t.on && p.limits.title ? `<input class="title-input" data-title placeholder="${titleLabel}（${p.limits.title}字まで。空欄なら本文の1行目）" value="${esc(t.title)}">` : ''}
         ${t.on && t.custom ? `<textarea data-body>${esc(t.body)}</textarea>` : ''}
         ${probs.length ? `<div class="warn-text">⚠ ${probs.join('・')}</div>` : ''}
+        ${skip ? `<div class="info-text">${esc(skip)}</div>` : ''}
         ${t.on && p.note ? `<div class="muted small">${esc(p.note)}</div>` : ''}
       </div>`;
   }).join('');
@@ -171,7 +214,7 @@ function renderTargets() {
 $('#targets').addEventListener('change', (e) => {
   const id = Number(e.target.closest('.target')?.dataset.id);
   if (e.target.matches('[data-on]')) {
-    const t = state.targets.get(id) ?? { on: false, custom: false, body: '' };
+    const t = state.targets.get(id) ?? newTarget(false);
     t.on = e.target.checked;
     state.targets.set(id, t);
     renderTargets();
@@ -186,6 +229,10 @@ $('#targets').addEventListener('click', (e) => {
   renderTargets();
 });
 $('#targets').addEventListener('input', (e) => {
+  if (e.target.matches('[data-title]')) {
+    state.targets.get(Number(e.target.closest('.target').dataset.id)).title = e.target.value;
+    return;
+  }
   if (!e.target.matches('[data-body]')) return;
   const id = Number(e.target.closest('.target').dataset.id);
   state.targets.get(id).body = e.target.value;
@@ -220,7 +267,7 @@ function payload(mode) {
     media: state.media.filter((m) => m.key).map(({ key, type, size, alt }) => ({ key, type, size, alt })),
     targets: [...state.targets.entries()]
       .filter(([id, t]) => t.on && state.accounts.some((a) => a.id === id && a.enabled))
-      .map(([id, t]) => ({ account_id: id, body: t.custom ? t.body : null })),
+      .map(([id, t]) => ({ account_id: id, body: t.custom ? t.body : null, title: t.title || null })),
     scheduled_at: mode === 'schedule' ? new Date($('#scheduled-at').value).toISOString() : null,
   };
 }
@@ -253,6 +300,7 @@ function resetCompose() {
   for (const t of state.targets.values()) {
     t.custom = false;
     t.body = '';
+    t.title = '';
   }
   bodyEl.value = '';
   useSchedule.checked = false;
@@ -269,8 +317,9 @@ function loadIntoCompose(post, asCopy) {
   state.body = post.body;
   bodyEl.value = post.body;
   state.media = post.media.map((m) => ({ ...m, url: `/m/${m.key}` }));
+  state.lastPost = post;
   state.targets = new Map();
-  for (const t of post.targets) state.targets.set(t.account_id, { on: true, custom: t.body != null, body: t.body ?? '' });
+  for (const t of post.targets) state.targets.set(t.account_id, { on: true, custom: t.body != null, body: t.body ?? '', title: t.title ?? '' });
   const scheduled = !asCopy && post.status === 'scheduled';
   useSchedule.checked = scheduled;
   useSchedule.dispatchEvent(new Event('change'));
@@ -289,12 +338,29 @@ function showResult(post) {
       <div class="result-row">
         ${dot(t.platform)}
         <div class="msg"><b>${esc(t.account_name)}</b><br>
-          ${t.status === 'ok' ? (t.url ? `<a href="${esc(t.url)}" target="_blank" rel="noopener">投稿を開く</a>` : '送信しました') : `<span class="error">${esc(t.error)}</span>`}
+          ${t.status === 'ok' ? (t.url ? `<a href="${esc(t.url)}" target="_blank" rel="noopener">投稿を開く</a>` : '送信しました')
+            : t.status === 'manual' ? `文章を用意しました。<button class="small" data-copy="${t.id}">コピー</button>${t.url ? ` <a href="${esc(t.url)}" target="_blank" rel="noopener">${esc(t.account_name)}を開く</a>` : ''}`
+            : `<span class="error">${esc(t.error)}</span>`}
         </div>
       </div>`).join('')}
     ${post.status !== 'done' ? '<p class="muted small">失敗した分は「履歴」から再試行できます。</p>' : ''}`;
+  copySource = post;
   $('#dialog').showModal();
 }
+
+// note・メルマガなど手で貼る先の文章（タイトル＋本文）
+let copySource = null;
+function manualText(post, t) {
+  const body = t.body ?? post.body;
+  const title = t.title || '';
+  return title ? `${title}\n\n${body}` : body;
+}
+$('#dialog').addEventListener('click', (e) => {
+  const id = e.target.dataset?.copy;
+  if (!id || !copySource) return;
+  const t = copySource.targets.find((x) => String(x.id) === id);
+  copyText(manualText(copySource, t));
+});
 
 // ── 予約・履歴 ──
 async function loadPosts(kind) {
@@ -312,10 +378,11 @@ async function loadPosts(kind) {
       <article class="post" data-id="${p.id}">
         <div class="post-meta"><span class="status ${p.status}">${STATUS[p.status]}</span><span>${when}</span></div>
         <div class="post-body">${esc(p.body) || '<span class="muted">（本文なし）</span>'}</div>
-        ${p.media.length ? `<div class="media">${p.media.map((m) => `<div class="thumb"><img src="/m/${esc(m.key)}" alt="${esc(m.alt)}" loading="lazy"></div>`).join('')}</div>` : ''}
+        ${p.media.length ? `<div class="media">${p.media.map((m) => `<div class="thumb">${isVideo(m) ? `<video src="/m/${esc(m.key)}" muted preload="metadata"></video><span class="badge-video">動画</span>` : `<img src="/m/${esc(m.key)}" alt="${esc(m.alt)}" loading="lazy">`}</div>`).join('')}</div>` : ''}
         <div class="post-targets">${p.targets.map((t) => {
           const icon = t.status === 'ok' ? '✓' : t.status === 'error' ? '✕' : '';
           const inner = `${dot(t.platform)}${esc(t.account_name)} ${icon}`;
+          if (t.status === 'manual') return `<span class="chip manual">${inner}<button data-act="copy-text" data-target="${t.id}">コピー</button>${t.url ? `<a href="${esc(t.url)}" target="_blank" rel="noopener">開く</a>` : ''}</span>`;
           return t.url ? `<a class="chip ok" href="${esc(t.url)}" target="_blank" rel="noopener">${inner}</a>` : `<span class="chip ${t.status}">${inner}</span>`;
         }).join('')}</div>
         ${errors.length ? `<div class="post-errors">${errors.map((t) => `${esc(t.account_name)}：${esc(t.error)}`).join('\n')}</div>` : ''}
@@ -337,6 +404,7 @@ for (const kind of ['queue', 'history']) {
     const id = Number(btn.closest('.post').dataset.id);
     const post = $(`#${kind}-list`)._posts[id];
     const act = btn.dataset.act;
+    if (act === 'copy-text') return copyText(manualText(post, post.targets.find((t) => String(t.id) === btn.dataset.target)));
     if (act === 'edit') return loadIntoCompose(post, false);
     if (act === 'copy') return loadIntoCompose(post, true);
     if (act === 'delete') {
@@ -425,10 +493,12 @@ function openAccountForm(pid, account) {
   const form = $('#account-form');
   form.hidden = false;
   $('#account-error').textContent = '';
-  $('#account-note').textContent = account ? `${account.name}（${p.label}）の鍵を更新します。空欄の項目は今の値のままです。` : p.note || '';
+  $('#account-note').textContent = account ? `${account.name}（${p.label}）の鍵を更新します。空欄の項目は今の値のままです。` : (p.fields.length ? p.note || '' : `${p.note}（鍵の設定は不要です）`);
   $('#account-fields').innerHTML = p.fields.map((f) => `
     <label>${esc(f.label)}${f.optional ? '（任意）' : ''}
-      <input name="${f.key}" type="${f.secret ? 'password' : 'text'}" placeholder="${esc(f.placeholder || '')}" autocomplete="off" ${f.optional || account ? '' : 'required'}>
+      ${f.options
+        ? `<select name="${f.key}">${f.options.map(([v, label]) => `<option value="${esc(v)}" ${v === f.default ? 'selected' : ''}>${esc(label)}</option>`).join('')}</select>`
+        : `<input name="${f.key}" type="${f.secret ? 'password' : 'text'}" placeholder="${esc(f.placeholder || '')}" autocomplete="off" ${f.optional || account ? '' : 'required'}>`}
     </label>
     ${f.help ? `<p class="help">${esc(f.help)}</p>` : ''}`).join('');
   form.display_name.parentElement.hidden = !!account;
@@ -448,7 +518,7 @@ $('#account-form').addEventListener('submit', async (e) => {
         toast('鍵を更新しました');
       } else {
         const a = await api('/accounts', { method: 'POST', json: { platform: formPlatform, name: form.display_name.value, credentials } });
-        state.targets.set(a.id, { on: true, custom: false, body: '' });
+        state.targets.set(a.id, newTarget(true));
         toast(`${a.name} を追加しました`);
       }
       form.reset();
@@ -463,6 +533,69 @@ $('#account-form').addEventListener('submit', async (e) => {
   });
 });
 
+// ── AI で書き分け ──
+const aiBtn = $('#ai-generate');
+function renderAi() {
+  aiBtn.disabled = !state.ai.ai_enabled;
+  aiBtn.title = state.ai.ai_enabled ? '共通の本文をメモとして、選んだSNSごとに文章を作ります' : 'ANTHROPIC_API_KEY を設定すると使えます';
+  $('#ai-status').textContent = state.ai.ai_enabled
+    ? 'AIは使える状態です。投稿画面の「AIでSNSごとに書き分ける」を押すと、共通の本文をメモとして、選んだSNSごとの文章を作ります。'
+    : 'AIはまだ使えません。Cloudflare に ANTHROPIC_API_KEY を設定してください（README の「AIで書き分け」）。';
+  $('#brand').value = state.ai.brand ?? '';
+}
+
+aiBtn.addEventListener('click', async () => {
+  $('#compose-error').textContent = '';
+  const chosen = state.accounts.filter((a) => a.enabled && state.targets.get(a.id)?.on);
+  if (!chosen.length) return toast('投稿先を選んでください');
+  if (!state.body.trim()) return toast('本文の欄に、伝えたいことをメモしてください');
+  const anyCustom = chosen.some((a) => state.targets.get(a.id).custom);
+  if (anyCustom && !await ask('個別に編集した文章は、AIの文章で置き換わります。よろしいですか？')) return;
+  aiBtn.classList.add('loading');
+  const label = aiBtn.textContent;
+  aiBtn.textContent = '✨ 書き分けています…（30秒ほど）';
+  aiBtn.disabled = true;
+  try {
+    const r = await api('/generate', { method: 'POST', json: { source: state.body, platforms: [...new Set(chosen.map((a) => a.platform))] } });
+    for (const a of chosen) {
+      const g = r.posts[a.platform];
+      if (!g) continue;
+      const t = state.targets.get(a.id);
+      t.custom = true;
+      t.body = g.text;
+      if (state.platforms[a.platform].limits.title) t.title = g.title;
+    }
+    renderTargets();
+    toast('SNSごとの文章を作りました。確認してから投稿してください');
+  } catch (err) {
+    $('#compose-error').textContent = err.message;
+  } finally {
+    aiBtn.classList.remove('loading');
+    aiBtn.textContent = label;
+    renderAi();
+  }
+});
+
+$('#brand-save').addEventListener('click', async (e) => {
+  await busy(e.currentTarget, async () => {
+    await api('/settings', { method: 'PUT', json: { brand: $('#brand').value } });
+    state.ai = await api('/settings');
+    renderAi();
+    toast('保存しました');
+  });
+});
+$('#brand-reset').addEventListener('click', async () => {
+  await api('/settings', { method: 'PUT', json: { brand: '' } });
+  state.ai = await api('/settings');
+  renderAi();
+  toast('初期の文に戻しました');
+});
+
+// 確認（ブラウザの confirm の代わりにページ内で聞く）
+function ask(message) {
+  return Promise.resolve(confirm(message));
+}
+
 async function loadAccounts() {
   state.accounts = await api('/accounts');
   renderTargets();
@@ -473,9 +606,11 @@ async function start() {
   state.platforms = Object.fromEntries(platforms.map((p) => [p.id, p]));
   $('#login').hidden = true;
   $('#app').hidden = false;
+  state.ai = await api('/settings');
+  renderAi();
   await loadAccounts();
   // 最初は有効なアカウントを全部選んでおく
-  for (const a of state.accounts) if (!state.targets.has(a.id)) state.targets.set(a.id, { on: true, custom: false, body: '' });
+  for (const a of state.accounts) if (!state.targets.has(a.id)) state.targets.set(a.id, newTarget(!state.platforms[a.platform].manual));
   renderTargets();
   renderPicker();
 }

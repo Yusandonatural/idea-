@@ -6,6 +6,7 @@ export default {
   id: 'mastodon',
   label: 'Mastodon',
   color: '#6364ff',
+  aiGuide: 'Mastodon。500字以内（URLは23字）。落ち着いた口調で、ハッシュタグは2〜3個。',
   limits: { text: 500, images: 4, requiresImage: false, imageTypes: ['image/jpeg', 'image/png', 'image/webp', 'image/gif'] },
   fields: [
     { key: 'instance', label: 'サーバーURL', placeholder: 'https://mastodon-japan.net' },

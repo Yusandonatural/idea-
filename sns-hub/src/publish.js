@@ -2,32 +2,59 @@ import { platforms } from './platforms/index.js';
 import { getPost, loadAccount, now, saveCredentials } from './store.js';
 import { countFor } from '../public/textlen.js';
 
+export const isVideo = (m) => m.type.startsWith('video/');
+
 export function makeCtx(env, origin) {
   const base = (env.PUBLIC_URL || origin || '').replace(/\/$/, '');
+  async function get(m) {
+    const obj = await env.MEDIA.get(m.key);
+    if (!obj) throw new Error(`ファイルが見つかりません: ${m.key}`);
+    return obj;
+  }
   return {
     env,
     mediaUrl: (m) => `${base}/m/${m.key}`,
     async loadMedia(m) {
-      const obj = await env.MEDIA.get(m.key);
-      if (!obj) throw new Error(`画像が見つかりません: ${m.key}`);
+      const obj = await get(m);
       return { data: await obj.arrayBuffer(), type: obj.httpMetadata?.contentType || m.type };
+    },
+    // 大きな動画はメモリに載せず、そのまま流して送る
+    async openMedia(m) {
+      const obj = await get(m);
+      return { body: obj.body, size: obj.size, type: obj.httpMetadata?.contentType || m.type };
     },
   };
 }
 
+// そのSNSに送るファイルだけに絞る（動画に対応しないSNSには動画を送らない、など）
+export function mediaFor(platformId, media) {
+  const l = platforms[platformId]?.limits ?? {};
+  if (l.ignoreMedia) return [];
+  return media.filter((m) => (isVideo(m) ? (l.videos ?? 0) > 0 : !l.ignoreImages));
+}
+
 // 投稿の前に、SNSごとの制限に合っているかを確かめる
-export function check(platformId, text, media) {
+export function check(platformId, text, media, title) {
   const p = platforms[platformId];
   if (!p) return `未対応のSNSです: ${platformId}`;
+  const l = p.limits;
   const n = countFor(platformId, text);
-  if (n > p.limits.text) return `${p.label}の文字数制限（${p.limits.text}）を超えています：${n}`;
-  if (!text.trim() && !media.length) return '本文も画像もありません';
-  if (p.limits.requiresImage && !media.length) return `${p.label}は画像が必要です`;
-  if (media.length > p.limits.images) return `${p.label}の画像は${p.limits.images}枚までです`;
-  const bad = media.find((m) => !p.limits.imageTypes.includes(m.type));
-  if (bad) return `${p.label}は ${bad.type} の画像に対応していません（${p.limits.imageTypes.join(', ')}）`;
+  if (n > l.text) return `${p.label}の文字数制限（${l.text}）を超えています：${n}`;
+  if (title && l.title && [...title].length > l.title) return `${p.label}のタイトルは${l.title}字までです`;
+  const m = mediaFor(platformId, media);
+  const images = m.filter((x) => !isVideo(x));
+  const videos = m.filter(isVideo);
+  if (!text.trim() && !m.length) return '本文も画像もありません';
+  if (l.requiresImage && !images.length) return `${p.label}は画像が必要です`;
+  if (l.requiresVideo && !videos.length) return `${p.label}は動画が必要です`;
+  if (images.length > l.images) return `${p.label}の画像は${l.images}枚までです`;
+  if (videos.length > (l.videos ?? 0)) return `${p.label}の動画は${l.videos}本までです`;
+  const bad = images.find((x) => !l.imageTypes.includes(x.type)) || videos.find((x) => !(l.videoTypes ?? []).includes(x.type));
+  if (bad) return `${p.label}は ${bad.type} に対応していません（${[...l.imageTypes, ...(l.videoTypes ?? [])].join(', ')}）`;
   return null;
 }
+
+const DONE = ['ok', 'manual'];
 
 async function publishTarget(env, ctx, post, t) {
   const account = await loadAccount(env, t.account_id);
@@ -35,9 +62,12 @@ async function publishTarget(env, ctx, post, t) {
   if (!account.enabled) throw new Error('アカウントが停止中です');
   const p = platforms[account.platform];
   const text = t.body ?? post.body;
-  const problem = check(account.platform, text, post.media);
+  const problem = check(account.platform, text, post.media, t.title);
   if (problem) throw new Error(problem);
-  return p.publish({ text, media: post.media, idempotencyKey: `sns-hub-${post.id}-${t.id}` }, account.credentials, ctx);
+  return p.publish(
+    { text, title: t.title || null, media: mediaFor(account.platform, post.media), idempotencyKey: `sns-hub-${post.id}-${t.id}` },
+    account.credentials, ctx,
+  );
 }
 
 // 予約・下書き・失敗した投稿を公開する。すでに成功したSNSには二度投稿しない
@@ -49,13 +79,13 @@ export async function publishPost(env, postId, origin) {
 
   const post = await getPost(env, postId);
   const ctx = makeCtx(env, origin);
-  const todo = post.targets.filter((t) => t.status !== 'ok');
+  const todo = post.targets.filter((t) => !DONE.includes(t.status));
 
   await Promise.all(todo.map(async (t) => {
     try {
       const r = await publishTarget(env, ctx, post, t);
-      await env.DB.prepare(`UPDATE targets SET status = 'ok', remote_id = ?, url = ?, error = NULL, published_at = ? WHERE id = ?`)
-        .bind(r.id ?? null, r.url ?? null, now(), t.id).run();
+      await env.DB.prepare(`UPDATE targets SET status = ?, remote_id = ?, url = ?, error = NULL, published_at = ? WHERE id = ?`)
+        .bind(r.manual ? 'manual' : 'ok', r.id ?? null, r.url ?? null, now(), t.id).run();
     } catch (e) {
       await env.DB.prepare(`UPDATE targets SET status = 'error', error = ? WHERE id = ?`)
         .bind(String(e.message || e).slice(0, 1000), t.id).run();
@@ -63,7 +93,7 @@ export async function publishPost(env, postId, origin) {
   }));
 
   const { results } = await env.DB.prepare('SELECT status FROM targets WHERE post_id = ?').bind(postId).all();
-  const ok = results.filter((r) => r.status === 'ok').length;
+  const ok = results.filter((r) => DONE.includes(r.status)).length;
   const status = ok === results.length ? 'done' : ok > 0 ? 'partial' : 'failed';
   await env.DB.prepare('UPDATE posts SET status = ?, published_at = ?, updated_at = ? WHERE id = ?')
     .bind(status, ok ? now() : null, now(), postId).run();

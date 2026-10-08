@@ -38,12 +38,14 @@
             <span id="editing-label"></span>
             <button class="ghost small" id="cancel-edit">新しい投稿にする</button>
           </div>
-          <textarea id="body" rows="8" placeholder="投稿する内容を書きます。#ハッシュタグ や URL もそのまま書けます"></textarea>
+          <textarea id="body" rows="8" placeholder="投稿する内容を書きます。#ハッシュタグ や URL もそのまま書けます。&#10;AIで書き分けるときは、ここに伝えたいことをメモ書きしてください"></textarea>
           <div class="media" id="media"></div>
           <div class="row">
-            <label class="button ghost">🖼 画像を追加<input type="file" id="file" accept="image/jpeg,image/png,image/webp,image/gif" multiple hidden></label>
-            <span class="muted small">Instagram は JPEG のみ・1枚以上必須</span>
+            <label class="button ghost">🖼 画像・動画を追加<input type="file" id="file" accept="image/jpeg,image/png,image/webp,image/gif,video/mp4,video/quicktime,video/webm" multiple hidden></label>
+            <button class="ai" id="ai-generate" type="button">✨ AIでSNSごとに書き分ける</button>
           </div>
+          <p class="muted small" id="ai-hint">Instagram は JPEG のみ・1枚以上必須。動画は YouTube にだけ送ります
+          </p>
         </div>
 
         <div class="card">
@@ -70,6 +72,13 @@
 
     <section id="tab-accounts" hidden>
       <div id="account-list" class="list"></div>
+      <div class="card">
+        <h2>AIで書き分け</h2>
+        <p class="muted small" id="ai-status"></p>
+        <label for="brand">お店の説明と口調（AIが文章を書くときの前提になります）</label>
+        <textarea id="brand" rows="6"></textarea>
+        <div class="row"><button class="primary" id="brand-save">保存</button><button class="ghost" id="brand-reset">初期の文に戻す</button></div>
+      </div>
       <div class="card">
         <h2>アカウントを追加</h2>
         <div class="platform-picker" id="platform-picker"></div>

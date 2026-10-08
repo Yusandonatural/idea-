@@ -7,6 +7,7 @@ export default {
   id: 'threads',
   label: 'Threads',
   color: '#101010',
+  aiGuide: 'Threads。会話するような親しみやすい口調で、問いかけで終えると良い。300字前後（500字以内）、ハッシュタグは1つまで。',
   limits: { text: 500, images: 20, requiresImage: false, imageTypes: ['image/jpeg', 'image/png'], publicMedia: true },
   fields: [
     { key: 'user_id', label: 'Threads ユーザーID' },
