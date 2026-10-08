@@ -48,18 +48,29 @@
     var by = KP.byApp(kid.id), max = 1, ids = APPS.map(function (a) { return a.id; });
     Object.keys(by).forEach(function (id) { if (ids.indexOf(id) < 0) ids.push(id); max = Math.max(max, by[id]); });
     var box = $("apps"); box.textContent = "";
+    var hasSoon = false;
     ids.forEach(function (id) {
       var a = appInfo(id), pts = by[id] || 0, url = a.url;
-      var isApp = APPS.indexOf(a) >= 0;
-      var el = h(url ? "a" : "div", { class: "app" + (isApp && !url ? " soon" : ""), style: "--c:" + a.color }, [
+      var isApp = APPS.indexOf(a) >= 0, soon = isApp && !url, showPts = a.points !== false;
+      if (soon) hasSoon = true;
+      var el = h(url ? "a" : "div", {
+        class: "app" + (soon ? " soon" : "") + (isApp ? "" : " extra"), style: "--c:" + a.color,
+        "aria-label": a.name + (soon ? "（じゅんびちゅう）" : ""),
+      }, [
         h("span", { class: "ic", text: a.icon }),
-        h("span", {}, [h("div", { class: "nm", text: a.name }), h("div", { class: "kn", text: isApp && !url ? "じゅんびちゅう" : (a.kana || "") })]),
-        h("span", { class: "pt" }, [String(pts), h("small", { text: "ポイント" })]),
-        h("span", { class: "appbar" }, [h("i", { style: "width:" + Math.round(pts / max * 100) + "%" })]),
+        h("span", { class: "tx" }, [
+          h("div", { class: "nm", text: a.name }),
+          h("div", { class: "kn", text: a.kana || "" }),
+          a.desc ? h("div", { class: "ds", text: a.desc }) : null,
+        ]),
+        showPts ? h("span", { class: "pt" }, [String(pts), h("small", { text: "ポイント" })]) : null,
+        showPts ? h("span", { class: "appbar" }, [h("i", { style: "width:" + Math.round(pts / max * 100) + "%" })]) : null,
+        isApp ? h("span", { class: "go", text: soon ? "じゅんびちゅう" : "ひらく ▶" }) : null,
       ]);
-      if (url) el.href = url;
+      if (url) { el.href = url; if (/^https?:/.test(url)) el.rel = "noopener"; }
       box.appendChild(el);
     });
+    $("soonnote").hidden = !hasSoon;
 
     var ul = $("recent"); ul.textContent = "";
     var ev = KP.events(kid.id).slice(0, 20);

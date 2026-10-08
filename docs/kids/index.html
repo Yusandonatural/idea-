@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>まなびポイント</title>
-<meta name="description" content="百人一首・日本史・まいにち30ぷん など、こども学習アプリのポイントをまとめて見るページ">
+<title>こども学習アプリ えらぶ画面</title>
+<meta name="description" content="まいにち30ぷん・百人一首・日本史・世界史 など、こども学習アプリをえらんで ひらく入口。まなびポイントもここで見られます">
 <meta name="robots" content="noindex">
 <meta name="theme-color" content="#fff8ec">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -14,10 +14,15 @@
 </head>
 <body>
 <header>
-  <h1>⭐ まなびポイント</h1>
+  <h1>🎒 どの アプリで べんきょうする？</h1>
   <nav id="kids" aria-label="だれのポイント？"></nav>
 </header>
 <main>
+
+  <section id="apps" class="apps" aria-label="アプリをえらぶ"></section>
+  <p class="note center" id="soonnote" hidden>「じゅんびちゅう」の アプリは もうすぐ あそべるように なるよ。</p>
+
+  <h2>⭐ まなびポイント</h2>
   <section class="card hero" aria-live="polite">
     <div class="who" id="who"></div>
     <div class="balance"><b id="balance">0</b><span>ポイント</span></div>
@@ -32,9 +37,6 @@
       <div><b id="week">0</b><span>この7日</span></div>
     </div>
   </section>
-
-  <h2>アプリ</h2>
-  <section id="apps" class="apps"></section>
 
   <h2>さいきん</h2>
   <section class="card"><ul id="recent" class="recent"></ul></section>
