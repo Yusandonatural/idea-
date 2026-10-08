@@ -306,6 +306,10 @@ function buildDrill(opt) {
   let pool = ids.flatMap(id => SBYW[id] || []);
   const miss = S.sentMiss || {};
   pool = shuffle(pool).sort((a, b) => (miss[b.id] || 0) - (miss[a.id] || 0));
+  if ((opt.scope || "").startsWith("w:")) { // 1語のドリル：同じ文を形式を変えて出す（並べ替え→穴埋め→言ってみる）
+    const qs = ["order", "blank", "say"].flatMap(m => shuffle(pool).map(s => makeQ(s, m)));
+    return { opt, qs: qs.slice(0, opt.n || 9), i: 0, ok: 0, ng: 0, xp: 0, fb: null };
+  }
   const n = Math.min(opt.n || 10, pool.length);
   return { opt, qs: pool.slice(0, n).map(s => makeQ(s, opt.mode || "mix")), i: 0, ok: 0, ng: 0, xp: 0, fb: null };
 }
@@ -880,7 +884,7 @@ views.about = function () {
   <div class="card"><h3 style="margin-top:0">3ヶ月後の約束</h3>
     <p><strong>ネイティブと10〜15分、自分のことと日常の話ができる（CEFR A2前後）。</strong>「ペラペラ」は約束しません。</p>
     <p class="muted">米国務省FSIの目安では、英語話者がフランス語で実務レベルに届くまで約600〜750時間、日本語・中国語では約2,200時間かかります。90時間で流暢さは現実的ではありません。そのかわり、よく使う上位1,000語で日常会話の約8割をカバーできるので、「知っている語」より「使える語」を1,000〜1,500語、決まり文句を300〜500身につけることを目指します。</p>
-    <p class="muted">学ぶ順番は「会話で必要になる頻度」の順です。意味リスト500項目に頻度の順位を付け、上位150を1ヶ月目、次の200を2ヶ月目、残りを3ヶ月目に、それぞれ頻度の高い順に配っています。動詞300語・副詞100語も頻度順に、1〜80日目へ1日5語ずつ入ります。</p>
+    <p class="muted">学ぶ順番は「会話で必要になる頻度」の順です。意味リスト500項目に頻度の順位を付け、上位150を1ヶ月目、次の200を2ヶ月目、残りを3ヶ月目に、それぞれ頻度の高い順に配っています。動詞300語・副詞100語・形容詞150語も頻度順に、1〜84日目へ1日6〜7語ずつ入ります。各語には副詞を使った例文が2〜3文（全1,199文）あり、復習の後半の「例文ドリル」で並べ替え・穴埋め・聞き取り・発話を練習します。</p>
     <p class="muted">母語から遠い言語は到達点を一段下げて表示します。${esc(LANG.name)}の目標は「${esc(LANG.goal)}」です。</p></div>
   <div class="card"><h3 style="margin-top:0">90日の設計</h3>
     <table><tr><th>期間</th><th>目標</th><th>中心の練習</th></tr>
