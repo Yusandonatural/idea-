@@ -44,8 +44,12 @@ for (const f of files) {
     if (n < MIN.facts[lv]) err(f, `lv${lv} の facts が ${n}（${MIN.facts[lv]}以上）`);
     const ev = (u.events || []).filter(x => x.lv === lv);
     if (ev.length < MIN.events) err(f, `lv${lv} の events が ${ev.length}（${MIN.events}以上）`);
-    const ys = ev.map(x => x.y);
-    if (new Set(ys).size !== ys.length) err(f, `lv${lv} の events に同じ y がある`);
+    const groups = {};
+    ev.forEach(x => { (groups[x.k || ""] = groups[x.k || ""] || []).push(x.y); });
+    for (const k in groups) {
+      if (new Set(groups[k]).size !== groups[k].length) err(f, `lv${lv} の events に同じ y がある${k ? "（" + k + "）" : ""}`);
+      if (k && groups[k].length < 3) err(f, `lv${lv} の「${k}」が ${groups[k].length} 件（3件以上）`);
+    }
     ev.forEach(x => { if (typeof x.y !== "number" || !x.when || !x.t) err(f, `events ${x.t}: y/when/t`); });
     const pr = (u.pairs || []).filter(x => x.lv === lv);
     if (pr.length < MIN.pairs) err(f, `lv${lv} の pairs が ${pr.length}（${MIN.pairs}以上）`);

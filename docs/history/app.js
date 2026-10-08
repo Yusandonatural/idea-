@@ -150,7 +150,7 @@
       $app.innerHTML = '<section class="welcome">' + haniwa("happy", 140) +
         '<h1>' + APP.welcomeTitle + '</h1>' +
         '<p class="lead">' + APP.welcomeLead + '</p>' +
-        '<ul class="feat"><li>🗺️ <b>通史を4周</b>：小6 → 中学 → 高校 → 受験</li><li>🎯 1回3分のレッスン。4択・年代ならべかえ・組み合わせ・〇×</li><li>🔁 まちがえた問題は、忘れたころにもう一度</li></ul>' +
+        '<ul class="feat"><li>🗺️ <b>' + esc(APP.loopName || "通史を4周") + '</b>：' + STAGES.map(function (s) { return esc(s.name); }).join(" → ") + '</li><li>🎯 1回3分のレッスン。4択・' + esc(APP.orderKind || "年代ならべかえ") + '・組み合わせ・〇×</li><li>🔁 まちがえた問題は、忘れたころにもう一度</li></ul>' +
         '<button class="btn big" id="go">はじめる</button></section>';
       document.getElementById("go").onclick = function () { beep("tap"); viewWelcome(1); };
     } else if (step === 1) {
@@ -239,7 +239,9 @@
       '<div class="lessondots">' + Array.from({ length: LESSONS }, function (_, k) { return '<i class="' + (k < d ? "on" : "") + '"></i>'; }).join("") +
       '<span>' + (d >= LESSONS ? "クリア済み👑 もう一度やると復習になります" : "レッスン " + (d + 1) + " / " + LESSONS) + '</span></div>' +
       '<section class="card tip"><div class="tiphead">' + haniwa("", 44) + '<b>はにわ先生のまとめ</b></div><p>' + esc(u.intro[lv]) + '</p></section>' +
-      (evs.length ? '<section class="card"><h3>📜 この単元の年表</h3><ol class="mini-tl">' + evs.map(function (e) { return '<li><b>' + esc(e.when) + '</b>' + esc(e.t) + '</li>'; }).join("") + '</ol></section>' : '') +
+      (evs.length ? '<section class="card"><h3>' + tlIcon() + ' この単元の' + esc(tlName()) + '</h3>' + groups(evs).map(function (g) {
+        return (g.k ? '<h4 class="gk">' + esc(g.k) + '</h4>' : '') + '<ol class="mini-tl">' + g.list.map(function (e) { return '<li><b>' + esc(e.when) + '</b>' + esc(e.t) + '</li>'; }).join("") + '</ol>';
+      }).join("") + '</section>' : '') +
       (pairs.length ? '<section class="card"><h3>🔑 キーワード</h3><dl class="kw">' + pairs.map(function (p) { return '<dt>' + esc(p.l) + '</dt><dd>' + esc(p.r) + '</dd>'; }).join("") + '</dl></section>' : '') +
       '<div class="stickybtn"><button class="btn big" id="go">' + (d >= LESSONS ? "復習レッスン" : "レッスン" + (d + 1) + "をはじめる") + '  <small>+' + 10 + ' XP</small></button></div></div>';
     document.getElementById("back").onclick = function () { location.hash = "#/"; };
@@ -254,11 +256,19 @@
     var truth = Math.random() < 0.5, shown = truth ? f.a : pick(f.d);
     return { type: "tf", f: f, q: f.q, shown: shown, truth: truth, a: f.a, e: f.e };
   }
+  /* ならべかえ：k（「北にあるじゅん」など）が同じものどうしで出す。k がなければ年代順。y の小さい順が正解 */
+  function groups(evs) {
+    var g = {}, out = [];
+    evs.forEach(function (e) { var k = e.k || ""; if (!g[k]) { g[k] = []; out.push(k); } g[k].push(e); });
+    return out.map(function (k) { return { k: k, list: g[k].sort(function (a, b) { return a.y - b.y; }) }; });
+  }
   function qOrder(evs) {
-    var pool = shuffle(evs), items = [], ys = {};
+    var gs = shuffle(groups(evs).filter(function (g) { return g.list.length >= 3; }));
+    if (!gs.length) return null;
+    var g = gs[0], pool = shuffle(g.list), items = [], ys = {};
     for (var i = 0; i < pool.length && items.length < 4; i++) if (!ys[pool[i].y]) { ys[pool[i].y] = 1; items.push(pool[i]); }
     if (items.length < 3) return null;
-    return { type: "order", items: items };
+    return { type: "order", items: items, k: g.k };
   }
   function qMatch(pairs) {
     if (pairs.length < 3) return null;
@@ -306,7 +316,11 @@
     var fs = sample(facts, 12), qs = [];
     fs.forEach(function (f, i) { qs.push(i < 10 ? qChoice(f) : qTF(f)); });
     // 単元をまたぐ年代ならべかえ（時代の流れの確認）
-    for (var k = 0; k < 2; k++) { var o = qOrder(evs); if (o) qs.push(o); }
+    for (var k = 0; k < 2; k++) {
+      // 地理のような「〜じゅん」の並べかえは、くらべる物差しがそろう1つの単元の中から
+      var src = APP.orderAcross === false ? (pick(UNITS).events || []).filter(function (e) { return e.lv === lv; }) : evs;
+      var o = qOrder(src); if (o) qs.push(o);
+    }
     var m = qMatch(pairs); if (m) qs.push(m);
     return shuffle(qs);
   }
@@ -409,7 +423,7 @@
     var order = [];
     var opts = shuffle(q.items);
     function draw() {
-      $app.innerHTML = playShell('<p class="qkind">年代ならべかえ</p><h2 class="qtext">古いじゅんにタップしよう</h2>' +
+      $app.innerHTML = playShell('<p class="qkind">' + esc(APP.orderKind || "年代ならべかえ") + '</p><h2 class="qtext">' + esc(q.k || "古いじゅん") + 'にタップしよう</h2>' +
         '<ol class="slots">' + q.items.map(function (_, i) { var e = order[i]; return '<li class="' + (e ? "fill" : "") + '" data-k="' + i + '">' + (e ? esc(e.t) + (P.mode === "lesson" ? '' : '<small>' + esc(e.unit.title) + '</small>') : '<i>' + (i + 1) + '</i>') + '</li>'; }).join("") + '</ol>' +
         '<div class="chips">' + opts.map(function (e, i) { return '<button class="chip' + (order.indexOf(e) >= 0 ? " used" : "") + '" data-i="' + i + '">' + esc(e.t) + '</button>'; }).join("") + '</div>' +
         '<div class="stickybtn"><button class="btn big" id="chk"' + (order.length < q.items.length ? " disabled" : "") + '>こたえあわせ</button></div>');
@@ -575,14 +589,16 @@
     var g = document.getElementById("go"); if (g) g.onclick = startReview;
   }
 
-  /* ---------- 年表 ---------- */
+  /* ---------- 年表（地理版は「データ帳」） ---------- */
+  function tlName() { return APP.tlName || "年表"; }
+  function tlIcon() { return APP.tlIcon || "📜"; }
   var tlLv = 0, tlQ = "";
   function viewTimeline() {
     chrome(true); setTab("timeline"); renderTop();
     if (!tlLv) tlLv = Math.max(1, Math.min(4, S.start));
-    $app.innerHTML = '<div class="wrap"><h1 class="ptitle">📜 年表</h1>' +
+    $app.innerHTML = '<div class="wrap"><h1 class="ptitle">' + tlIcon() + ' ' + esc(tlName()) + '</h1>' +
       '<div class="seg">' + STAGES.map(function (s) { return '<button data-lv="' + s.lv + '" class="' + (s.lv === tlLv ? "on" : "") + '" style="--c:' + s.color + '">' + esc(s.name) + '</button>'; }).join("") + '</div>' +
-      '<input class="search" id="q" type="search" placeholder="できごと・人物でさがす" value="' + esc(tlQ) + '">' +
+      '<input class="search" id="q" type="search" placeholder="' + esc(APP.searchHint || "できごと・人物でさがす") + '" value="' + esc(tlQ) + '">' +
       '<div id="tl"></div></div>';
     [].forEach.call($app.querySelectorAll(".seg button"), function (b) { b.onclick = function () { tlLv = +b.dataset.lv; viewTimeline(); }; });
     var inp = document.getElementById("q");
@@ -595,8 +611,10 @@
       var evs = (u.events || []).filter(function (e) { return e.lv <= tlLv && (!tlQ || (e.t + e.when).indexOf(tlQ) >= 0); }).sort(function (a, b) { return a.y - b.y; });
       var ps = tlQ ? (u.pairs || []).filter(function (p) { return p.lv <= tlLv && (p.l + p.r).indexOf(tlQ) >= 0; }) : [];
       if (!evs.length && !ps.length) return;
-      h += '<section class="tlunit"><h3>' + u.emoji + ' ' + esc(u.title) + ' <small>' + esc(u.period) + '</small></h3><ol class="tlist">' +
-        evs.map(function (e) { return '<li><b>' + esc(e.when) + '</b><span>' + esc(e.t) + '</span><i class="lvdot" style="background:' + stageOf(e.lv).color + '" title="' + stageOf(e.lv).name + '"></i></li>'; }).join("") + '</ol>' +
+      h += '<section class="tlunit"><h3>' + u.emoji + ' ' + esc(u.title) + ' <small>' + esc(u.period) + '</small></h3>' + groups(evs).map(function (g) {
+        return (g.k ? '<h4 class="gk">' + esc(g.k) + '</h4>' : '') + '<ol class="tlist">' +
+          g.list.map(function (e) { return '<li><b>' + esc(e.when) + '</b><span>' + esc(e.t) + '</span><i class="lvdot" style="background:' + stageOf(e.lv).color + '" title="' + stageOf(e.lv).name + '"></i></li>'; }).join("") + '</ol>';
+      }).join("") +
         (ps.length ? '<dl class="kw">' + ps.map(function (p) { return '<dt>' + esc(p.l) + '</dt><dd>' + esc(p.r) + '</dd>'; }).join("") + '</dl>' : '') + '</section>';
     });
     document.getElementById("tl").innerHTML = h || '<p class="empty">見つかりませんでした</p>';
@@ -678,6 +696,7 @@
       default: return viewPath();
     }
   }
+  (function () { var t = $nav.querySelector('[data-tab="timeline"]'); if (t) t.innerHTML = '<span class="ti">' + tlIcon() + '</span><span>' + esc(tlName()) + '</span>'; })();
   window.addEventListener("hashchange", route);
   route();
 })();

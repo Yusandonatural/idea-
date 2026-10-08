@@ -1,0 +1,13 @@
+{
+  "name": "ちりドリル（地理クイズ）",
+  "short_name": "ちりドリル",
+  "start_url": "./#/",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#fbf7f0",
+  "theme_color": "#0f7c6b",
+  "lang": "ja",
+  "icons": [
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}

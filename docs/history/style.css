@@ -252,6 +252,7 @@ button:disabled { cursor: default; }
 .tlist span { flex: 1; }
 .lvdot { width: 8px; height: 8px; border-radius: 50%; flex: none; }
 .tlunit .kw { margin-top: 8px; }
+.gk { font-size: 13px; color: var(--sub); margin: 10px 0 4px; }
 
 /* きろく */
 .statgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
