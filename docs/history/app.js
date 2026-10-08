@@ -1,11 +1,13 @@
-/* れきしドリル：日本史を4周するクイズアプリ。
+/* れきしドリル（日本史）／せかいしドリル（世界史）共通：通史を4周するクイズアプリ。
+ * 科目ごとの名前・文言・保存キーは app-data.js の HIST.app で決める。
  * 画面：#/welcome（はじめて）・#/（道）・#/node/s/uid（単元のまとめ）・#/play（レッスン）・#/review・#/timeline・#/me
- * 記録はこの端末の localStorage（"rekishi:v1"）だけに保存する。 */
+ * 記録はこの端末の localStorage（HIST.app.key）だけに保存する。 */
 (function () {
   "use strict";
 
   /* ---------- 定数・小道具 ---------- */
-  var KEY = "rekishi:v1";
+  var APP = HIST.app;
+  var KEY = APP.key;
   var LESSONS = 2;                       // 1単元あたりのレッスン数（ここまでやると単元クリア）
   var BOX_DAYS = [0, 1, 2, 4, 8, 16, 32];  // 復習の間隔（箱の番号→日数）
   var PASS = 0.8;                        // 飛び級・まとめテストの合格ライン
@@ -126,7 +128,7 @@
     var g = Math.min(1, todayXP() / S.goal);
     var st = streak();
     $top.innerHTML = '<div class="wrap topin">' +
-      '<a class="brand" href="#/">' + haniwa("", 28) + '<b>れきしドリル</b></a>' +
+      '<a class="brand" href="#/">' + haniwa("", 28) + '<b>' + esc(APP.name) + '</b></a>' +
       '<span class="pill ' + (todayXP() > 0 ? "fire" : "off") + '" title="連続日数">🔥 ' + st + '</span>' +
       '<span class="pill xp" title="合計XP">⭐ ' + S.xp + '</span>' +
       '<span class="goalring" title="きょうの目標 ' + todayXP() + '/' + S.goal + ' XP" style="--p:' + g + '"><i>' + (g >= 1 ? "✓" : Math.round(g * 100) + "%") + '</i></span>' +
@@ -146,8 +148,8 @@
     step = step || 0;
     if (step === 0) {
       $app.innerHTML = '<section class="welcome">' + haniwa("happy", 140) +
-        '<h1>日本の歴史を、<br>クイズで4周しよう</h1>' +
-        '<p class="lead">はにわ先生といっしょに、旧石器から現代まで。<br>小学6年生のことばから始めて、大学受験の一問まで少しずつ。</p>' +
+        '<h1>' + APP.welcomeTitle + '</h1>' +
+        '<p class="lead">' + APP.welcomeLead + '</p>' +
         '<ul class="feat"><li>🗺️ <b>通史を4周</b>：小6 → 中学 → 高校 → 受験</li><li>🎯 1回3分のレッスン。4択・年代ならべかえ・組み合わせ・〇×</li><li>🔁 まちがえた問題は、忘れたころにもう一度</li></ul>' +
         '<button class="btn big" id="go">はじめる</button></section>';
       document.getElementById("go").onclick = function () { beep("tap"); viewWelcome(1); };
@@ -198,7 +200,7 @@
         '<div class="nlabel">まとめテスト<small>15問・80%で合格</small></div></div>';
       html += '</div></section>';
     });
-    html += '<p class="foot">内容は小学校〜高校の教科書と大学入試の範囲にそっています。まちがいに気づいたら知らせてください。</p></div>';
+    html += '<p class="foot">' + esc(APP.footer) + '</p></div>';
     $app.innerHTML = html;
 
     [].forEach.call($app.querySelectorAll(".nbtn[data-u]"), function (b) {
@@ -513,7 +515,7 @@
         S.passed[P.lv] = true;
         if (P.jump) UNITS.forEach(function (u) { S.nodes[nodeKey(P.lv, u.id)] = Math.max(nodeDone(P.lv, u.id), LESSONS); });
         title = P.jump ? "飛び級成功！" : "まとめテスト合格！";
-        note = P.lv < 4 ? "ステージ" + (P.lv + 1) + "「" + stageOf(P.lv + 1).name + "」がひらきました" : "4周完走！ もう受験の日本史はこわくない";
+        note = P.lv < 4 ? "ステージ" + (P.lv + 1) + "「" + stageOf(P.lv + 1).name + "」がひらきました" : APP.finale;
       } else {
         mood = "sad"; title = "あと少し！";
         note = "合格は" + Math.round(PASS * 100) + "%から。" + (P.jump ? "ステージ" + P.lv + "の単元で力をつけてから、もう一度。" : "苦手を復習してからもう一度。");

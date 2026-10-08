@@ -1,5 +1,12 @@
 /* 教材の入れ物。data/u01.js 〜 u15.js が HIST.addUnit で単元を足す（形式は data/SCHEMA.md）。 */
 window.HIST = {
+  app: {
+    name: "れきしドリル", key: "rekishi:v1",
+    welcomeTitle: "日本の歴史を、<br>クイズで4周しよう",
+    welcomeLead: "はにわ先生といっしょに、旧石器から現代まで。<br>小学6年生のことばから始めて、大学受験の一問まで少しずつ。",
+    footer: "内容は小学校〜高校の教科書と大学入試の範囲にそっています。まちがいに気づいたら知らせてください。",
+    finale: "4周完走！ もう受験の日本史はこわくない",
+  },
   units: [],
   addUnit: function (u) { this.units.push(u); },
   /* 通史を4周する。1周＝1ステージ。ステージの番号＝教材のレベル(lv) */

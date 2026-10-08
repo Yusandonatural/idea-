@@ -1,11 +1,13 @@
 // 日本史アプリの教材データ（docs/history/data/u*.js）の形式チェック。
-// 使い方: node tools/check_history.js [u01 u02 ...]
+// 使い方: node tools/check_history.js [--dir docs/world/data] [u01 u02 ...]（--dir なしは日本史）
 const fs = require("fs");
 const path = require("path");
 const vm = require("vm");
 
-const dir = path.join(__dirname, "..", "docs", "history", "data");
-const only = process.argv.slice(2);
+const args = process.argv.slice(2);
+const di = args.indexOf("--dir");
+const dir = di >= 0 ? path.resolve(args.splice(di, 2)[1]) : path.join(__dirname, "..", "docs", "history", "data");
+const only = args;
 const files = fs.readdirSync(dir).filter(f => /^u\d\d\.js$/.test(f) && (!only.length || only.includes(f.slice(0, 3)))).sort();
 const MIN = { facts: { 1: 12, 2: 12, 3: 15, 4: 12 }, events: 6, pairs: 6 };
 let errors = 0, warns = 0;
