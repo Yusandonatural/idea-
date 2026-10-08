@@ -1,5 +1,6 @@
 import { platforms } from './platforms/index.js';
-import { getPost, loadAccount, now, saveCredentials } from './store.js';
+import { getPost, loadAccount, loadHashtagSets, now, saveCredentials } from './store.js';
+import { withAutoTags } from '../public/hashtags.js';
 import { countFor } from '../public/textlen.js';
 
 export const isVideo = (m) => m.type.startsWith('video/');
@@ -56,18 +57,20 @@ export function check(platformId, text, media, title) {
 
 const DONE = ['ok', 'manual'];
 
-async function publishTarget(env, ctx, post, t) {
+async function publishTarget(env, ctx, post, t, sets) {
   const account = await loadAccount(env, t.account_id);
   if (!account) throw new Error('アカウントが削除されています');
   if (!account.enabled) throw new Error('アカウントが停止中です');
   const p = platforms[account.platform];
-  const text = t.body ?? post.body;
+  // セットで「自動で付ける」にしたハッシュタグを足す（文字数に収まる分だけ）
+  const text = withAutoTags(account.platform, t.body ?? post.body, sets, p.limits.text);
   const problem = check(account.platform, text, post.media, t.title);
   if (problem) throw new Error(problem);
-  return p.publish(
+  const r = await p.publish(
     { text, title: t.title || null, media: mediaFor(account.platform, post.media), idempotencyKey: `sns-hub-${post.id}-${t.id}` },
     account.credentials, ctx,
   );
+  return { ...r, sent: text };
 }
 
 // 予約・下書き・失敗した投稿を公開する。すでに成功したSNSには二度投稿しない
@@ -79,13 +82,14 @@ export async function publishPost(env, postId, origin) {
 
   const post = await getPost(env, postId);
   const ctx = makeCtx(env, origin);
+  const sets = await loadHashtagSets(env);
   const todo = post.targets.filter((t) => !DONE.includes(t.status));
 
   await Promise.all(todo.map(async (t) => {
     try {
-      const r = await publishTarget(env, ctx, post, t);
-      await env.DB.prepare(`UPDATE targets SET status = ?, remote_id = ?, url = ?, error = NULL, published_at = ? WHERE id = ?`)
-        .bind(r.manual ? 'manual' : 'ok', r.id ?? null, r.url ?? null, now(), t.id).run();
+      const r = await publishTarget(env, ctx, post, t, sets);
+      await env.DB.prepare(`UPDATE targets SET status = ?, remote_id = ?, url = ?, sent = ?, error = NULL, published_at = ? WHERE id = ?`)
+        .bind(r.manual ? 'manual' : 'ok', r.id ?? null, r.url ?? null, r.sent, now(), t.id).run();
     } catch (e) {
       await env.DB.prepare(`UPDATE targets SET status = 'error', error = ? WHERE id = ?`)
         .bind(String(e.message || e).slice(0, 1000), t.id).run();

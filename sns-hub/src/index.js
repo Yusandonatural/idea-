@@ -3,7 +3,8 @@ import { randomId } from './crypto.js';
 import { describe, platforms } from './platforms/index.js';
 import { AiError, DEFAULT_BRAND, generate } from './ai.js';
 import { check, makeCtx, publishPost, refreshTokens, runDue } from './publish.js';
-import { encryptCreds, getPost, loadAccount, now, publicAccount, saveCredentials } from './store.js';
+import { encryptCreds, getPost, loadAccount, loadHashtagSets, now, publicAccount, saveCredentials } from './store.js';
+import { parseTags, tagsIn, withAutoTags } from '../public/hashtags.js';
 
 const MAX_IMAGE = 8 * 1024 * 1024;
 const MAX_VIDEO = 95 * 1024 * 1024; // Workers が1回に受け取れるのは100MBまで
@@ -64,8 +65,9 @@ async function readPostInput(env, body) {
   }
   const mode = body.mode;
   if (mode !== 'draft') {
+    const sets = await loadHashtagSets(env);
     const problems = rows.map((r) => {
-      const msg = check(r.platform, r.body ?? text, media, r.title);
+      const msg = check(r.platform, withAutoTags(r.platform, r.body ?? text, sets, platforms[r.platform].limits.text), media, r.title);
       return msg && `${r.name}：${msg}`;
     }).filter(Boolean);
     if (problems.length) throw new HttpError(400, problems.join('\n'));
@@ -82,6 +84,15 @@ async function readPostInput(env, body) {
 }
 
 const MAX_MEMBERS = 20;
+
+function readHashtagSet(body) {
+  const name = String(body?.name ?? '').trim().slice(0, 40);
+  if (!name) throw new HttpError(400, 'セットの名前を入れてください');
+  const tags = parseTags(Array.isArray(body?.tags) ? body.tags.join(' ') : body?.tags).slice(0, 30);
+  if (!tags.length) throw new HttpError(400, 'ハッシュタグを1つ以上入れてください');
+  const auto = (Array.isArray(body?.auto_platforms) ? body.auto_platforms : []).map(String).filter((p) => platforms[p]);
+  return { name, tags, auto_platforms: [...new Set(auto)] };
+}
 
 const publicUser = (u) => ({ id: u.id, name: u.name, login: u.login, role: u.role });
 
@@ -196,6 +207,7 @@ async function api(req, env, url) {
       const brand = await getSetting(env, 'brand');
       return json(await generate(env, {
         brand,
+        hashtagSets: await loadHashtagSets(env),
         source: String(body?.source ?? '').slice(0, 20000),
         platformIds: Array.isArray(body?.platforms) ? body.platforms.map(String) : [],
       }));
@@ -261,6 +273,57 @@ async function api(req, env, url) {
         env.DB.prepare('DELETE FROM accounts WHERE id = ?').bind(id),
       ]);
       return json({ ok: true });
+    }
+  }
+
+  // ── ハッシュタグ（投稿担当も編集できる） ──
+  if (path === '/hashtags' && method === 'GET') return json(await loadHashtagSets(env));
+  if (path === '/hashtags/stats' && method === 'GET') {
+    // 公開した投稿で使ったタグを数える（1つの投稿では1回と数える）
+    const days = Math.min(Math.max(Number(url.searchParams.get('days')) || 90, 1), 365);
+    const { results } = await env.DB.prepare(
+      `SELECT p.id, p.body, p.published_at, COALESCE(t.sent, t.body) AS tbody FROM posts p LEFT JOIN targets t ON t.post_id = p.id AND t.status IN ('ok','manual')
+       WHERE p.status IN ('done','partial') AND p.published_at >= ? ORDER BY p.published_at DESC LIMIT 5000`,
+    ).bind(now() - days * 86400e3).all();
+    const perPost = new Map();
+    for (const r of results) {
+      const set = perPost.get(r.id) ?? { at: r.published_at, tags: new Set() };
+      for (const tag of [...tagsIn(r.body), ...tagsIn(r.tbody)]) set.tags.add(tag);
+      perPost.set(r.id, set);
+    }
+    const stats = new Map();
+    for (const { at, tags } of perPost.values()) {
+      for (const tag of tags) {
+        const key = tag.toLowerCase();
+        const s = stats.get(key) ?? { tag, count: 0, last_used: 0 };
+        s.count++;
+        s.last_used = Math.max(s.last_used, at);
+        stats.set(key, s);
+      }
+    }
+    return json({ days, posts: perPost.size, tags: [...stats.values()].sort((a, b) => b.count - a.count || b.last_used - a.last_used).slice(0, 60) });
+  }
+  if (path === '/hashtags' && method === 'POST') {
+    const set = readHashtagSet(body);
+    const count = (await env.DB.prepare('SELECT COUNT(*) AS n FROM hashtag_sets').first()).n;
+    if (count >= 50) return fail('ハッシュタグのセットは50個までです');
+    const r = await env.DB.prepare('INSERT INTO hashtag_sets (name, tags, auto_platforms, sort, updated_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?) RETURNING id')
+      .bind(set.name, JSON.stringify(set.tags), JSON.stringify(set.auto_platforms), count, user.name, now(), now()).first();
+    return json((await loadHashtagSets(env)).find((s) => s.id === r.id));
+  }
+  const hs = path.match(/^\/hashtags\/(\d+)$/);
+  if (hs) {
+    const id = Number(hs[1]);
+    if (method === 'DELETE') {
+      await env.DB.prepare('DELETE FROM hashtag_sets WHERE id = ?').bind(id).run();
+      return json({ ok: true });
+    }
+    if (method === 'PATCH') {
+      const set = readHashtagSet(body);
+      const r = await env.DB.prepare('UPDATE hashtag_sets SET name = ?, tags = ?, auto_platforms = ?, updated_by = ?, updated_at = ? WHERE id = ?')
+        .bind(set.name, JSON.stringify(set.tags), JSON.stringify(set.auto_platforms), user.name, now(), id).run();
+      if (!r.meta.changes) return fail('セットが見つかりません', 404);
+      return json((await loadHashtagSets(env)).find((s) => s.id === id));
     }
   }
 

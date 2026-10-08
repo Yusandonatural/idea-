@@ -20,6 +20,11 @@ export async function encryptCreds(env, credentials) {
   return encryptJSON(aes, credentials);
 }
 
+export async function loadHashtagSets(env) {
+  const { results } = await env.DB.prepare('SELECT * FROM hashtag_sets ORDER BY sort, id').all();
+  return results.map((r) => ({ ...r, tags: JSON.parse(r.tags), auto_platforms: JSON.parse(r.auto_platforms) }));
+}
+
 export function publicAccount(row) {
   const { credentials, ...rest } = row;
   return rest;

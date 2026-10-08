@@ -222,6 +222,27 @@ main > section { display: grid; gap: 16px; }
 #brand { min-height: 140px; margin-bottom: 10px; }
 .role-editor .admin-only { display: none !important; }
 
+/* ── ハッシュタグ ── */
+.tag-bar { display: flex; flex-wrap: wrap; gap: 6px; padding: 0 20px 12px; background: var(--sunk); align-items: center; }
+.tag-bar:empty { display: none; }
+.tag-bar .label { font-size: 12px; color: var(--muted); margin-right: 2px; }
+.tag-chip { font-size: 12.5px; padding: 3px 10px; border-radius: 99px; border: 1px solid var(--line-strong); background: var(--card); color: var(--accent); font-weight: 700; }
+.tag-chip:hover { border-color: var(--accent); background: var(--accent-soft); }
+.tag-chip .n { color: var(--muted); font-weight: 400; margin-left: 4px; font-variant-numeric: tabular-nums; }
+.sets { display: grid; gap: 8px; }
+.set { border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 10px 12px; background: var(--sunk); display: grid; gap: 6px; }
+.set-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.set-head b { flex: 1; min-width: 120px; }
+.set .tags { display: flex; flex-wrap: wrap; gap: 4px 10px; color: var(--accent); font-size: 13.5px; word-break: break-all; }
+.set .autos { font-size: 12px; color: var(--muted); display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.set .autos .pill { display: inline-flex; align-items: center; gap: 4px; }
+.set-form { display: grid; gap: 10px; }
+.auto-pick { display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: center; }
+.auto-pick label { display: inline-flex; align-items: center; gap: 5px; margin: 0; font-size: 13px; color: var(--ink); }
+.auto-pick input { width: 16px; height: 16px; accent-color: var(--accent); }
+.tag-stats { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+.target .auto-tags { font-size: 12px; color: var(--accent); margin-top: 4px; }
+
 /* ── ダイアログ・通知 ── */
 dialog { border: 1px solid var(--line); border-radius: 14px; background: var(--card); color: var(--ink); max-width: min(520px, 92vw); width: 100%; padding: 22px; box-shadow: var(--shadow-pop); }
 dialog::backdrop { background: rgba(10, 16, 12, .45); }
