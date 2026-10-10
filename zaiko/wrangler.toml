@@ -11,7 +11,7 @@ command = "node scripts/build-static.mjs"
 [[d1_databases]]
 binding = "DB"
 database_name = "zaiko"
-database_id = "REPLACE_WITH_D1_ID"
+database_id = "0bd46e3b-9f5d-499e-bfa6-45b7831e08d4"
 
 [triggers]
 # 10分ごと：Shopify の注文を取り込んで在庫を引き、在庫数を Shopify に反映する
