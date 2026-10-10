@@ -1,10 +1,12 @@
-import { currentUser, hashPassword, login, logoutCookie, sameOrigin, verifyPassword } from './auth.js';
+import { currentUser, hashPassword, login, LoginError, loginWithGoogle, logoutCookie, sameOrigin, verifyPassword } from './auth.js';
 import { randomId } from './crypto.js';
 import { describe, platforms } from './platforms/index.js';
 import { AiError, DEFAULT_BRAND, generate } from './ai.js';
-import { check, makeCtx, publishPost, refreshTokens, runDue } from './publish.js';
-import { encryptCreds, getPost, loadAccount, loadHashtagSets, now, publicAccount, saveCredentials } from './store.js';
-import { parseTags, tagsIn, withAutoTags } from '../public/hashtags.js';
+import STATIC from './static.gen.js';
+import { check, finalText, makeCtx, publishPost, refreshTokens, runDue } from './publish.js';
+import { pillarOf } from '../public/plan.js';
+import { encryptCreds, getPost, getSetting, loadAccount, loadHashtagSets, loadSendOptions, now, publicAccount, saveCredentials } from './store.js';
+import { parseTags, tagsIn } from '../public/hashtags.js';
 
 const MAX_IMAGE = 8 * 1024 * 1024;
 const MAX_VIDEO = 95 * 1024 * 1024; // Workers が1回に受け取れるのは100MBまで
@@ -49,6 +51,7 @@ async function verifyCreds(env, platform, creds, origin) {
 // 本文・画像・投稿先を受け取って検証する（作成と編集で共通）
 async function readPostInput(env, body) {
   const text = String(body.body ?? '');
+  const pillar = pillarOf(body.pillar) ? body.pillar : null;
   const media = (Array.isArray(body.media) ? body.media : []).map((m) => ({
     key: String(m.key), type: String(m.type), size: Number(m.size) || 0, alt: String(m.alt ?? '').slice(0, 1000),
   }));
@@ -65,9 +68,9 @@ async function readPostInput(env, body) {
   }
   const mode = body.mode;
   if (mode !== 'draft') {
-    const sets = await loadHashtagSets(env);
+    const opts = await loadSendOptions(env);
     const problems = rows.map((r) => {
-      const msg = check(r.platform, withAutoTags(r.platform, r.body ?? text, sets, platforms[r.platform].limits.text), media, r.title);
+      const msg = check(r.platform, finalText(r.platform, r.body ?? text, { pillar }, opts), media, r.title);
       return msg && `${r.name}：${msg}`;
     }).filter(Boolean);
     if (problems.length) throw new HttpError(400, problems.join('\n'));
@@ -80,7 +83,7 @@ async function readPostInput(env, body) {
   } else if (mode !== 'now' && mode !== 'draft') {
     throw new HttpError(400, 'mode は now / schedule / draft のどれかです');
   }
-  return { text, media, rows, mode, scheduledAt };
+  return { text, media, rows, mode, scheduledAt, pillar };
 }
 
 const MAX_MEMBERS = 20;
@@ -94,18 +97,20 @@ function readHashtagSet(body) {
   return { name, tags, auto_platforms: [...new Set(auto)] };
 }
 
-const publicUser = (u) => ({ id: u.id, name: u.name, login: u.login, role: u.role });
+const publicUser = (u) => ({ id: u.id, name: u.name, email: u.email ?? null, role: u.role });
+const MEMBER_COLS = 'id, email, name, role, disabled, last_login_at, created_at';
+
+function checkEmail(v) {
+  const s = String(v ?? '').trim().toLowerCase();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s) || s.length > 200) throw new HttpError(400, 'Google アカウントのメールアドレスを正しく入れてください');
+  return s;
+}
 
 function checkPassword(pw) {
   const s = String(pw ?? '');
   if (s.length < 8) throw new HttpError(400, 'パスワードは8文字以上にしてください');
   if (s.length > 200) throw new HttpError(400, 'パスワードが長すぎます');
   return s;
-}
-
-async function getSetting(env, key) {
-  const row = await env.DB.prepare('SELECT value FROM settings WHERE key = ?').bind(key).first();
-  return row?.value ?? null;
 }
 
 async function writeTargets(env, postId, rows) {
@@ -121,6 +126,22 @@ async function api(req, env, url) {
     ? (req.headers.get('content-type') || '').includes('application/json') ? await req.json().catch(() => ({})) : null
     : null;
 
+  // ログイン画面が使う公開設定（Firebase の Web 用の値は公開して使う前提のもの）
+  if (path === '/auth-config' && method === 'GET') {
+    return json({
+      firebase: env.FIREBASE_PROJECT_ID ? { apiKey: env.FIREBASE_API_KEY, authDomain: env.FIREBASE_AUTH_DOMAIN, projectId: env.FIREBASE_PROJECT_ID } : null,
+      password_login: !!env.ADMIN_PASSWORD,
+    });
+  }
+  if (path === '/login/google' && method === 'POST') {
+    try {
+      const r = await loginWithGoogle(env, body?.idToken);
+      return json({ ok: true, user: publicUser(r.user) }, 200, { 'set-cookie': r.cookie });
+    } catch (e) {
+      if (e instanceof LoginError) return fail(e.message, 403);
+      throw e;
+    }
+  }
   if (path === '/login' && method === 'POST') {
     const r = await login(env, body?.login, body?.password);
     if (!r) {
@@ -150,22 +171,22 @@ async function api(req, env, url) {
   // ── メンバー（管理者だけ） ──
   if (path === '/members' && method === 'GET') {
     if (!isAdmin) return adminOnly();
-    const { results } = await env.DB.prepare('SELECT id, login, name, role, disabled, last_login_at, created_at FROM users ORDER BY id').all();
+    const { results } = await env.DB.prepare(`SELECT ${MEMBER_COLS} FROM users ORDER BY id`).all();
     return json(results);
   }
   if (path === '/members' && method === 'POST') {
     if (!isAdmin) return adminOnly();
     const count = (await env.DB.prepare('SELECT COUNT(*) AS n FROM users').first()).n;
     if (count >= MAX_MEMBERS) return fail(`メンバーは${MAX_MEMBERS}人までです`);
-    const loginId = String(body?.login ?? '').trim().toLowerCase();
-    if (!/^[a-z0-9._-]{3,32}$/.test(loginId)) return fail('ログインIDは半角英数字（. _ - も可）で3〜32文字にしてください');
+    const email = checkEmail(body?.email);
     const name = String(body?.name ?? '').trim().slice(0, 40);
     if (!name) return fail('名前を入力してください');
     const role = body?.role === 'admin' ? 'admin' : 'editor';
-    const exists = await env.DB.prepare('SELECT 1 FROM users WHERE login = ?').bind(loginId).first();
-    if (exists) return fail('そのログインIDはもう使われています');
-    const r = await env.DB.prepare('INSERT INTO users (login, name, password_hash, role, created_at) VALUES (?, ?, ?, ?, ?) RETURNING id, login, name, role, disabled, last_login_at, created_at')
-      .bind(loginId, name, await hashPassword(checkPassword(body?.password)), role, now()).first();
+    const exists = await env.DB.prepare('SELECT 1 FROM users WHERE email = ? OR login = ?').bind(email, email).first();
+    if (exists) return fail('そのメールアドレスはもう登録されています');
+    // Google でログインするのでパスワードは持たない（login 列にはメールを入れておく）
+    const r = await env.DB.prepare(`INSERT INTO users (login, email, name, password_hash, role, created_at) VALUES (?, ?, ?, '', ?, ?) RETURNING ${MEMBER_COLS}`)
+      .bind(email, email, name, role, now()).first();
     return json(r);
   }
   let mem = path.match(/^\/members\/(\d+)$/);
@@ -181,25 +202,35 @@ async function api(req, env, url) {
     }
     if (method === 'PATCH') {
       if (typeof body.name === 'string' && body.name.trim()) await env.DB.prepare('UPDATE users SET name = ? WHERE id = ?').bind(body.name.trim().slice(0, 40), id).run();
+      if (typeof body.email === 'string') {
+        const email = checkEmail(body.email);
+        const dup = await env.DB.prepare('SELECT 1 FROM users WHERE email = ? AND id != ?').bind(email, id).first();
+        if (dup) return fail('そのメールアドレスはもう登録されています');
+        await env.DB.prepare('UPDATE users SET email = ?, login = ?, session_version = session_version + 1 WHERE id = ?').bind(email, email, id).run();
+      }
       if (body.role === 'admin' || body.role === 'editor') await env.DB.prepare('UPDATE users SET role = ? WHERE id = ?').bind(body.role, id).run();
       // 停止・パスワード再設定は、その人のログインを切る
       if (typeof body.disabled === 'boolean') await env.DB.prepare('UPDATE users SET disabled = ?, session_version = session_version + 1 WHERE id = ?').bind(body.disabled ? 1 : 0, id).run();
       if (body.password) await env.DB.prepare('UPDATE users SET password_hash = ?, session_version = session_version + 1 WHERE id = ?').bind(await hashPassword(checkPassword(body.password)), id).run();
-      return json(await env.DB.prepare('SELECT id, login, name, role, disabled, last_login_at, created_at FROM users WHERE id = ?').bind(id).first());
+      return json(await env.DB.prepare(`SELECT ${MEMBER_COLS} FROM users WHERE id = ?`).bind(id).first());
     }
   }
   if (path === '/platforms') return json(describe());
 
   // ── AI で書き分け・設定 ──
   if (path === '/settings' && method === 'GET') {
-    const brand = await getSetting(env, 'brand');
-    return json({ ai_enabled: !!env.ANTHROPIC_API_KEY, brand: brand ?? DEFAULT_BRAND, brand_is_default: brand == null });
+    const [brand, utm] = await Promise.all([getSetting(env, 'brand'), getSetting(env, 'utm')]);
+    return json({ ai_enabled: !!env.ANTHROPIC_API_KEY, brand: brand ?? DEFAULT_BRAND, brand_is_default: brand == null, utm: utm !== 'off' });
   }
   if (path === '/settings' && method === 'PUT') {
     if (!isAdmin) return adminOnly();
-    const brand = String(body?.brand ?? '').trim();
-    if (brand) await env.DB.prepare('INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value').bind('brand', brand.slice(0, 4000)).run();
-    else await env.DB.prepare(`DELETE FROM settings WHERE key = 'brand'`).run();
+    const put = (key, value) => env.DB.prepare('INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value').bind(key, value).run();
+    if (body && 'brand' in body) {
+      const brand = String(body.brand ?? '').trim();
+      if (brand) await put('brand', brand.slice(0, 4000));
+      else await env.DB.prepare(`DELETE FROM settings WHERE key = 'brand'`).run();
+    }
+    if (body && typeof body.utm === 'boolean') await put('utm', body.utm ? 'on' : 'off');
     return json({ ok: true });
   }
   if (path === '/generate' && method === 'POST') {
@@ -208,6 +239,9 @@ async function api(req, env, url) {
       return json(await generate(env, {
         brand,
         hashtagSets: await loadHashtagSets(env),
+        pillar: typeof body?.pillar === 'string' ? body.pillar : null,
+        month: Number(body?.month) || null,
+        langs: Array.isArray(body?.langs) ? body.langs.map(String) : [],
         source: String(body?.source ?? '').slice(0, 20000),
         platformIds: Array.isArray(body?.platforms) ? body.platforms.map(String) : [],
       }));
@@ -366,8 +400,8 @@ async function api(req, env, url) {
     const input = await readPostInput(env, body);
     const status = input.mode === 'schedule' ? 'scheduled' : 'draft';
     const post = await env.DB.prepare(
-      'INSERT INTO posts (body, media, status, scheduled_at, created_by, updated_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?) RETURNING id',
-    ).bind(input.text, JSON.stringify(input.media), status, input.scheduledAt, user.name, user.name, now(), now()).first();
+      'INSERT INTO posts (body, media, status, scheduled_at, pillar, created_by, updated_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id',
+    ).bind(input.text, JSON.stringify(input.media), status, input.scheduledAt, input.pillar, user.name, user.name, now(), now()).first();
     await writeTargets(env, post.id, input.rows);
     if (input.mode === 'now') return json(await publishPost(env, post.id, url.origin));
     return json(await getPost(env, post.id));
@@ -400,8 +434,8 @@ async function api(req, env, url) {
       if (!['draft', 'scheduled'].includes(post.status)) return fail('公開後の投稿は編集できません', 409);
       const input = await readPostInput(env, body);
       const status = input.mode === 'schedule' ? 'scheduled' : 'draft';
-      await env.DB.prepare('UPDATE posts SET body = ?, media = ?, status = ?, scheduled_at = ?, updated_by = ?, updated_at = ? WHERE id = ?')
-        .bind(input.text, JSON.stringify(input.media), status, input.scheduledAt, user.name, now(), id).run();
+      await env.DB.prepare('UPDATE posts SET body = ?, media = ?, status = ?, scheduled_at = ?, pillar = ?, updated_by = ?, updated_at = ? WHERE id = ?')
+        .bind(input.text, JSON.stringify(input.media), status, input.scheduledAt, input.pillar, user.name, now(), id).run();
       await writeTargets(env, id, input.rows);
       if (input.mode === 'now') return json(await publishPost(env, id, url.origin));
       return json(await getPost(env, id));
@@ -417,6 +451,16 @@ async function api(req, env, url) {
   }
 
   return fail('見つかりません', 404);
+}
+
+// 管理画面のファイル。HTML は毎回確認、それ以外も ETag で更新を検知する
+function serveStatic(req, url) {
+  const file = STATIC[url.pathname === '/' ? '/index.html' : url.pathname];
+  if (!file || (req.method !== 'GET' && req.method !== 'HEAD')) return new Response('Not found', { status: 404 });
+  const headers = { 'content-type': file.type, etag: file.etag, 'cache-control': 'no-cache', 'x-content-type-options': 'nosniff' };
+  if (file.type.startsWith('text/html')) headers['x-robots-tag'] = 'noindex, nofollow';
+  if (req.headers.get('if-none-match') === file.etag) return new Response(null, { status: 304, headers });
+  return new Response(req.method === 'HEAD' ? null : file.body, { headers });
 }
 
 export default {
@@ -438,7 +482,7 @@ export default {
           },
         });
       }
-      return env.ASSETS.fetch(req);
+      return serveStatic(req, url);
     } catch (e) {
       if (e instanceof HttpError) return fail(e.message, e.status);
       console.error(e);

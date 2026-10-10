@@ -24,6 +24,27 @@ export const note = manual({
   aiGuide: 'noteの記事。titleは読みたくなる具体的な一文（30〜40字）。textは体験や想いが伝わる読み物：導入→「## 見出し」で2〜3章→結び。2000〜3000字。空行で段落を分ける。',
 });
 
+export const tiktok = manual({
+  id: 'tiktok',
+  label: 'TikTok',
+  color: '#111111',
+  url: 'https://www.tiktok.com/upload',
+  text: 2200,
+  note: 'TikTok の投稿APIは審査が必要なため、説明文を用意します。リール用の動画を TikTok アプリで選び、「コピー」した説明文を貼ってください',
+  aiGuide: 'TikTok の動画説明（若年層・海外への拡散）。1行目で引きつける短い一文、続けて2〜3行、最後にハッシュタグ3〜5個（#日本茶 #matcha など英語も可）。150字前後。',
+});
+
+export const red = manual({
+  id: 'red',
+  label: '小紅書（RED）',
+  color: '#ff2442',
+  url: 'https://creator.xiaohongshu.com/publish/publish',
+  text: 1000,
+  title: 20,
+  note: '小紅書には公式の投稿APIがないため、中国語の文章を用意します。写真と一緒に、コピーして小紅書のアプリか作成ページに貼ってください',
+  aiGuide: '小紅書（RED）の投稿。中国語圏（台湾・香港・中国本土）の茶愛好家向けに、すべて中国語（簡体字）で書く。titleは20字以内の目を引く見出し（絵文字1つ可）。textは発酵番茶・古美術・茶道具・自然栽培などの体験を、短い段落と絵文字少しで300〜500字、最後に話題タグ（#日本茶 #自然栽培 など中国語のタグ）を5個。',
+});
+
 export const newsletter = manual({
   id: 'newsletter',
   label: 'メルマガ',

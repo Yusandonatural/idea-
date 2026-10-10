@@ -20,6 +20,17 @@ export async function encryptCreds(env, credentials) {
   return encryptJSON(aes, credentials);
 }
 
+export async function getSetting(env, key) {
+  const row = await env.DB.prepare('SELECT value FROM settings WHERE key = ?').bind(key).first();
+  return row?.value ?? null;
+}
+
+// 送る直前の本文：yusando.com のリンクに UTM（設定で切れる）、セットの自動ハッシュタグ
+export async function loadSendOptions(env) {
+  const [sets, utm] = await Promise.all([loadHashtagSets(env), getSetting(env, 'utm')]);
+  return { sets, utm: utm !== 'off' };
+}
+
 export async function loadHashtagSets(env) {
   const { results } = await env.DB.prepare('SELECT * FROM hashtag_sets ORDER BY sort, id').all();
   return results.map((r) => ({ ...r, tags: JSON.parse(r.tags), auto_platforms: JSON.parse(r.auto_platforms) }));

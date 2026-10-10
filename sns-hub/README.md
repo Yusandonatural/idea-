@@ -1,18 +1,30 @@
 # SNS一括投稿（sns-hub）
 
-1つの画面から X・Instagram・Threads・Facebookページ・LINE公式・Bluesky・Mastodon・YouTube・Shopifyブログにまとめて投稿し、note とメルマガの原稿も同時に用意する、悠三堂用の管理ツール。予約・履歴・アカウントもここで管理する。
+1つの画面から Instagram（リール含む）・Facebookページ・YouTube・Threads・X・LINE公式・Pinterest・Shopifyブログ・Bluesky・Mastodon にまとめて投稿し、メルマガ・TikTok・note・小紅書の原稿も同時に用意する、悠三堂用の管理ツール。予約・履歴・アカウントもここで管理する。
 
 - **一括投稿**：本文と画像（最大8MB/枚）・動画（最大95MB）を1回書けば、選んだSNSすべてに投稿。SNSごとに本文を書き分けることもできる
 - **AIで書き分け**：伝えたいことをメモ書きして「✨ AIでSNSごとに書き分ける」を押すと、Claude が X は短く、Instagram はハッシュタグ多め、ブログは見出し付きの読み物、メルマガは挨拶と署名付き…とSNSごとの文章とタイトルを作る。そのまま直してから投稿できる
 - **YouTube・Shopifyブログ**：YouTube は動画を1本アップロード（画像は使わない）、Shopifyブログは記事として投稿（1枚目の画像がアイキャッチ、「## 」が見出し）。タイトル欄が出る
 - **note・メルマガ**：投稿用の公式APIがないので、文章（タイトル・件名つき）を用意して「コピー」ボタンで貼れるようにする。履歴にも残る
+- **SNSフル活用プランを反映**（[プランの doc](https://claude.ai/artifact/Kky8WHto1BZ6C4rpyNpkmm)、`public/plan.js`）：
+  - **投稿の柱**：畑と季節30%・自然茶道20%・思想と言葉20%・人と暮らし15%・商品と淹れ方15%。投稿ごとに柱を選び、カレンダーで今月の比率と目安を比べられる。AI は柱の導線（買う・学ぶ…）に合わせて書く
+  - **お茶ごよみ・週間スケジュール**：カレンダーに今月の作業・発信テーマ・販売の山と、曜日ごとの投稿の型（月：リール 畑と季節…）を表示。日にちを押すと、その曜日の柱を選んだ状態で予約投稿を作り始める
+  - **UTM**：yusando.com へのリンクに媒体ごとの UTM（utm_source=instagram など、キャンペーンは柱）を自動で付け、Shopify で媒体別の売上を見えるようにする（設定で切れる）
+  - **リール・動画**：Instagram はリール、Threads は動画として投稿（動画があれば動画1本だけ）
+  - **多言語**：AI で Instagram・YouTube・Pinterest に英語・フランス語・中国語の訳を添えられる
+  - **新しい投稿先**：Pinterest（API）、TikTok・小紅書（文章を用意してコピー。小紅書は中国語）
 - **ハッシュタグ管理**：「ハッシュタグ」タブで、よく使うタグをセット（例：お茶の基本＝#日本茶 #自然栽培 #奈良）にまとめておける。投稿画面でワンクリックで入れられるほか、セットごとに「自動で付けるSNS」を選ぶと、投稿するときに本文の最後へ自動で足す（本文にすでにあるタグと、文字数に収まらない分は足さない。画面に「自動で付くタグ」として表示され、文字数にも含めて数える）。過去の投稿でよく使ったタグのランキングも見られる。AIで書き分けるときもセットのタグを優先して使う
 - **文字数・画像チェック**：X（日本語は2文字換算・URLは23）、Bluesky（300）、Threads（500）など、SNSごとの数え方で残り文字数を表示。Instagram の「JPEGのみ・画像必須」なども投稿前に止める
 - **予約投稿とカレンダー**：日時を指定すると、毎分動く cron が時刻どおりに投稿する。「カレンダー」タブで月ごとに予約・公開済みを一覧でき、日にちを押せばその日の予約投稿を作れる。予約中の投稿はドラッグで別の日に動かせる（時刻はそのまま）
 - **メンバー**：投稿する人ごと（5人でも20人まで）にログインIDとパスワードを作れる。「投稿担当」は投稿・予約・AIの書き分けだけ、「管理者」はSNSの鍵・メンバー・AIの設定も変えられる。誰が作った・直した投稿かが履歴に残る
 - **履歴と再試行**：SNSごとの成功・失敗・投稿へのリンクを記録。一部だけ失敗したときは「失敗分を再試行」で、成功済みのSNSには二度投稿せず残りだけ送る
 - **アカウント管理**：接続テスト・停止/再開・鍵の更新。Threads / Instagram のトークン（60日期限）は毎日自動で延長する
-- **安全**：オーナーは合言葉、メンバーは各自のID・パスワード（PBKDF2でハッシュ化）でログイン。停止やパスワード変更でその人のログインはすぐ切れる。各SNSの鍵は AES-GCM で暗号化して保存。検索エンジンには載せない（noindex・robots.txt で全拒否。管理ツールなので GA4 タグも入れない）
+- **安全**：Google アカウントでログイン（メンバーに登録したメールだけ通す。Google の署名をサーバーで確かめる）。オーナーは予備として合言葉でも入れる。停止やメール変更でその人のログインはすぐ切れる。各SNSの鍵は AES-GCM で暗号化して保存。検索エンジンには載せない（noindex・robots.txt で全拒否。管理ツールなので GA4 タグも入れない）
+
+## 公開先
+
+- 管理画面：https://sns-hub.isozaki-f67.workers.dev （Cloudflare Workers `sns-hub`、D1 `sns-hub`、R2 `sns-hub-media`）
+- 独自ドメイン（例 `sns.yusando.com`）をつけたら、`wrangler.toml` の `PUBLIC_URL` を変えて `npm run deploy`
 
 ## 仕組み
 
@@ -29,7 +41,7 @@
 | `src/publish.js` | 投稿の実行・再試行・予約の処理・制限チェック |
 | `src/ai.js` | AIで書き分け（Claude API。SNSごとの書き方は各 `src/platforms/*.js` の `aiGuide`） |
 | `src/platforms/*.js` | SNSごとの接続（1ファイル1SNS。増やすときはここに足して `index.js` に登録） |
-| `public/` | 管理画面（`textlen.js` は Worker と共用の文字数計算） |
+| `public/` | 管理画面（`textlen.js`・`hashtags.js` は Worker と共用）。デプロイ時に `scripts/build-static.mjs` が Worker に埋め込む |
 | `schema.sql` | D1 のテーブル |
 
 ## 公開する（初回だけ）
@@ -58,15 +70,25 @@ npm run deploy
 npx wrangler d1 execute sns-hub --remote --file=migrations/0002_ai_titles.sql  # タイトル・AIの設定
 npx wrangler d1 execute sns-hub --remote --file=migrations/0003_members.sql    # メンバー・作った人
 npx wrangler d1 execute sns-hub --remote --file=migrations/0004_hashtags.sql   # ハッシュタグのセット
+npx wrangler d1 execute sns-hub --remote --file=migrations/0005_google_login.sql # Google ログイン（メンバーのメール）
+npx wrangler d1 execute sns-hub --remote --file=migrations/0006_plan.sql        # 投稿の柱
 ```
 
-## メンバーを追加する
+## Google ログインとメンバー
 
-1. オーナー（ログインIDは空欄、パスワードは `ADMIN_PASSWORD`）でログイン
-2. 「設定」→「メンバー」で、名前・ログインID・最初のパスワード・役割（投稿担当／管理者）を入れて追加
-3. 本人にIDと最初のパスワードを伝え、ログイン後に「自分のパスワード」で変えてもらう
+ログインは Google アカウント（Firebase Authentication。90日外国語アプリと同じ `french90days` プロジェクトを使う）。
 
-オーナーの合言葉は画面からは変えられない（`npx wrangler secret put ADMIN_PASSWORD` で変える）。メンバーが1人もいなくても、オーナーだけで全部使える。
+**最初に一度だけ（Firebase の設定）**：[Firebase コンソール](https://console.firebase.google.com/project/french90days/authentication/settings) → Authentication → 設定 →「承認済みドメイン」に `sns-hub.isozaki-f67.workers.dev`（独自ドメインをつけたらそれも）を追加する。追加しないと「承認済みドメインに入っていません」と出てログインできない。
+
+**メンバーの追加**：
+1. 管理者がログインして「設定」→「メンバー」で、名前・Google アカウントのメール・役割（投稿担当／管理者）を入れて追加
+2. 本人は「Google でログイン」を押して、そのアカウントを選ぶだけ（パスワードは不要）
+
+**最初の管理者**：次のどちらか。
+- 「合言葉でログイン（オーナー用の予備）」から `ADMIN_PASSWORD` で入り、自分の Google アカウントを「管理者」としてメンバーに追加する
+- または Cloudflare の管理画面 → Workers → `sns-hub` → 設定 → 変数で `OWNER_EMAILS` に自分のメールを入れる（そのメールで Google ログインするとオーナーになる。カンマ区切りで複数可）
+
+オーナーの合言葉は画面からは変えられない（`npx wrangler secret put ADMIN_PASSWORD` で変える）。`ADMIN_PASSWORD` を登録しなければ、合言葉でのログインは表示されない。
 
 ## AIで書き分け
 
@@ -104,6 +126,8 @@ npm test
 | **Mastodon** | サーバーURL、アクセストークン | 設定 → 開発 → 新規アプリ（`write:statuses` `write:media` `read:accounts`） |
 | **YouTube** | OAuth クライアントID・シークレット、リフレッシュトークン、公開設定 | Google Cloud でプロジェクトを作り「YouTube Data API v3」を有効化 → OAuth 同意画面（テストユーザーに自分を追加）→ 認証情報で「OAuth クライアントID（ウェブアプリ）」を作る → [OAuth 2.0 Playground](https://developers.google.com/oauthplayground/) の設定で自分のクライアントIDを使い、`https://www.googleapis.com/auth/youtube.upload` と `youtube.readonly` を許可してリフレッシュトークンを取る。1日のアップロード数には上限（APIの割り当て）がある。動画は95MBまで |
 | **Shopifyブログ** | ストアのドメイン、Admin APIトークン、ブログID | Shopify管理画面 → 設定 → アプリと販売チャネル → アプリを開発 → アプリを作成し、Admin API の `write_content` `read_content` を許可してインストール → トークンを表示。ブログIDは「オンラインストア → ブログ記事 → ブログを管理」で開いたURL末尾の数字。「すぐ公開」か「非公開で保存」を選べる |
+| **Pinterest** | アクセストークン、ボードID | [Pinterest Developers](https://developers.pinterest.com/) でアプリを作り、`pins:write` `boards:read` でトークンを発行（ビジネスアカウント）。ボードIDは API の `/v5/boards` で確認。画像1枚（縦長2:3推奨）、本文の最初の yusando.com のURLがリンク先 |
+| **TikTok・小紅書** | なし | 公式の投稿APIが審査制・非公開のため、文章を用意する（小紅書は中国語）。「コピー」して各アプリに貼る |
 | **note** | なし | 公式の投稿APIがないため、文章だけ用意する。投稿後に「コピー」→ note の編集画面に貼る |
 | **メルマガ** | なし | 下書き（件名＋本文）を用意する。「コピー」して配信サービスに貼る |
 

@@ -16,6 +16,7 @@ CREATE TABLE IF NOT EXISTS posts (
   status TEXT NOT NULL,               -- draft | scheduled | publishing | done | partial | failed
   scheduled_at INTEGER,
   published_at INTEGER,
+  pillar TEXT,                        -- 投稿の柱（public/plan.js の PILLARS）
   created_by TEXT,                    -- 作った人の名前
   updated_by TEXT,                    -- 最後に直した人の名前
   created_at INTEGER NOT NULL,
@@ -45,7 +46,8 @@ CREATE TABLE IF NOT EXISTS settings (
 
 CREATE TABLE IF NOT EXISTS users (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
-  login TEXT NOT NULL UNIQUE,         -- ログインID（小文字）
+  login TEXT NOT NULL UNIQUE,         -- ログインID（Google ログインのメンバーはメールと同じ）
+  email TEXT,                         -- Google アカウントのメール（小文字）
   name TEXT NOT NULL,                 -- 画面に出す名前
   password_hash TEXT NOT NULL,        -- PBKDF2
   role TEXT NOT NULL DEFAULT 'editor', -- admin（SNSの鍵・メンバーも管理） | editor（投稿だけ）
@@ -65,3 +67,5 @@ CREATE TABLE IF NOT EXISTS hashtag_sets (
   created_at INTEGER NOT NULL,
   updated_at INTEGER NOT NULL
 );
+
+CREATE UNIQUE INDEX IF NOT EXISTS users_email ON users(email);

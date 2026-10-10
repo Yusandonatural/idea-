@@ -63,7 +63,7 @@ test('SNSごとの制限チェック', () => {
   const png = { key: 'a.png', type: 'image/png' };
   assert.equal(check('x', 'hello', []), null);
   assert.match(check('x', 'あ'.repeat(141), []), /文字数/);
-  assert.match(check('instagram', 'hello', []), /画像が必要/);
+  assert.match(check('instagram', 'hello', []), /画像か動画が必要/);
   assert.match(check('instagram', 'hello', [png]), /対応していません/);
   assert.equal(check('instagram', 'hello', [jpg]), null);
   assert.match(check('x', 'hi', [jpg, jpg, jpg, jpg, jpg]), /4枚まで/);

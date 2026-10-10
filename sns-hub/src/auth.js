@@ -1,4 +1,5 @@
 import { b64, getKeys, hmacSign, hmacVerify, safeEqual, unb64 } from './crypto.js';
+import { TokenError, verifyFirebaseToken } from './google.js';
 
 const COOKIE = 'sns_hub';
 const TTL = 30 * 24 * 3600; // 30日
@@ -43,6 +44,27 @@ export async function login(env, loginId, password) {
   return { user, cookie: await sessionCookie(env, user) };
 }
 
+export class LoginError extends Error {}
+
+// Cloudflare の変数 OWNER_EMAILS（任意・カンマ区切り）に入れたメールは、Google ログインでオーナーになる
+export const ownerEmails = (env) => String(env.OWNER_EMAILS || '').split(/[\s,]+/).map((s) => s.trim().toLowerCase()).filter(Boolean);
+
+// Google でログイン：メンバー表に登録されたメールだけ通す
+export async function loginWithGoogle(env, idToken) {
+  let who;
+  try {
+    who = await verifyFirebaseToken(idToken, { projectId: env.FIREBASE_PROJECT_ID });
+  } catch (e) {
+    if (e instanceof TokenError) throw new LoginError(e.message);
+    throw e;
+  }
+  if (ownerEmails(env).includes(who.email)) return { user: OWNER, cookie: await sessionCookie(env, OWNER) };
+  const user = await env.DB.prepare('SELECT * FROM users WHERE email = ? AND disabled = 0').bind(who.email).first();
+  if (!user) throw new LoginError(`この Google アカウント（${who.email}）はメンバーに登録されていません。管理者に「設定 → メンバー」で追加してもらってください`);
+  await env.DB.prepare('UPDATE users SET last_login_at = ? WHERE id = ?').bind(Date.now(), user.id).run();
+  return { user, cookie: await sessionCookie(env, user) };
+}
+
 export function logoutCookie() {
   return `${COOKIE}=; Path=/; HttpOnly; Secure; SameSite=Strict; Max-Age=0`;
 }
@@ -58,7 +80,7 @@ export async function currentUser(req, env) {
   const { hmac } = await getKeys(env.APP_SECRET);
   if (!(await hmacVerify(hmac, `${uid}.${ver}.${exp}`, sig))) return null;
   if (uid === '0') return OWNER;
-  const user = await env.DB.prepare('SELECT id, login, name, role, session_version FROM users WHERE id = ? AND disabled = 0').bind(Number(uid)).first();
+  const user = await env.DB.prepare('SELECT id, login, email, name, role, session_version FROM users WHERE id = ? AND disabled = 0').bind(Number(uid)).first();
   if (!user || String(user.session_version) !== ver) return null;
   return user;
 }
