@@ -39,6 +39,7 @@
       <button data-tab="queue">予約・下書き</button>
       <button data-tab="history">履歴</button>
       <button data-tab="hashtags">ハッシュタグ</button>
+      <button data-tab="research">リサーチ</button>
       <button data-tab="accounts">設定</button>
     </nav>
     <span class="who" id="who"></span>
@@ -64,6 +65,7 @@
           <div class="lang-bar" id="lang-bar"><span class="label">AIで添える訳：</span>
             <label><input type="checkbox" value="en">英語</label><label><input type="checkbox" value="fr">フランス語</label><label><input type="checkbox" value="zh">中国語</label>
             <span class="muted small">（Instagram・YouTube・Pinterest に付けます）</span></div>
+          <details class="last-review" id="last-review" hidden></details>
           <p class="muted small" id="ai-hint">Instagram・Threads は動画があればリール・動画として投稿（画像は JPEG）。YouTube は動画のみ
           </p>
         </div>
@@ -126,6 +128,40 @@
       </div>
     </section>
 
+    <section id="tab-research" hidden>
+      <div class="card">
+        <h2>見張る相手</h2>
+        <p class="muted small">競合のアカウントや、気になるハッシュタグ・キーワードを登録すると、最近の投稿と反応（いいね・コメント・再生数）を集めます。毎朝3時ごろに自動で更新します。同じ相手のいつもの投稿より2倍以上反応がある投稿に「話題」の印を付けます。</p>
+        <div id="rs-status"></div>
+        <form id="watch-form" class="watch-form">
+          <select name="kind" aria-label="種類">
+            <option value="ig_user">Instagram アカウント</option>
+            <option value="ig_tag">Instagram ハッシュタグ</option>
+            <option value="yt_channel">YouTube チャンネル</option>
+            <option value="yt_query">YouTube キーワード</option>
+          </select>
+          <input name="value" placeholder="@ユーザー名 か プロフィールのURL" autocapitalize="off" spellcheck="false" required>
+          <button class="primary" id="watch-add">追加</button>
+        </form>
+        <p class="error" id="watch-error"></p>
+        <div id="watch-list" class="watches"></div>
+      </div>
+      <div class="rs-bar">
+        <select id="rs-watch" aria-label="相手"></select>
+        <select id="rs-sort" aria-label="並べ方"></select>
+        <select id="rs-days" aria-label="期間"><option value="7">7日以内</option><option value="30" selected>30日以内</option><option value="90">90日以内</option><option value="0">すべて</option></select>
+        <label class="row"><input type="checkbox" id="rs-buzz"> 話題の投稿だけ</label>
+        <button class="ghost small" id="rs-refresh">↻ すべて更新</button>
+      </div>
+      <div id="rs-items" class="rs-grid"></div>
+      <div class="card">
+        <h2>ほかのSNSで探す</h2>
+        <p class="muted small">TikTok・X・Threads・小紅書・note は、他の人の投稿を読む公式APIが審査制・有料のため、検索ページを開くリンクを作ります。</p>
+        <form id="search-form" class="row"><input name="q" placeholder="例：日本茶 自然栽培"><button class="primary">リンクを作る</button></form>
+        <div id="search-links" class="search-links"></div>
+      </div>
+    </section>
+
     <section id="tab-accounts" hidden>
       <div id="account-list" class="list"></div>
       <div class="card admin-only">
@@ -168,6 +204,15 @@
 </div>
 
 <dialog id="dialog"><div id="dialog-body"></div><form method="dialog"><button class="primary">閉じる</button></form></dialog>
+<dialog id="metrics-dialog">
+  <form id="metrics-form">
+    <h2 id="metrics-title"></h2>
+    <p class="muted small">アプリのインサイト（分析）に出ている数字を入れてください。わかるものだけでOKです。全部空にすると、自動で取れる先は自動に戻ります。</p>
+    <div id="metrics-fields" class="metrics-fields"></div>
+    <p class="error" id="metrics-error"></p>
+    <div class="row" style="justify-content:flex-end"><button value="cancel" class="ghost" formnovalidate>やめる</button><button class="primary">保存</button></div>
+  </form>
+</dialog>
 <div id="toast" class="toast" hidden></div>
 <script type="module" src="app.js"></script>
 </body>

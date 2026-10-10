@@ -14,5 +14,5 @@ export const platforms = Object.fromEntries([instagram, facebook, youtube, threa
 
 // 画面に渡す情報（関数は除く）
 export function describe() {
-  return Object.values(platforms).map(({ id, label, color, limits, fields, note, manual }) => ({ id, label, color, limits, fields, note, manual: !!manual }));
+  return Object.values(platforms).map(({ id, label, color, limits, fields, note, manual, metrics }) => ({ id, label, color, limits, fields, note, manual: !!manual, metrics: !!metrics }));
 }

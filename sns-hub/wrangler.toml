@@ -19,7 +19,7 @@ bucket_name = "sns-hub-media"
 
 [triggers]
 # 毎分：予約投稿の実行 ／ 毎日 18:00 UTC（日本時間 3:00）：Threads・Instagram のトークン延長
-crons = ["* * * * *", "0 18 * * *"]
+crons = ["* * * * *", "0 18 * * *", "30 18 * * *"]
 
 [vars]
 # 公開URL。Instagram・Threads・LINE が画像を取りに来るので、予約投稿（cron）ではここを使う

@@ -2,6 +2,8 @@ import { countFor } from './textlen.js';
 import { appendTags, autoTagsFor, parseTags, withAutoTags } from './hashtags.js';
 import { problems as ruleProblems, skippedNote, mediaFor as ruleMediaFor } from './rules.js';
 import { PILLARS, pillarOf, SEASONS, WEEKLY, withUtm } from './plan.js';
+import { isBuzz, scoreItems, searchLinks, SORTS } from './buzz.js';
+import { METRICS } from './insights.js';
 
 const $ = (s, el = document) => el.querySelector(s);
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
@@ -157,6 +159,7 @@ function showTab(name) {
   }
   if (name === 'calendar') renderCalendar();
   if (name === 'hashtags') renderHashtagTab();
+  if (name === 'research') loadResearch();
 }
 
 const isAdmin = () => state.user?.role === 'admin';
@@ -433,6 +436,7 @@ async function loadPosts(kind) {
           return t.url ? `<a class="chip ok" href="${esc(t.url)}" target="_blank" rel="noopener">${inner}</a>` : `<span class="chip ${t.status}">${inner}</span>`;
         }).join('')}</div>
         ${errors.length ? `<div class="post-errors">${errors.map((t) => `${esc(t.account_name)}：${esc(t.error)}`).join('\n')}</div>` : ''}
+        ${kind === 'history' && ['done', 'partial'].includes(p.status) ? reviewBlock(p) : ''}
         <div class="post-actions">
           ${['draft', 'scheduled'].includes(p.status) ? '<button class="small" data-act="edit">編集</button><button class="small primary" data-act="publish">今すぐ投稿</button>' : ''}
           ${['partial', 'failed'].includes(p.status) ? '<button class="small primary" data-act="publish">失敗分を再試行</button>' : ''}
@@ -452,6 +456,23 @@ for (const kind of ['queue', 'history']) {
     const post = $(`#${kind}-list`)._posts[id];
     const act = btn.dataset.act;
     if (act === 'copy-text') return copyText(manualText(post, post.targets.find((t) => String(t.id) === btn.dataset.target)));
+    if (act === 'metrics') return openMetrics(post.targets.find((t) => String(t.id) === btn.dataset.target), () => loadPosts(kind));
+    if (act === 'idea') return useIdea(post.review.idea);
+    if (act === 'review') {
+      const label = btn.textContent;
+      btn.textContent = state.ai.ai_enabled ? '反応を集めて、ふりかえっています…' : '反応を集めています…';
+      await busy(btn, async () => {
+        try {
+          const r = await api(`/posts/${id}/review`, { method: 'POST' });
+          toast(r.review_error || (state.ai.ai_enabled ? 'ふりかえりました' : '数字を更新しました（AIのふりかえりは ANTHROPIC_API_KEY を設定すると使えます）'));
+        } catch (err) {
+          toast(err.message);
+        }
+      });
+      btn.textContent = label;
+      loadLastReview();
+      return loadPosts(kind);
+    }
     if (act === 'edit') return loadIntoCompose(post, false);
     if (act === 'copy') return loadIntoCompose(post, true);
     if (act === 'delete') {
@@ -978,6 +999,254 @@ $('#set-form').addEventListener('submit', async (e) => {
   });
 });
 
+// ── 投稿ごとの反応とふりかえり ──
+const metricLine = (m) => METRICS.filter(({ key }) => m?.[key] != null)
+  .map(({ key, label, icon }) => `<span title="${label}">${icon} ${compact(m[key])}</span>`).join('');
+
+function reviewBlock(p) {
+  const rows = p.targets.filter((t) => t.status === 'ok' || t.status === 'manual').map((t) => {
+    const auto = state.platforms[t.platform]?.metrics && t.status === 'ok' && !t.metrics?.manual;
+    const ratio = t.ratio != null ? `<span class="${t.ratio >= 1.5 ? 'up' : t.ratio < 0.67 ? 'down' : 'muted'}" title="いいね＋（コメント・シェア・保存）×3 を、このアカウントの直近の中央値と比べて">いつもの${t.ratio.toFixed(1)}倍</span>` : '';
+    const nums = t.metrics ? metricLine(t.metrics) : `<span class="muted">${auto ? 'まだ数字がありません' : '数字は手で入れます'}</span>`;
+    return `<div class="m-row">${dot(t.platform)}<span class="m-name">${esc(t.account_name)}</span><span class="m-nums">${nums}</span>${ratio}
+      ${t.metrics_error ? `<span class="error" title="${esc(t.metrics_error)}">取得できませんでした</span>` : ''}
+      <button class="small ghost" data-act="metrics" data-target="${t.id}">${t.metrics?.manual ? '数字を直す' : auto ? '手で入れる' : '数字を入れる'}</button></div>`;
+  }).join('');
+  const r = p.review;
+  return `<div class="review">
+    <div class="review-head"><b>反応とふりかえり</b>${r ? `<span class="muted small">${fmt(p.review_at)}</span>` : ''}
+      <button class="small" data-act="review">${r ? '↻ もう一度ふりかえる' : '📊 反応を見てふりかえる'}</button></div>
+    <div class="m-rows">${rows}</div>
+    ${r ? `<p class="r-summary">${esc(r.summary)}</p>
+      ${r.good.length ? `<div class="r-sec"><b>良かったところ</b><ul>${r.good.map((g) => `<li>${esc(g)}</li>`).join('')}</ul></div>` : ''}
+      <div class="r-sec r-next"><b>次回へのアドバイス</b><ol>${r.next.map((n) => `<li>${esc(n)}</li>`).join('')}</ol></div>
+      ${r.idea ? `<div class="r-idea"><span>💡 次に試すなら：${esc(r.idea)}</span><button class="small ai" data-act="idea">この案で書く</button></div>` : ''}`
+    : `<p class="muted small">公開から約1日たつと、毎朝自動で数字を集めてふりかえります（AIのふりかえりは ANTHROPIC_API_KEY が必要）。すぐ見たいときはボタンを押してください。</p>`}
+  </div>`;
+}
+
+function useIdea(idea) {
+  const memo = `${idea}\n`;
+  state.body = state.body.trim() ? `${state.body.trimEnd()}\n\n${memo}` : memo;
+  bodyEl.value = state.body;
+  renderTargets();
+  showTab('compose');
+  bodyEl.focus();
+  toast('次に試す案を入れました。メモを足して「AIで書き分ける」も使えます');
+}
+
+function openMetrics(t, done) {
+  const dlg = $('#metrics-dialog');
+  const f = $('#metrics-form');
+  $('#metrics-title').innerHTML = `${dot(t.platform)}${esc(t.account_name)} の数字`;
+  $('#metrics-fields').innerHTML = METRICS.map(({ key, label, icon }) =>
+    `<label>${icon} ${label}<input type="number" min="0" inputmode="numeric" name="${key}" value="${t.metrics?.[key] ?? ''}"></label>`).join('');
+  $('#metrics-error').textContent = '';
+  f.onsubmit = async (e) => {
+    e.preventDefault();
+    if (e.submitter?.value === 'cancel') return dlg.close();
+    const metrics = Object.fromEntries(METRICS.map(({ key }) => [key, f[key].value]));
+    try {
+      await api(`/targets/${t.id}/metrics`, { method: 'PUT', json: { metrics } });
+      dlg.close();
+      toast('数字を保存しました');
+      done();
+    } catch (err) {
+      $('#metrics-error').textContent = err.message;
+    }
+  };
+  dlg.showModal();
+}
+
+// 投稿画面：前回のふりかえりで出た「次回へのアドバイス」
+async function loadLastReview() {
+  const [last] = await api('/reviews/latest').catch(() => []);
+  const el = $('#last-review');
+  el.hidden = !last;
+  if (!last) return;
+  el.innerHTML = `<summary>📝 前回のふりかえり（${fmt(last.published_at)}の投稿）からのアドバイス</summary>
+    <ol>${last.review.next.map((n) => `<li>${esc(n)}</li>`).join('')}</ol>
+    ${last.review.idea ? `<p>💡 ${esc(last.review.idea)} <button type="button" class="small ai" data-idea>この案で書く</button></p>` : ''}
+    <p class="muted small">AIで書き分けるときも、最近のアドバイスを参考にします。</p>`;
+  el._idea = last.review.idea;
+}
+$('#last-review').addEventListener('click', (e) => {
+  if (e.target.closest('[data-idea]')) useIdea($('#last-review')._idea);
+});
+
+// ── リサーチ（競合・話題の投稿） ──
+const WATCH_KINDS = {
+  ig_user: { label: 'Instagram アカウント', platform: 'instagram', placeholder: '@ユーザー名 か プロフィールのURL', link: (v) => `https://www.instagram.com/${v}/` },
+  ig_tag: { label: 'Instagram ハッシュタグ', platform: 'instagram', placeholder: '#日本茶', link: (v) => `https://www.instagram.com/explore/tags/${encodeURIComponent(v)}/` },
+  yt_channel: { label: 'YouTube チャンネル', platform: 'youtube', placeholder: '@ハンドル か チャンネルのURL', link: (v) => `https://www.youtube.com/${v.startsWith('UC') ? 'channel/' + v : v}` },
+  yt_query: { label: 'YouTube キーワード', platform: 'youtube', placeholder: '例：日本茶 淹れ方（直近30日の再生数順）', link: (v) => `https://www.youtube.com/results?search_query=${encodeURIComponent(v)}&sp=CAM%253D` },
+};
+const research = { watches: [], items: [] };
+const compact = (n) => (n == null ? '–' : new Intl.NumberFormat('ja-JP', { notation: 'compact', maximumFractionDigits: 1 }).format(n));
+const watchName = (w) => w.info?.name || (w.kind === 'ig_user' ? '@' + w.value : w.kind === 'ig_tag' ? '#' + w.value : w.value);
+const TYPE_LABEL = { reel: 'リール', short: 'ショート', video: '動画', image: '画像', carousel_album: '複数枚' };
+const mmss = (s) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+
+$('#rs-sort').innerHTML = Object.entries(SORTS).map(([k, v]) => `<option value="${k}">${v.label}</option>`).join('');
+$('#watch-form').kind.addEventListener('change', (e) => { $('#watch-form').value.placeholder = WATCH_KINDS[e.target.value].placeholder; });
+
+async function loadResearch() {
+  const r = await api('/research');
+  research.watches = r.watches;
+  research.items = scoreItems(r.items, r.watches);
+  const notes = [r.status.instagram, r.status.youtube].filter(Boolean);
+  $('#rs-status').innerHTML = notes.map((n) => `<p class="rs-status">${esc(n)}（README の「リサーチ」）</p>`).join('');
+  renderWatches();
+  const sel = $('#rs-watch');
+  const keep = sel.value;
+  sel.innerHTML = `<option value="">すべての相手</option>${r.watches.map((w) => `<option value="${w.id}">${esc(watchName(w))}</option>`).join('')}`;
+  if ([...sel.options].some((o) => o.value === keep)) sel.value = keep;
+  renderResearchItems();
+}
+
+function renderWatches() {
+  const counts = {};
+  for (const it of research.items) counts[it.watch_id] = (counts[it.watch_id] || 0) + 1;
+  $('#watch-list').innerHTML = research.watches.length ? research.watches.map((w) => {
+    const k = WATCH_KINDS[w.kind];
+    const g = w.growth;
+    const grow = g ? ` <span class="${g.diff >= 0 ? 'up' : 'down'}">${g.diff >= 0 ? '+' : ''}${g.diff.toLocaleString()}</span>（${g.days}日）` : '';
+    const fol = w.info?.followers != null ? `${w.kind === 'yt_channel' ? '登録者' : 'フォロワー'} ${w.info.followers.toLocaleString()}${grow}・` : '';
+    return `<div class="watch" data-id="${w.id}">
+      ${w.info?.picture ? `<img src="${esc(w.info.picture)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.style.visibility='hidden'">` : dot(k.platform)}
+      <div class="info"><b>${esc(watchName(w))}</b> <span class="muted small">${esc(k.label)}</span>
+        <small>${fol}投稿 ${counts[w.id] || 0}件${w.fetched_at ? `・${fmt(w.fetched_at)} 更新` : ''}</small>
+        ${w.last_error ? `<p class="error">${esc(w.last_error)}</p>` : ''}</div>
+      <a class="button small ghost" href="${esc(k.link(w.value))}" target="_blank" rel="noopener noreferrer">開く</a>
+      <button class="small" data-act="refresh">更新</button>
+      <button class="small ghost danger" data-act="delete">削除</button>
+    </div>`;
+  }).join('') : '<p class="muted small">まだ登録がありません。まずは同業のお茶屋さんや、#日本茶 #自然栽培 などを登録してみてください。</p>';
+}
+
+function renderResearchItems() {
+  const wid = $('#rs-watch').value;
+  const days = Number($('#rs-days').value);
+  const buzzOnly = $('#rs-buzz').checked;
+  const since = days ? Date.now() - days * 86400e3 : 0;
+  const byId = Object.fromEntries(research.watches.map((w) => [w.id, w]));
+  const list = research.items
+    .filter((it) => (!wid || String(it.watch_id) === wid) && (!since || (it.posted_at ?? 0) >= since) && (!buzzOnly || isBuzz(it)))
+    .sort(SORTS[$('#rs-sort').value].fn)
+    .slice(0, 90);
+  $('#rs-items').innerHTML = list.length ? list.map((it) => {
+    const w = byId[it.watch_id];
+    const k = WATCH_KINDS[w.kind];
+    const buzz = isBuzz(it);
+    const type = [TYPE_LABEL[it.media_type] ?? '', it.duration ? mmss(it.duration) : ''].filter(Boolean).join(' ');
+    return `<article class="rs-item${buzz ? ' buzz' : ''}" data-watch="${it.watch_id}" data-item="${esc(it.item_id)}">
+      <a class="rs-thumb" href="${esc(it.url)}" target="_blank" rel="noopener noreferrer">
+        <span class="ph">${esc(TYPE_LABEL[it.media_type] ?? '投稿')}</span>
+        ${it.thumb ? `<img src="${esc(it.thumb)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">` : ''}
+        ${buzz ? `<span class="badge">話題 ×${it.ratio.toFixed(1)}</span>` : ''}
+        ${type ? `<span class="kind">${esc(type)}</span>` : ''}
+      </a>
+      <div class="rs-body">
+        <div class="rs-meta">${dot(k.platform)}<span class="who2">${esc(it.author || watchName(w))}</span><span>${it.posted_at ? new Date(it.posted_at).toLocaleDateString('ja-JP', { month: 'numeric', day: 'numeric' }) : ''}</span></div>
+        <p class="rs-cap">${esc(it.caption) || '<span class="muted">（文章なし）</span>'}</p>
+        <div class="rs-nums">
+          ${it.views != null ? `<span title="再生数">▶ ${compact(it.views)}</span>` : ''}
+          <span title="いいね">♥ ${compact(it.likes)}</span><span title="コメント">💬 ${compact(it.comments)}</span>
+          ${it.per_day != null ? `<span class="sub" title="${it.views != null ? '1日あたりの再生数' : '1日あたりの反応（いいね＋コメント×3）'}">1日 ${compact(Math.round(it.per_day))}</span>` : ''}
+          ${it.ratio != null ? `<span class="${buzz ? 'hot' : 'sub'}" title="同じ相手の投稿の中央値と比べて">いつもの${it.ratio.toFixed(1)}倍</span>` : ''}
+          ${it.rate != null ? `<span class="sub" title="（いいね＋コメント）÷フォロワー">反応率 ${(it.rate * 100).toFixed(1)}%</span>` : ''}
+        </div>
+        <div class="rs-acts"><a class="button small" href="${esc(it.url)}" target="_blank" rel="noopener noreferrer">開く</a><button class="small" data-act="idea" title="この投稿を参考メモとして投稿画面に入れます">✎ ネタにする</button></div>
+      </div>
+    </article>`;
+  }).join('') : `<p class="empty">${research.watches.length ? '条件に合う投稿がありません。期間を広げてみてください' : '見張る相手を登録すると、ここに投稿が並びます'}</p>`;
+}
+
+for (const id of ['#rs-watch', '#rs-sort', '#rs-days', '#rs-buzz']) $(id).addEventListener('change', renderResearchItems);
+
+$('#watch-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const f = e.target;
+  $('#watch-error').textContent = '';
+  await busy($('#watch-add'), async () => {
+    try {
+      await api('/research/watches', { method: 'POST', json: { kind: f.kind.value, value: f.value.value } });
+      f.value.value = '';
+      toast('登録して、最近の投稿を集めました');
+      await loadResearch();
+    } catch (err) {
+      $('#watch-error').textContent = err.message;
+    }
+  });
+});
+
+$('#watch-list').addEventListener('click', async (e) => {
+  const btn = e.target.closest('[data-act]');
+  if (!btn) return;
+  const w = research.watches.find((x) => String(x.id) === btn.closest('.watch').dataset.id);
+  if (btn.dataset.act === 'delete') {
+    if (!await ask(`「${watchName(w)}」の見張りをやめますか？`)) return;
+    await api(`/research/watches/${w.id}`, { method: 'DELETE' });
+    toast('削除しました');
+    return loadResearch();
+  }
+  if (btn.dataset.act === 'refresh') {
+    await busy(btn, async () => {
+      try {
+        await api(`/research/watches/${w.id}/refresh`, { method: 'POST' });
+        toast('更新しました');
+      } catch (err) {
+        toast(err.message);
+      }
+      await loadResearch();
+    });
+  }
+});
+
+$('#rs-refresh').addEventListener('click', async (e) => {
+  const btn = e.currentTarget;
+  const label = btn.textContent;
+  const failed = [];
+  await busy(btn, async () => {
+    for (const [i, w] of research.watches.entries()) {
+      btn.textContent = `更新中… ${i + 1}/${research.watches.length}`;
+      try {
+        await api(`/research/watches/${w.id}/refresh`, { method: 'POST' });
+      } catch {
+        failed.push(watchName(w));
+      }
+    }
+  });
+  btn.textContent = label;
+  toast(failed.length ? `更新できなかった相手：${failed.join('、')}` : 'すべて更新しました');
+  loadResearch();
+});
+
+$('#rs-items').addEventListener('click', (e) => {
+  const btn = e.target.closest('[data-act="idea"]');
+  if (!btn) return;
+  const card = btn.closest('.rs-item');
+  const it = research.items.find((x) => String(x.watch_id) === card.dataset.watch && x.item_id === card.dataset.item);
+  const w = research.watches.find((x) => x.id === it.watch_id);
+  const cap = [...(it.caption || '')].slice(0, 200).join('').replace(/\s+/g, ' ');
+  const memo = `（参考にした投稿：${it.author || watchName(w)} ${it.url}）\n「${cap}」\nこの切り口を、悠三堂ならこう伝える：\n`;
+  state.body = state.body.trim() ? `${state.body.trimEnd()}\n\n${memo}` : memo;
+  bodyEl.value = state.body;
+  renderTargets();
+  showTab('compose');
+  bodyEl.focus();
+  bodyEl.setSelectionRange(bodyEl.value.length, bodyEl.value.length);
+  toast('参考メモを入れました。続きを書いて「AIで書き分ける」も使えます');
+});
+
+$('#search-form').addEventListener('submit', (e) => {
+  e.preventDefault();
+  const links = searchLinks(e.target.q.value);
+  $('#search-links').innerHTML = links.length
+    ? links.map((l) => `<a class="chip" href="${esc(l.url)}" target="_blank" rel="noopener noreferrer">${state.platforms[l.id] ? dot(l.id) : ''}${esc(l.label)} ↗</a>`).join('')
+    : '<p class="muted small">調べる言葉を入れてください</p>';
+});
+
 async function loadAccounts() {
   state.accounts = await api('/accounts');
   renderTargets();
@@ -1002,6 +1271,7 @@ async function start() {
   for (const a of state.accounts) if (!state.targets.has(a.id)) state.targets.set(a.id, newTarget(!state.platforms[a.platform].manual));
   renderTargets();
   renderPicker();
+  loadLastReview();
 }
 
 start().catch(showLogin);

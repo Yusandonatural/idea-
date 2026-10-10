@@ -2,7 +2,7 @@ import { call, form } from './http.js';
 
 const API = 'https://www.googleapis.com/youtube/v3';
 
-async function accessToken(c) {
+export async function accessToken(c) {
   const r = await call('https://oauth2.googleapis.com/token', {
     method: 'POST',
     body: form({ client_id: c.client_id, client_secret: c.client_secret, refresh_token: c.refresh_token, grant_type: 'refresh_token' }),
@@ -34,6 +34,14 @@ export default {
     const r = await call(`${API}/channels?part=snippet&mine=true`, { headers: { authorization: `Bearer ${tok}` } });
     if (!r.items?.length) throw new Error('このアカウントにYouTubeチャンネルがありません');
     return { name: r.items[0].snippet.title };
+  },
+  async metrics(id, c) {
+    const tok = await accessToken(c);
+    const r = await call(`${API}/videos?part=statistics&id=${encodeURIComponent(id)}`, { headers: { authorization: `Bearer ${tok}` } });
+    const s = r.items?.[0]?.statistics;
+    if (!s) throw new Error('動画が見つかりません');
+    const n = (v) => (v == null ? null : Number(v));
+    return { views: n(s.viewCount), likes: n(s.likeCount), comments: n(s.commentCount) };
   },
   async publish({ text, title, media }, c, ctx) {
     const video = media.find((m) => m.type.startsWith('video/'));

@@ -24,6 +24,24 @@ export default {
     const me = await call(`${api(c, ctx.env)}/${c.user_id}?fields=username&access_token=${encodeURIComponent(c.access_token)}`);
     return { name: '@' + me.username };
   },
+  // 反応：いいね・コメントと、インサイト（リーチ・再生/表示・保存・シェア）
+  async metrics(id, c, ctx) {
+    const base = api(c, ctx.env);
+    const tok = encodeURIComponent(c.access_token);
+    const m = await call(`${base}/${id}?fields=like_count,comments_count&access_token=${tok}`);
+    const out = { likes: m.like_count ?? null, comments: m.comments_count ?? null };
+    try {
+      const ins = await call(`${base}/${id}/insights?metric=reach,views,saved,shares&access_token=${tok}`);
+      for (const d of ins.data ?? []) {
+        const v = d.values?.[0]?.value ?? d.total_value?.value;
+        if (d.name === 'reach') out.reach = v;
+        if (d.name === 'views') out.views = v;
+        if (d.name === 'saved') out.saves = v;
+        if (d.name === 'shares') out.shares = v;
+      }
+    } catch {} // インサイトの権限がないトークンでは、いいね・コメントだけ
+    return out;
+  },
   async publish({ text, media }, c, ctx) {
     if (!media.length) throw new Error('Instagram は画像か動画が必要です');
     const base = api(c, ctx.env);
