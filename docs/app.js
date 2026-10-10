@@ -108,11 +108,48 @@ function mascot(size, mood) {
 function renderStats() {
   const el = $("#stats"); if (!el) return;
   const st = streak(), min = S.started ? minutesDone(S.day) : 0, lit = !!S.active[today()];
-  el.innerHTML = `<a href="#/today" class="stat-chip lang" aria-label="${esc(LANG.name)}">中文</a>
+  const me = (window.LANGS || []).find(l => l.code === LANG.code) || {};
+  el.innerHTML = `<button type="button" class="stat-chip lang" id="langBtn" aria-haspopup="dialog" aria-label="学ぶ言語を選ぶ（いまは${esc(LANG.name)}）">${me.flag ? `<span class="lb-flag" aria-hidden="true">${me.flag}</span>` : ""}中文<span class="lb-caret" aria-hidden="true">▾</span></button>
     <span class="stat-chip ${lit ? "fire" : "off"}" title="連続日数">${icon("flame")}<b>${st}</b></span>
     <span class="stat-chip xp" title="経験値">${icon("bolt")}<b>${S.xp || 0}</b></span>
     <a href="#/today" class="stat-chip goal" title="今日の60分">${ring(min / 60, 22)}<b>${min}<small>/60分</small></b></a>`;
 }
+// ---------- 言語を選ぶシート ----------
+function langStatus(l) {
+  const s = l.summary ? l.summary() : null;
+  if (!s || !(s.started || s.xp)) return "まだ始めていません";
+  return `${s.started ? `${s.day}日目 ・ ` : ""}${s.xp} XP${s.streak ? ` ・ ${s.streak}日連続` : ""}`;
+}
+function openLangSheet() {
+  if ($("#langSheet")) return;
+  const langs = window.LANGS || [];
+  const wrap = document.createElement("div");
+  wrap.id = "langSheet";
+  wrap.className = "sheet-wrap";
+  wrap.innerHTML = `<div class="sheet-bg" data-close></div>
+    <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="langSheetTitle">
+      <div class="sheet-grip" aria-hidden="true"></div>
+      <h2 id="langSheetTitle" class="sheet-title">学ぶ言語を選ぶ</h2>
+      <div class="sheet-list">${langs.map(l => {
+        const cur = l.code === LANG.code, ext = /^https?:/.test(l.url);
+        return `<a class="sheet-lang ${cur ? "cur" : ""} c-${l.color}" href="${esc(cur ? "#/today" : l.url)}"${cur ? ' data-close aria-current="true"' : ""}${ext ? "" : ""}>
+          <span class="lc-flag" aria-hidden="true">${l.flag}</span>
+          <span class="lc-text"><b>${esc(l.name)}</b><span class="lc-native">${esc(l.native)}</span><span class="lc-status">${esc(langStatus(l))}</span></span>
+          ${cur ? `<span class="sheet-cur">${icon("check")}学習中</span>` : `<span class="chev">›</span>`}</a>`;
+      }).join("") || '<p class="muted">ほかの言語はまだありません。</p>'}</div>
+      <a class="btn wide" href="#/start" data-close>すべての言語（入口へ）</a>
+      <button type="button" class="btn wide sheet-cancel" data-close>閉じる</button>
+    </div>`;
+  document.body.appendChild(wrap);
+  const close = () => { wrap.remove(); document.removeEventListener("keydown", onKey); const b = $("#langBtn"); if (b) b.focus(); };
+  const onKey = e => { if (e.key === "Escape") close(); };
+  document.addEventListener("keydown", onKey);
+  wrap.querySelectorAll("[data-close]").forEach(x => x.addEventListener("click", close));
+  const first = wrap.querySelector(".sheet-lang:not(.cur)") || wrap.querySelector(".sheet-lang");
+  if (first) first.focus();
+}
+document.addEventListener("click", e => { if (e.target.closest && e.target.closest("#langBtn")) openLangSheet(); });
+
 function ring(p, size) {
   const r = (size - 4) / 2, c = 2 * Math.PI * r;
   return `<svg class="ring" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" aria-hidden="true"><circle cx="${size / 2}" cy="${size / 2}" r="${r}" class="ring-bg"/><circle cx="${size / 2}" cy="${size / 2}" r="${r}" class="ring-fg" stroke-dasharray="${c}" stroke-dashoffset="${c * (1 - Math.min(1, p))}" transform="rotate(-90 ${size / 2} ${size / 2})"/></svg>`;
