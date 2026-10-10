@@ -108,7 +108,7 @@
 
     var ul = $("recent"); ul.textContent = "";
     var ev = KP.events(kid.id).slice(0, 20);
-    if (!ev.length) ul.appendChild(h("li", { class: "empty", text: "まだ ありません。アプリで べんきょうすると 1ぷん 10ポイント たまるよ！" }));
+    if (!ev.length) ul.appendChild(h("li", { class: "empty", text: "まだ ありません。アプリで 1もん せいかいすると 5ポイント たまるよ！" }));
     ev.forEach(function (e) {
       var a = appInfo(e.app), minus = e.points < 0;
       ul.appendChild(h("li", {}, [
@@ -153,7 +153,7 @@
       all.onclick = function () { startGame(kid, can); };
       pick.appendChild(all);
     }
-    if (!can) pick.appendChild(h("p", { class: "note", text: "ポイントが たりないよ。10ぷん べんきょうすると 10ぷん あそべるよ！" }));
+    if (!can) pick.appendChild(h("p", { class: "note", text: "ポイントが たりないよ。2もん せいかいすると ゲーム 1ぷん ぶん たまるよ！" }));
   }
   function startGame(kid, min) {
     var used = KP.spend(min * KP.GAME_PER_MIN, "ゲーム " + min + "ぷん", kid.id);
@@ -227,7 +227,7 @@
     $("demo").hidden = false; $("parent").open = true;
     APPS.forEach(function (a) {
       var b = h("button", { type: "button", text: a.icon + " +100" });
-      b.onclick = function () { KP.award({ app: a.id, points: 100, reason: a.name + " テスト 10ぷん" }); };
+      b.onclick = function () { KP.award({ app: a.id, points: 100, reason: a.name + " テスト 20もん" }); };
       $("demobtns").appendChild(b);
     });
   }

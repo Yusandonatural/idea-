@@ -290,11 +290,12 @@
       var q = qs[i], ok = q.opts[j] === q.p;
       bump(q.p.no, ok);
       S.answered++;
-      if (ok) { right++; S.correct++; S.xp += 10; } else misses.push(q.p);
+      if (ok) { right++; S.correct++; S.xp += 10; if (window.__kpAnswers) window.__kpAnswers.correct(); } else misses.push(q.p);
       save();
       draw(true, j);
     }
     function finish() {
+      if (window.__kpAnswers) window.__kpAnswers.flush();
       var passedNow = false;
       if (kind === "test") {
         if (S.best[id] == null || right > S.best[id]) S.best[id] = right;
