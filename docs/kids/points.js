@@ -15,7 +15,9 @@
 (function (root) {
   "use strict";
   var KEY = "kids-points:v1";
-  var DAILY_BONUS = 5; // その日はじめてポイントをもらった時のおまけ（アプリ共通）
+  var DAILY_BONUS = 0; // その日はじめてポイントをもらった時のおまけ（0 = なし。「べんきょう 1ぷん = 10ポイント」をそろえるため）
+  var PER_MIN = 10;    // べんきょう 1ぷん = 10ポイント（30ぷん = 300ポイント）
+  var GAME_PER_MIN = 10; // ゲーム 1ぷん = 10ポイント（300ポイント = 30ぷん）
   var ICONS = ["🦊", "🐻", "🐰", "🐼", "🐯", "🐸", "🐧", "🦄"];
 
   function ymd(t) {
@@ -67,6 +69,8 @@
   var KP = {
     KEY: KEY,
     DAILY_BONUS: DAILY_BONUS,
+    PER_MIN: PER_MIN,
+    GAME_PER_MIN: GAME_PER_MIN,
 
     /** ポイントをあげる。
      *  opts: { app（必須・英小文字のID）, points（1以上の整数）, reason, key（同じ達成で二重にもらわないためのID）, kid（子のID。省略で今の子）, toast（false で表示しない） }
@@ -82,7 +86,7 @@
       var id = opts.key ? opts.app + ":" + kid.id + ":" + opts.key : "e" + rid();
       if (s.log[id]) return { added: 0, bonus: 0, balance: KP.balance(kid.id), kid: kid };
       var bonusId = "daily:" + kid.id + ":" + ymd(now), bonus = 0;
-      if (!s.log[bonusId]) { s.log[bonusId] = [kid.id, "bonus", DAILY_BONUS, now, "きょうの はじめの いっぽ"]; bonus = DAILY_BONUS; }
+      if (DAILY_BONUS > 0 && !s.log[bonusId]) { s.log[bonusId] = [kid.id, "bonus", DAILY_BONUS, now, "きょうの はじめの いっぽ"]; bonus = DAILY_BONUS; }
       s.log[id] = [kid.id, String(opts.app), pts, now, String(opts.reason || "").slice(0, 60)];
       save(s);
       var r = { added: pts, bonus: bonus, balance: KP.balance(kid.id), kid: kid };
@@ -90,13 +94,50 @@
       return r;
     },
 
-    /** ポイントを使う（ごほうびと交換など）。保護者の画面から呼ぶ想定 */
+    /** ポイントを使う（ゲームじかんとの交換など）。もっている分までしか使わない。返り値：使った点 */
     spend: function (points, reason, kidId) {
       var pts = Math.round(Number(points));
       if (!(pts > 0)) throw new Error("KidsPoints.spend: 1以上の points が必要です");
       var s = load(), kid = kidId ? { id: kidId } : currentOf(s);
+      pts = Math.min(pts, Math.max(0, KP.balance(kid.id)));
+      if (!pts) return 0;
+      s = load();
       s.log["e" + rid()] = [kid.id, "spend", -pts, Date.now(), String(reason || "つかった").slice(0, 60)];
       save(s);
+      return pts;
+    },
+    /** 今のポイントで ゲームが 何ぷん できるか */
+    gameMinutes: function (kidId) { return Math.floor(Math.max(0, KP.balance(kidId)) / GAME_PER_MIN); },
+
+    /** べんきょうした じかんを はかって、1ぷん = 10ポイント あげる（各アプリで1回よぶ）。
+     *  画面が見えていて、さいごに さわってから 90びょう いないの あいだだけ 数える。
+     *  5ふん たまるか、画面を とじる・かくすと まとめて つける。1ぷんに みたない はんぱは つぎに もちこす。
+     *  返り値：{ flush()（今 たまっている分を つける）, pause(), resume() } */
+    studyTime: function (app, opts) {
+      opts = opts || {};
+      if (!root.document || !app) return { flush: function () {}, pause: function () {}, resume: function () {} };
+      var IDLE = (opts.idleSec || 90) * 1000, carryKey = KEY + ":carry:" + app;
+      var sec = 0, now = Date.now(), last = now, lastAct = now, running = true;
+      try { sec = Math.min(59, Number(localStorage.getItem(carryKey)) || 0); } catch (e) { /* なし */ }
+      function act() { lastAct = Date.now(); }
+      ["pointerdown", "keydown", "touchstart", "input", "wheel"].forEach(function (ev) { root.addEventListener(ev, act, { passive: true, capture: true }); });
+      function keep() { try { localStorage.setItem(carryKey, String(Math.floor(sec))); } catch (e) { /* なし */ } }
+      function flush(toast) {
+        var m = Math.floor(sec / 60);
+        if (m >= 1) {
+          sec -= m * 60;
+          try { KP.award({ app: app, points: m * PER_MIN, reason: (opts.label || "べんきょう") + " " + m + "ぷん", toast: toast !== false && opts.toast !== false }); } catch (e) { console.warn("KidsPoints", e); }
+        }
+        keep();
+      }
+      setInterval(function () {
+        var t = Date.now(), dt = Math.min(t - last, 5000); last = t;
+        if (running && document.visibilityState === "visible" && t - lastAct < IDLE) sec += dt / 1000;
+        if (sec >= 300) flush(); else if (Math.floor(sec) % 10 === 0) keep();
+      }, 1000);
+      document.addEventListener("visibilitychange", function () { if (document.visibilityState === "hidden") flush(false); else last = Date.now(); });
+      root.addEventListener("pagehide", function () { flush(false); });
+      return { flush: flush, pause: function () { running = false; }, resume: function () { running = true; last = Date.now(); } };
     },
 
     /** 記録を1つ消す（まちがえて付けたとき） */
@@ -160,7 +201,7 @@
     },
     /** レベル：Lv.n → n+1 に 累計 25·n·(n+1) 点（50, 150, 300, 500, …） */
     level: function (earned) {
-      var need = function (n) { return 25 * n * (n + 1); };
+      var need = function (n) { return 250 * n * (n + 1); }; // 500・1500・3000 … 点（べんきょう 50ぷん・150ぷん・300ぷん …）
       var n = 1;
       while (earned >= need(n)) n++;
       var lo = n > 1 ? need(n - 1) : 0;
@@ -199,7 +240,7 @@
       el.style.cssText = "position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom,0px));transform:translate(-50%,20px);z-index:2147483000;" +
         "background:#fff7e6;color:#7a3e00;border:2px solid #f5b544;border-radius:999px;padding:10px 18px;font:700 16px/1.3 'M PLUS Rounded 1c',system-ui,sans-serif;" +
         "box-shadow:0 6px 20px rgba(0,0,0,.18);opacity:0;transition:opacity .25s,transform .25s;pointer-events:none;white-space:nowrap";
-      el.textContent = "⭐ +" + (r.added + r.bonus) + " ポイント" + (r.bonus ? "（きょうの おまけ +" + r.bonus + "）" : "") + "　ぜんぶで " + r.balance;
+      el.textContent = "⭐ +" + (r.added + r.bonus) + " ポイント" + (r.bonus ? "（きょうの おまけ +" + r.bonus + "）" : "") + "　🎮 ゲーム " + Math.floor(Math.max(0, r.balance) / GAME_PER_MIN) + "ぷん ぶん";
       document.body.appendChild(el);
       requestAnimationFrame(function () { el.style.opacity = "1"; el.style.transform = "translate(-50%,0)"; });
       setTimeout(function () { el.style.opacity = "0"; setTimeout(function () { el.remove(); }, 300); }, 2600);

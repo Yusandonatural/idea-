@@ -5,6 +5,8 @@
 window.KIDS_APPS = [
   { id: "study", name: "まいにち30ぷん", kana: "えいご・さんすう", desc: "10ぷん べんきょうして ゲームの じかんを もらおう", icon: "📚", color: "#2f855a",
     url: "https://yusandonatural.github.io/family/study/" },
+  { id: "eikaiwa", name: "えいかいわ", kana: "えいかいわコース", desc: "ようじから 中3まで 45ステップで えいごで はなせるように", icon: "🗣️", color: "#7c5cd6",
+    url: "https://yusandonatural.github.io/family/eikaiwa/" },
   { id: "hyakunin", name: "百人一首", kana: "ひゃくにんいっしゅ", desc: "100しゅを 5つの まきで おぼえる", icon: "🎴", color: "#d9485f",
     url: "../hyakunin/" },
   { id: "nihonshi", name: "日本史", kana: "れきしドリル", desc: "きゅうせっきから げんだいまで クイズで 5しゅう", icon: "📜", color: "#b7791f",
