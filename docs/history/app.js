@@ -151,7 +151,8 @@
         '<h1>' + APP.welcomeTitle + '</h1>' +
         '<p class="lead">' + APP.welcomeLead + '</p>' +
         '<ul class="feat"><li>🗺️ <b>' + esc(APP.loopName || "通史を4周") + '</b>：' + STAGES.map(function (s) { return esc(s.name); }).join(" → ") + '</li><li>🎯 1回3分のレッスン。4択・' + esc(APP.orderKind || "年代ならべかえ") + '・組み合わせ・〇×</li><li>🔁 まちがえた問題は、忘れたころにもう一度</li></ul>' +
-        '<button class="btn big" id="go">はじめる</button></section>';
+        '<button class="btn big" id="go">はじめる</button>' +
+        '<p><a class="back-apps" href="../kids/">🎒 アプリを えらぶ がめんへ もどる</a></p></section>';
       document.getElementById("go").onclick = function () { beep("tap"); viewWelcome(1); };
     } else if (step === 1) {
       $app.innerHTML = '<section class="welcome"><h2>いまの学年は？</h2><p class="lead">ここから始めます。前のステージもいつでも復習できます。</p><div class="choices">' +
