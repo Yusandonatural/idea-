@@ -1,4 +1,4 @@
-import { available, BATCH_KINDS, explode, indexBom, KINDS, movingAverage, rollupCost, round } from '../public/core.js';
+import { available, BATCH_KINDS, EXTRA_LABELS, explode, extrasOf, indexBom, KINDS, movingAverage, round, standardCost } from '../public/core.js';
 
 export class InputError extends Error {}
 
@@ -18,7 +18,7 @@ export async function listItems(env) {
     items: g.rows.map((r) => ({
       ...r,
       available: available(r.id, g.items, g.byParent),
-      rollup_cost: g.byParent.get(r.id)?.length ? rollupCost(r.id, g.items, g.byParent) : null,
+      standard_cost: g.byParent.get(r.id)?.length || extrasOf(r).length ? standardCost(r.id, g.items, g.byParent) : null,
       low: r.reorder_point != null && r.qty < r.reorder_point,
     })),
     bom: g.bom,
@@ -32,6 +32,18 @@ const num = (v, label, { min = -Infinity, allowNull = false } = {}) => {
   return round(n);
 };
 
+// 加工費など：[{label, amount}]（1単位あたりの円）
+function readExtras(v, old) {
+  if (v === undefined) return old ?? null;
+  const list = Array.isArray(v) ? v : [];
+  if (list.length > 12) throw new InputError('加工費などは12行までです');
+  const out = list.map((e) => {
+    const label = String(e?.label ?? '').trim().slice(0, 20) || 'その他';
+    return { label, amount: num(e?.amount, label, { min: 0 }) };
+  }).filter((e) => e.amount > 0 || EXTRA_LABELS.includes(e.label));
+  return out.length ? JSON.stringify(out) : null;
+}
+
 export function readItem(body, old = {}) {
   const name = String(body.name ?? old.name ?? '').trim().slice(0, 120);
   if (!name) throw new InputError('品目名を入れてください');
@@ -41,7 +53,9 @@ export function readItem(body, old = {}) {
     name,
     kind,
     unit: String(body.unit ?? old.unit ?? '個').trim().slice(0, 10) || '個',
-    unit_cost: num(body.unit_cost ?? old.unit_cost ?? 0, '原価', { min: 0 }),
+    unit_cost: num(body.unit_cost ?? old.unit_cost ?? 0, '単価', { min: 0 }),
+    price: num(body.price !== undefined ? body.price : old.price, '販売価格', { min: 0, allowNull: true }),
+    cost_extras: readExtras(body.cost_extras, old.cost_extras),
     reorder_point: num(body.reorder_point !== undefined ? body.reorder_point : old.reorder_point, '補充の目安', { min: 0, allowNull: true }),
     make_on_order: (body.make_on_order ?? old.make_on_order) ? 1 : 0,
     push_to_shopify: (body.push_to_shopify ?? old.push_to_shopify) ? 1 : 0,
@@ -209,4 +223,20 @@ export async function returnBatch(env, batchId, meta) {
   const { results } = await env.DB.prepare('SELECT item_id, qty FROM moves WHERE batch_id = ?').bind(batchId).all();
   if (!results.length) return null;
   return writeBatch(env, meta, results.map((m) => ({ item_id: m.item_id, qty: round(-m.qty) })));
+}
+
+// 標準原価（構成＋加工費など）を在庫単価にする
+export async function applyStandardCosts(env, ids) {
+  const g = await loadGraph(env);
+  const t = now();
+  const done = [];
+  for (const id of ids.map(Number)) {
+    const it = g.items.get(id);
+    if (!it || !(g.byParent.get(id)?.length || extrasOf(it).length)) continue;
+    done.push({ id, unit_cost: standardCost(id, g.items, g.byParent) });
+  }
+  for (let i = 0; i < done.length; i += 50) {
+    await env.DB.batch(done.slice(i, i + 50).map((d) => env.DB.prepare('UPDATE items SET unit_cost = ?, updated_at = ? WHERE id = ?').bind(d.unit_cost, t, d.id)));
+  }
+  return done;
 }

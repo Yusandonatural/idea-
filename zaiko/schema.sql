@@ -7,7 +7,9 @@ CREATE TABLE IF NOT EXISTS items (
   kind TEXT NOT NULL,                 -- product | goods | semi | wip | material | supply（src/inventory.js の KINDS）
   unit TEXT NOT NULL DEFAULT '個',    -- 個・g・kg・枚・袋 など
   qty REAL NOT NULL DEFAULT 0,        -- いまの在庫（moves の合計。速く読むために持つ）
-  unit_cost REAL NOT NULL DEFAULT 0,  -- 1単位あたりの原価（円）。在庫金額 = qty × unit_cost
+  unit_cost REAL NOT NULL DEFAULT 0,  -- 1単位あたりの在庫単価（円）。在庫金額 = qty × unit_cost
+  price REAL,                         -- 販売価格（円）。原価率の計算に使う
+  cost_extras TEXT,                   -- 原価に足す加工費など JSON：[{label: '袋詰費用', amount: 30}, …]（1単位あたり）
   reorder_point REAL,                 -- これを下回ったら「補充」と表示
   make_on_order INTEGER NOT NULL DEFAULT 0, -- 1：作り置きしない。売れたら構成品（中身・袋…）から引く
   sku TEXT,

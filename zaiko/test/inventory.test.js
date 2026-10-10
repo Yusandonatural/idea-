@@ -62,7 +62,7 @@ test('一覧に作れる数と積み上げ原価が出る', async () => {
   const { items } = await listItems(env);
   const l = items.find((i) => i.id === leaf);
   assert.equal(l.available, 10); // 650g ÷ 60g
-  assert.equal(l.rollup_cost, 60 * 6 + 20);
+  assert.equal(l.standard_cost, 60 * 6 + 20);
 });
 
 test('在庫評価は基準日までの数量で、種類（勘定科目）ごとに合計する', async () => {
@@ -79,4 +79,18 @@ test('在庫評価は基準日までの数量で、種類（勘定科目）ご�
 
 test('CSV は Excel で開けるよう BOM 付き・カンマや引用符を囲む', () => {
   assert.equal(toCsv([['a,b', 'c"d', 1]]), '﻿"a,b","c""d",1\r\n');
+});
+
+test('販売価格・加工費を保存し、標準原価を在庫単価にできる', async () => {
+  const { env, hoji, bag, leaf } = await setup();
+  const { readItem, applyStandardCosts } = await import('../src/inventory.js');
+  const it = readItem({ name: '鳳次郎ほうじ茶 60g', kind: 'product', price: '700', cost_extras: [{ label: '袋詰費用', amount: '30' }, { label: '', amount: 15 }, { label: 'メモ', amount: 0 }] });
+  assert.equal(it.price, 700);
+  assert.deepEqual(JSON.parse(it.cost_extras), [{ label: '袋詰費用', amount: 30 }, { label: 'その他', amount: 15 }]);
+  assert.throws(() => readItem({ name: 'x', kind: 'product', cost_extras: [{ label: '保管料', amount: -1 }] }), /保管料/);
+  await env.DB.prepare('UPDATE items SET cost_extras = ? WHERE id = ?').bind(it.cost_extras, leaf).run();
+  // ほうじ茶の原価は構成（荒茶 1.2g × 5円）から 6円/g
+  const done = await applyStandardCosts(env, [leaf, bag, hoji]); // 袋は構成も加工費もないので変えない
+  assert.deepEqual(done, [{ id: leaf, unit_cost: 60 * 6 + 20 + 45 }, { id: hoji, unit_cost: 6 }]);
+  assert.equal((await qtyOf(env, leaf)).unit_cost, 425);
 });

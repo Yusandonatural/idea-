@@ -1,10 +1,10 @@
-import { BATCH_KINDS, KINDS } from './core.js';
+import { BATCH_KINDS, costBreakdown, costRate, EXTRA_LABELS, indexBom, KINDS } from './core.js';
 
 const $ = (s, el = document) => el.querySelector(s);
 const $$ = (s, el = document) => [...el.querySelectorAll(s)];
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 
-const state = { user: null, items: [], bom: [], byId: new Map(), kind: 'all', countKind: 'all', entryKind: 'receive', history: [], editing: null };
+const state = { user: null, items: [], bom: [], byId: new Map(), kind: 'all', countKind: 'all', entryKind: 'receive', costKind: 'sell', costOpen: new Set(), history: [], editing: null };
 
 async function api(path, opts = {}) {
   const init = { ...opts, headers: { ...(opts.headers || {}) } };
@@ -45,6 +45,9 @@ async function busy(btn, fn) {
 const nf = new Intl.NumberFormat('ja-JP', { maximumFractionDigits: 3 });
 const n = (v) => (v == null ? '' : nf.format(v));
 const yen = (v) => `¥${Math.round(v || 0).toLocaleString('ja-JP')}`;
+const yen1 = (v) => `¥${(Math.round((v || 0) * 10) / 10).toLocaleString('ja-JP')}`; // 原価は小数1桁まで
+const pct = (r) => (r == null ? '—' : `${(Math.round(r * 1000) / 10).toFixed(1)}%`);
+const rateClass = (r) => (r == null ? '' : r >= 0.6 ? 'bad' : r >= 0.45 ? 'warn' : 'good');
 const today = () => new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 10);
 const fmtDate = (ms) => new Date(ms).toLocaleDateString('ja-JP', { year: 'numeric', month: 'numeric', day: 'numeric', weekday: 'short' });
 const fmtTime = (ms) => (ms ? new Date(ms).toLocaleString('ja-JP', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '');
@@ -125,7 +128,7 @@ $('#logout').addEventListener('click', async () => {
 });
 
 // ── タブ ──
-const TABS = { stock: renderStock, entry: renderEntry, count: renderCount, value: loadValue, history: () => loadHistory(true), shopify: loadShopify, members: loadMembers };
+const TABS = { stock: renderStock, entry: renderEntry, count: renderCount, cost: renderCost, value: loadValue, history: () => loadHistory(true), shopify: loadShopify, members: loadMembers };
 let tab = 'stock';
 function show(name) {
   tab = name;
@@ -232,11 +235,54 @@ function readBom() {
   return $$('#bom-lines .line').map((l) => ({ child_id: Number($('select', l).value), qty: Number($('input', l).value) })).filter((p) => p.child_id && p.qty > 0);
 }
 
+function extraLine(label = '', amount = '') {
+  const div = document.createElement('div');
+  div.className = 'line extra';
+  div.innerHTML = `<input list="extra-labels" placeholder="費目（袋詰費用など）" value="${esc(label)}" maxlength="20">
+    <span class="unit-input"><input type="number" step="any" min="0" inputmode="decimal" value="${amount}" placeholder="金額"><span>円</span></span>
+    <button type="button" class="ghost small" aria-label="削除">✕</button>`;
+  for (const i of $$('input', div)) i.addEventListener('input', updateBomCost);
+  $('button', div).addEventListener('click', () => { div.remove(); updateBomCost(); });
+  $('#extra-lines').append(div);
+}
+
+function readExtras() {
+  return $$('#extra-lines .line').map((l) => { const [a, b] = $$('input', l); return { label: a.value.trim(), amount: b.value }; })
+    .filter((e) => e.label || e.amount !== '');
+}
+
+// 編集中の構成・加工費で原価を計算する（保存前でも見えるように）
+function draftBreakdown() {
+  const id = state.editing?.id ?? -1;
+  const f = $('#item-form');
+  const items = new Map(state.byId);
+  items.set(id, { ...(state.editing || {}), id, kind: f.kind.value, unit: f.unit.value, unit_cost: Number(f.unit_cost.value) || 0,
+    cost_extras: JSON.stringify(readExtras().map((e) => ({ label: e.label || 'その他', amount: Number(e.amount) || 0 }))) });
+  const bom = [...state.bom.filter((b) => b.parent_id !== id), ...readBom().map((p) => ({ parent_id: id, ...p }))];
+  try {
+    return costBreakdown(id, items, indexBom(bom));
+  } catch {
+    return null;
+  }
+}
+
 function updateBomCost() {
-  const parts = readBom();
-  const cost = parts.reduce((s, p) => s + (state.byId.get(p.child_id)?.rollup_cost ?? state.byId.get(p.child_id)?.unit_cost ?? 0) * p.qty, 0);
-  $('#bom-cost').textContent = parts.length ? `構成品からの原価：${n(Math.round(cost * 100) / 100)}円` : '';
-  $('#bom-apply').hidden = !parts.length || !state.editing;
+  const b = draftBreakdown();
+  const box = $('#cost-sum');
+  if (!b || !b.standard) {
+    box.innerHTML = '<p class="muted small">構成か加工費を入れると、ここに原価と原価率が出ます。</p>';
+    return;
+  }
+  const price = Number($('#item-form').price.value) || null;
+  const r = costRate(b.total, price);
+  const unit = $('#item-form').unit.value || '個';
+  box.innerHTML = `<div class="cost-eq">
+      <span><small>中身</small>${yen1(b.contents)}</span><i>＋</i><span><small>資材</small>${yen1(b.supplies)}</span><i>＋</i>
+      <span><small>加工費など</small>${yen1(b.labor)}</span><i>＝</i><span class="total"><small>原価（1${esc(unit)}）</small>${yen1(b.total)}</span>
+      ${price ? `<span class="rate ${rateClass(r)}"><small>原価率</small>${pct(r)}</span><span><small>粗利</small>${yen1(price - b.total)}</span>` : ''}
+    </div>
+    ${state.editing ? `<button type="button" class="small" id="bom-apply">この原価を在庫単価にする</button>` : ''}`;
+  $('#bom-apply')?.addEventListener('click', applyItemCost);
 }
 
 async function openItem(id) {
@@ -244,7 +290,7 @@ async function openItem(id) {
   state.editing = id ? it : null;
   const f = $('#item-form');
   $('#item-title').textContent = id ? it.name : '品目を追加';
-  for (const k of ['name', 'kind', 'unit', 'unit_cost', 'reorder_point', 'sku', 'note']) f[k].value = it[k] ?? '';
+  for (const k of ['name', 'kind', 'unit', 'unit_cost', 'price', 'reorder_point', 'sku', 'note']) f[k].value = it[k] ?? '';
   f.make_on_order.checked = !!it.make_on_order;
   f.push_to_shopify.checked = !!it.push_to_shopify;
   f.archived.checked = !!it.archived;
@@ -255,6 +301,8 @@ async function openItem(id) {
   $('.bom-unit').textContent = it.unit || '個';
   $('#bom-lines').innerHTML = '';
   for (const b of state.bom.filter((b) => b.parent_id === id)) bomLine(b.child_id, b.qty);
+  $('#extra-lines').innerHTML = '';
+  for (const e of extrasOfItem(it)) extraLine(e.label, e.amount);
   updateBomCost();
   $('#item-history').innerHTML = '';
   dialog.showModal();
@@ -268,13 +316,19 @@ async function openItem(id) {
 }
 
 $('#bom-add').addEventListener('click', () => bomLine());
+$('#extra-add').addEventListener('click', () => extraLine());
+$('#extra-labels').innerHTML = EXTRA_LABELS.map((l) => `<option>${l}</option>`).join('');
+for (const k of ['price', 'unit_cost', 'unit', 'kind']) $('#item-form')[k].addEventListener('input', updateBomCost);
+function extrasOfItem(it) {
+  try { return JSON.parse(it.cost_extras || '[]'); } catch { return []; }
+}
 $('#item-form').unit.addEventListener('input', (e) => ($('.bom-unit').textContent = e.target.value || '個'));
 
 $('#item-form').addEventListener('submit', async (e) => {
   e.preventDefault();
   const f = e.target;
   const data = {
-    name: f.name.value, kind: f.kind.value, unit: f.unit.value, unit_cost: f.unit_cost.value || 0, reorder_point: f.reorder_point.value,
+    name: f.name.value, kind: f.kind.value, unit: f.unit.value, unit_cost: f.unit_cost.value || 0, price: f.price.value, cost_extras: readExtras(), reorder_point: f.reorder_point.value,
     sku: f.sku.value, note: f.note.value, make_on_order: f.make_on_order.checked, push_to_shopify: f.push_to_shopify.checked, archived: f.archived.checked,
   };
   $('#item-error').textContent = '';
@@ -294,15 +348,18 @@ $('#item-form').addEventListener('submit', async (e) => {
   }).catch(() => {});
 });
 
-$('#bom-apply').addEventListener('click', async (e) => {
+// 編集中の構成・加工費を保存してから、標準原価を在庫単価にする
+async function applyItemCost(e) {
+  const f = $('#item-form');
   await busy(e.currentTarget, async () => {
+    await api(`/items/${state.editing.id}`, { method: 'PATCH', json: { cost_extras: readExtras(), price: f.price.value } });
     await api(`/items/${state.editing.id}/bom`, { method: 'PUT', json: { parts: readBom() } });
     const r = await api(`/items/${state.editing.id}/rollup`, { method: 'POST' });
-    $('#item-form').unit_cost.value = r.unit_cost;
+    f.unit_cost.value = r.unit_cost;
     await loadItems();
-    toast(`単価を ${n(r.unit_cost)}円 にしました`);
+    toast(`在庫単価を ${n(r.unit_cost)}円 にしました`);
   }).catch(() => {});
-});
+}
 
 $('#item-delete').addEventListener('click', async (e) => {
   if (!confirm(`「${state.editing.name}」を削除しますか？`)) return;
@@ -423,6 +480,82 @@ $('#count-submit').addEventListener('click', async (e) => {
     $('#count-status').textContent = '';
     renderCount();
     toast(r.changed ? `棚卸を記録しました（差があったのは ${r.changed}品目）` : '帳簿どおりでした');
+  }).catch(() => {});
+});
+
+
+// ── 原価計算 ──
+const COST_KINDS = { sell: ['製品・商品', ['product', 'goods']], mid: ['半製品・仕掛品', ['semi', 'wip']], all: ['すべて', null] };
+const graph = () => ({ map: state.byId, byParent: indexBom(state.bom) });
+
+function costRows() {
+  const g = graph();
+  const kinds = COST_KINDS[state.costKind][1];
+  const q = $('#cost-search').value.trim().toLowerCase();
+  return active()
+    .filter((i) => (!kinds || kinds.includes(i.kind)) && (!q || i.name.toLowerCase().includes(q)))
+    .map((i) => {
+      let b;
+      try { b = costBreakdown(i.id, g.map, g.byParent); } catch { b = null; }
+      return { i, b, rate: b?.standard ? costRate(b.total, i.price) : null };
+    })
+    .filter((r) => r.b?.standard || r.i.price);
+}
+
+function renderCost() {
+  $('#cost-kind').innerHTML = Object.entries(COST_KINDS).map(([k, [label]]) => `<button data-k="${k}" class="${k === state.costKind ? 'active' : ''}">${label}</button>`).join('');
+  for (const b of $$('#cost-kind button')) b.addEventListener('click', () => { state.costKind = b.dataset.k; renderCost(); });
+  const rows = costRows();
+  const withRate = rows.filter((r) => r.rate != null);
+  const avg = withRate.length ? withRate.reduce((s, r) => s + r.rate, 0) / withRate.length : null;
+  const missing = rows.filter((r) => !r.b?.standard).length;
+  const drift = rows.filter((r) => r.b?.standard && Math.abs(r.b.total - r.i.unit_cost) >= 0.5).length;
+  const high = withRate.filter((r) => r.rate >= 0.6).length;
+  $('#cost-summary').innerHTML = `
+    <div class="stat"><span>原価率の平均</span><b>${pct(avg)}</b><em>販売価格が入っている ${withRate.length}品目</em></div>
+    <div class="stat ${high ? 'warn' : ''}"><span>原価率 60% 以上</span><b>${high}<small>品目</small></b></div>
+    <div class="stat ${missing ? 'warn' : ''}"><span>原価の計算が未設定</span><b>${missing}<small>品目</small></b><em>構成も加工費も入っていない</em></div>
+    <div class="stat"><span>在庫単価とずれ</span><b>${drift}<small>品目</small></b></div>`;
+  if (!rows.length) {
+    $('#cost-table').innerHTML = '<tbody><tr><td class="empty">まだ原価の計算がありません。品目の画面で構成（中身・袋）と加工費（袋詰費用・保管料など）を入れてください。</td></tr></tbody>';
+    return;
+  }
+  $('#cost-table').innerHTML = `<thead><tr><th>品目</th><th class="num">中身</th><th class="num">資材</th><th class="num">加工費など</th><th class="num">原価</th><th class="num">販売価格</th><th class="num">原価率</th><th class="num">粗利</th><th class="num">在庫単価</th></tr></thead>
+    <tbody>${rows.map(({ i, b, rate }) => {
+      const open = state.costOpen.has(i.id);
+      const std = b?.standard;
+      const drift = std && Math.abs(b.total - i.unit_cost) >= 0.5;
+      const head = `<tr class="cost-row ${open ? 'open' : ''}" data-id="${i.id}">
+        <td><button class="link" data-open="${i.id}">${esc(i.name)}</button> <span class="kind k-${i.kind}">${kindLabel(i.kind)}</span><div class="muted small">1${esc(i.unit)}あたり</div></td>
+        <td class="num">${std ? yen1(b.contents) : ''}</td><td class="num">${std ? yen1(b.supplies) : ''}</td><td class="num">${std ? yen1(b.labor) : ''}</td>
+        <td class="num"><b>${std ? yen1(b.total) : '<span class="muted">未設定</span>'}</b></td>
+        <td class="num">${i.price ? yen(i.price) : '<span class="muted">—</span>'}</td>
+        <td class="num"><span class="rate ${rateClass(rate)}">${pct(rate)}</span></td>
+        <td class="num">${std && i.price ? yen1(i.price - b.total) : ''}</td>
+        <td class="num ${drift ? 'warn-text' : ''}">${yen1(i.unit_cost)}${drift ? '<div class="small">ずれ</div>' : ''}</td></tr>`;
+      if (!open || !std) return head;
+      const lines = b.lines.map((l) => `<li><span>${esc(l.name)}</span><span>${n(l.qty)}${esc(l.unit)} × ${yen1(l.cost)}</span><b>${yen1(l.amount)}</b></li>`).join('');
+      const extras = b.extras.map((e) => `<li><span>${esc(e.label)}</span><span></span><b>${yen1(e.amount)}</b></li>`).join('');
+      return head + `<tr class="cost-detail"><td colspan="9"><ul class="breakdown">${lines}${extras}<li class="sum"><span>原価</span><span></span><b>${yen1(b.total)}</b></li></ul></td></tr>`;
+    }).join('')}</tbody>`;
+  for (const tr of $$('#cost-table .cost-row')) tr.addEventListener('click', (e) => {
+    if (e.target.closest('[data-open]')) return;
+    const id = Number(tr.dataset.id);
+    if (state.costOpen.has(id)) state.costOpen.delete(id); else state.costOpen.add(id);
+    renderCost();
+  });
+  for (const b of $$('[data-open]', $('#cost-table'))) b.addEventListener('click', () => openItem(Number(b.dataset.open)));
+}
+$('#cost-search').addEventListener('input', renderCost);
+$('#cost-apply').addEventListener('click', async (e) => {
+  const ids = costRows().filter((r) => r.b?.standard && Math.abs(r.b.total - r.i.unit_cost) >= 0.005).map((r) => r.i.id);
+  if (!ids.length) return toast('在庫単価はすでに原価と揃っています');
+  if (!confirm(`${ids.length}品目の在庫単価を、原価計算の結果に置きかえますか？（在庫評価の金額が変わります）`)) return;
+  await busy(e.currentTarget, async () => {
+    const r = await api('/costs/apply', { method: 'POST', json: { ids } });
+    await loadItems();
+    renderCost();
+    toast(`${r.updated}品目の在庫単価を更新しました`);
   }).catch(() => {});
 });
 

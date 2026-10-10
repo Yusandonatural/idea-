@@ -1,7 +1,7 @@
 import { currentUser, LoginError, loginWithGoogle, loginWithPassword, logoutCookie, sameOrigin } from './auth.js';
-import { getSetting, InputError, listBatches, listItems, loadGraph, now, postBatch, putSetting, readItem, reverseBatch, valuation } from './inventory.js';
+import { applyStandardCosts, getSetting, InputError, listBatches, listItems, loadGraph, now, postBatch, putSetting, readItem, reverseBatch, valuation } from './inventory.js';
 import { importProducts, loadCreds, pushInventory, runSync, saveCreds, shopHost, syncOrders, unmappedLines, verify } from './shopify.js';
-import { KINDS, rollupCost, round, wouldCycle } from '../public/core.js';
+import { KINDS, round, wouldCycle } from '../public/core.js';
 import STATIC from './static.gen.js';
 
 const json = (data, status = 200, headers = {}) =>
@@ -88,9 +88,9 @@ async function api(req, env, url) {
   if (path === '/items' && method === 'POST') {
     const it = readItem(body);
     const t = now();
-    const r = await env.DB.prepare(`INSERT INTO items (name, kind, unit, unit_cost, reorder_point, make_on_order, push_to_shopify, sku, note, archived, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?) RETURNING id`)
-      .bind(it.name, it.kind, it.unit, it.unit_cost, it.reorder_point, it.make_on_order, it.push_to_shopify, it.sku, it.note, t, t).first();
+    const r = await env.DB.prepare(`INSERT INTO items (name, kind, unit, unit_cost, price, cost_extras, reorder_point, make_on_order, push_to_shopify, sku, note, archived, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?) RETURNING id`)
+      .bind(it.name, it.kind, it.unit, it.unit_cost, it.price, it.cost_extras, it.reorder_point, it.make_on_order, it.push_to_shopify, it.sku, it.note, t, t).first();
     return json({ id: r.id });
   }
   let m = path.match(/^\/items\/(\d+)$/);
@@ -101,8 +101,8 @@ async function api(req, env, url) {
     if (method === 'PATCH') {
       const it = readItem(body, old);
       if (it.push_to_shopify && !old.shopify_inventory_item_id) return fail('Shopify の商品と結びついた品目だけ反映できます');
-      await env.DB.prepare(`UPDATE items SET name = ?, kind = ?, unit = ?, unit_cost = ?, reorder_point = ?, make_on_order = ?, push_to_shopify = ?, sku = ?, note = ?, archived = ?, updated_at = ? WHERE id = ?`)
-        .bind(it.name, it.kind, it.unit, it.unit_cost, it.reorder_point, it.make_on_order, it.push_to_shopify, it.sku, it.note, it.archived, now(), id).run();
+      await env.DB.prepare(`UPDATE items SET name = ?, kind = ?, unit = ?, unit_cost = ?, price = ?, cost_extras = ?, reorder_point = ?, make_on_order = ?, push_to_shopify = ?, sku = ?, note = ?, archived = ?, updated_at = ? WHERE id = ?`)
+        .bind(it.name, it.kind, it.unit, it.unit_cost, it.price, it.cost_extras, it.reorder_point, it.make_on_order, it.push_to_shopify, it.sku, it.note, it.archived, now(), id).run();
       return json({ ok: true });
     }
     if (method === 'DELETE') {
@@ -141,14 +141,16 @@ async function api(req, env, url) {
     ]);
     return json({ ok: true });
   }
+  // 標準原価を在庫単価にする（1品目、または原価計算の画面から複数）
   m = path.match(/^\/items\/(\d+)\/rollup$/);
   if (m && method === 'POST') {
-    const id = Number(m[1]);
-    const g = await loadGraph(env);
-    if (!g.byParent.get(id)?.length) return fail('構成が入っていません');
-    const cost = rollupCost(id, g.items, g.byParent);
-    await env.DB.prepare('UPDATE items SET unit_cost = ?, updated_at = ? WHERE id = ?').bind(cost, now(), id).run();
-    return json({ unit_cost: cost });
+    const [d] = await applyStandardCosts(env, [Number(m[1])]);
+    if (!d) return fail('構成も加工費も入っていません');
+    return json({ unit_cost: d.unit_cost });
+  }
+  if (path === '/costs/apply' && method === 'POST') {
+    const ids = Array.isArray(body?.ids) ? body.ids.slice(0, 1000) : [];
+    return json({ updated: (await applyStandardCosts(env, ids)).length });
   }
 
   // ── 伝票（入出庫） ──

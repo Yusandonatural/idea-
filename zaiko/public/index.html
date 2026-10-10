@@ -37,6 +37,7 @@
       <button data-tab="stock" class="active">在庫</button>
       <button data-tab="entry">入出庫</button>
       <button data-tab="count">棚卸</button>
+      <button data-tab="cost">原価計算</button>
       <button data-tab="value">在庫評価</button>
       <button data-tab="history">履歴</button>
       <button data-tab="shopify">Shopify</button>
@@ -102,6 +103,22 @@
       </div>
     </section>
 
+    <!-- 原価計算 -->
+    <section id="tab-cost" hidden>
+      <div class="card">
+        <h2>原価計算</h2>
+        <p class="muted small">原価 ＝ 中身（茶葉・ティーバッグなど、構成品の原価 × 使う量）＋ 資材（袋など）＋ 加工費など（袋詰費用・保管料・加工賃…）。構成品の原価も同じやり方で積み上げます。行を押すと内訳が開きます。直すときは品目名から品目の画面へ。</p>
+        <div class="toolbar">
+          <div class="seg" id="cost-kind"></div>
+          <input type="search" id="cost-search" placeholder="品目名でさがす">
+          <button class="small" id="cost-apply">表示中の原価を在庫単価にする</button>
+        </div>
+        <div class="totals" id="cost-summary"></div>
+        <div class="table-wrap"><table class="stock cost" id="cost-table"></table></div>
+        <p class="muted small">在庫単価は在庫評価（決算の在庫計上）に使う数字です。入荷・製造のたびに移動平均で変わるので、原価計算の結果（標準原価）とずれることがあります。「在庫単価にする」で揃えられます。</p>
+      </div>
+    </section>
+
     <!-- 在庫評価 -->
     <section id="tab-value" hidden>
       <div class="card">
@@ -152,10 +169,11 @@
       <label class="span2">品目名<input name="name" required maxlength="120"></label>
       <label>種類<select name="kind" id="kind-select"></select></label>
       <label>単位<input name="unit" list="units" required maxlength="10"></label>
-      <label>単価（円／単位）<input name="unit_cost" type="number" step="any" min="0" inputmode="decimal"></label>
+      <label>在庫単価（円／単位）<input name="unit_cost" type="number" step="any" min="0" inputmode="decimal"></label>
+      <label>販売価格（円）<input name="price" type="number" step="any" min="0" inputmode="decimal" placeholder="原価率の計算に使う"></label>
       <label>補充の目安（これを下回ったら知らせる）<input name="reorder_point" type="number" step="any" min="0" inputmode="decimal"></label>
       <label>SKU<input name="sku" maxlength="60"></label>
-      <label>メモ<input name="note" maxlength="2000"></label>
+      <label class="span2">メモ<input name="note" maxlength="2000"></label>
     </div>
     <datalist id="units"><option>個</option><option>g</option><option>kg</option><option>枚</option><option>袋</option><option>缶</option><option>本</option><option>箱</option><option>巻</option></datalist>
     <label class="row check"><input type="checkbox" name="make_on_order">作り置きしない（売れたら構成品＝中身・袋・ティーバッグなどから引く）</label>
@@ -167,12 +185,18 @@
       <h2>構成（1<span class="bom-unit"></span>つくるのに使うもの）</h2>
       <p class="muted small">例：ほうじ茶ティーバッグ 2g×10P ＝ ほうじ茶 20g・ティーバッグ 10枚・袋 1枚・ラベル 1枚</p>
       <div id="bom-lines" class="lines"></div>
-      <div class="row wrap">
-        <button type="button" class="small" id="bom-add">＋ 構成品を足す</button>
-        <span class="muted small" id="bom-cost"></span>
-        <button type="button" class="small" id="bom-apply" hidden>この原価を単価にする</button>
-      </div>
+      <button type="button" class="small" id="bom-add">＋ 構成品を足す</button>
     </div>
+
+    <div class="bom">
+      <h2>加工費など（1<span class="bom-unit"></span>あたり）</h2>
+      <p class="muted small">構成品のほかにかかる費用。例：袋詰費用 30円・保管料 15円（荒茶やリーフなら加工賃・労務費・保管料・その他）</p>
+      <div id="extra-lines" class="lines"></div>
+      <button type="button" class="small" id="extra-add">＋ 費用を足す</button>
+      <datalist id="extra-labels"></datalist>
+    </div>
+
+    <div class="cost-sum" id="cost-sum"></div>
 
     <p class="error" id="item-error"></p>
     <div class="row end">

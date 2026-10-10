@@ -55,17 +55,46 @@ export function available(itemId, items, byParent) {
   return n === Infinity ? 0 : Math.max(0, n);
 }
 
-// 構成品から積み上げた1単位の原価
-export function rollupCost(itemId, items, byParent, depth = 0) {
-  if (depth > MAX_DEPTH) throw new Error('構成が循環しています');
-  const parts = byParent.get(itemId);
-  if (!parts?.length) return items.get(itemId)?.unit_cost || 0;
-  return round(parts.reduce((sum, p) => {
-    const child = items.get(p.child_id);
-    const c = child?.make_on_order && byParent.get(p.child_id)?.length ? rollupCost(p.child_id, items, byParent, depth + 1) : child?.unit_cost || 0;
-    return sum + c * p.qty;
-  }, 0));
+// 原価に足す「加工費など」（袋詰費用・保管料・加工賃・労務費…）。items.cost_extras の JSON
+export const EXTRA_LABELS = ['袋詰費用', '保管料', '加工賃', '労務費', 'シール代', '袋代', '茶葉代', '原材料', 'その他'];
+export function extrasOf(item) {
+  try {
+    const a = JSON.parse(item?.cost_extras || '[]');
+    return Array.isArray(a) ? a.filter((e) => e && Number.isFinite(Number(e.amount))) : [];
+  } catch {
+    return [];
+  }
 }
+
+// 1単位の標準原価の内訳：構成品（中身・資材）× 使う量 ＋ 加工費など。
+// 構成も加工費もない品目（仕入れたものなど）は、在庫の単価をそのまま使う
+export function costBreakdown(itemId, items, byParent, depth = 0) {
+  if (depth > MAX_DEPTH) throw new Error('構成が循環しています');
+  const item = items.get(itemId);
+  const parts = byParent.get(itemId) || [];
+  const extras = extrasOf(item).map((e) => ({ label: String(e.label || 'その他'), amount: Number(e.amount) }));
+  if (!parts.length && !extras.length) {
+    const c = item?.unit_cost || 0;
+    return { standard: false, total: c, contents: 0, supplies: 0, labor: 0, lines: [], extras: [] };
+  }
+  const lines = parts.map((p) => {
+    const child = items.get(p.child_id);
+    const cost = costBreakdown(p.child_id, items, byParent, depth + 1).total;
+    return { item_id: p.child_id, name: child?.name ?? '?', kind: child?.kind, unit: child?.unit ?? '', qty: p.qty, cost, amount: round(cost * p.qty) };
+  });
+  const sum = (list) => round(list.reduce((s, l) => s + l.amount, 0));
+  const contents = sum(lines.filter((l) => l.kind !== 'supply'));
+  const supplies = sum(lines.filter((l) => l.kind === 'supply'));
+  const labor = sum(extras);
+  return { standard: true, total: round(contents + supplies + labor), contents, supplies, labor, lines, extras };
+}
+
+export const standardCost = (itemId, items, byParent) => costBreakdown(itemId, items, byParent).total;
+// 互換のため（構成から積み上げた原価）
+export const rollupCost = standardCost;
+
+// 原価率（販売価格がないときは null）
+export const costRate = (cost, price) => (price > 0 ? cost / price : null);
 
 // child を parent の構成に入れると循環するか（child の下に parent がいないか）
 export function wouldCycle(parentId, childId, byParent) {

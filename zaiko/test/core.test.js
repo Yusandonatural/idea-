@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { available, explode, indexBom, movingAverage, rollupCost, wouldCycle } from '../public/core.js';
+import { available, costBreakdown, costRate, explode, indexBom, movingAverage, rollupCost, wouldCycle } from '../public/core.js';
 
 // ほうじ茶ティーバッグ 2g×10P：ほうじ茶 20g・ティーバッグ 10枚・袋 1枚
 // ギフト：ティーバッグ商品 2つ・缶 2つ・箱 1つ
@@ -47,4 +47,23 @@ test('移動平均の単価', () => {
   assert.equal(movingAverage(100, 10, 100, 20), 15);
   assert.equal(movingAverage(-5, 10, 10, 20), 20); // マイナス在庫は0として扱う
   assert.equal(movingAverage(10, 10, 5, null), 10);
+});
+
+test('原価計算：中身（茶葉）＋資材（袋）＋加工費など（袋詰費用・保管料）を足す', () => {
+  // 煎茶40g：煎茶リーフ 0.04kg（加工費だけで 1,820円/kg）・袋 30.5円・シール代 11・袋詰 30・保管 15
+  const it = new Map([
+    [1, { id: 1, kind: 'product', unit_cost: 0, cost_extras: JSON.stringify([{ label: 'シール代', amount: 11 }, { label: '袋詰費用', amount: 30 }, { label: '保管料', amount: 15 }]) }],
+    [2, { id: 2, kind: 'semi', unit: 'kg', unit_cost: 1700, cost_extras: JSON.stringify([{ label: '加工賃', amount: 1320 }, { label: '労務費', amount: 300 }, { label: '保管料', amount: 100 }, { label: 'その他', amount: 100 }]) }],
+    [3, { id: 3, kind: 'supply', unit: '枚', unit_cost: 30.5 }],
+  ]);
+  const bp = indexBom([{ parent_id: 1, child_id: 2, qty: 0.04 }, { parent_id: 1, child_id: 3, qty: 1 }]);
+  const b = costBreakdown(1, it, bp);
+  assert.equal(b.contents, 72.8); // 標準原価 1,820円/kg を使う（在庫単価の 1,700 ではなく）
+  assert.equal(b.supplies, 30.5);
+  assert.equal(b.labor, 56);
+  assert.equal(b.total, 159.3);
+  assert.equal(Math.round(costRate(b.total, 500) * 1000) / 10, 31.9);
+  assert.equal(costRate(100, null), null);
+  // 構成も加工費もない品目は在庫単価
+  assert.deepEqual([costBreakdown(3, it, bp).standard, costBreakdown(3, it, bp).total], [false, 30.5]);
 });
