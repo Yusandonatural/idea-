@@ -1,3 +1,4 @@
+[hidden] { display: none !important; }
 :root {
   --bg: #fff8ec; --card: #ffffff; --ink: #3b2a1a; --sub: #8a7560; --line: #f0e2cc;
   --accent: #f5a524; --accent-ink: #7a3e00; --chip: #fff0d6;
@@ -74,3 +75,39 @@ a.app:active { transform: translateY(1px); box-shadow: 0 1px 0 var(--line); }
 .kidlist li { display: flex; gap: 8px; align-items: center; padding: 4px 0; }
 .kidlist li span { flex: 1; }
 .kidlist button { padding: 4px 10px; font-size: 14px; background: var(--chip); color: var(--ink); }
+
+/* ---- さいしょの「だれが べんきょう する？」 ---- */
+header { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+header h1 { margin: 0; }
+.whochip { background: var(--chip); color: var(--ink); border: 2px solid var(--accent); border-radius: 999px; padding: 6px 14px; }
+.pick-title { text-align: center; font-size: 26px; margin: 20px 0 16px; }
+.pickgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; }
+.pickcard { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 18px 10px 14px; border-radius: 22px;
+  background: var(--card); color: var(--ink); border: 2px solid var(--line); box-shadow: 0 4px 0 var(--line); }
+.pickcard:active { transform: translateY(2px); box-shadow: 0 2px 0 var(--line); }
+.pickcard:hover, .pickcard:focus-visible { border-color: var(--accent); outline: none; }
+.pk-ic { font-size: 52px; line-height: 1.1; }
+.pk-nm { font-size: 20px; font-weight: 800; }
+.pk-pt { font-size: 13px; color: var(--sub); font-weight: 600; }
+.pk-pt b { color: var(--accent-ink); font-size: 18px; font-variant-numeric: tabular-nums; }
+.pk-gm { font-size: 13px; font-weight: 700; }
+.addcard { display: flex; align-items: center; gap: 10px; margin-top: 12px; border-style: dashed; }
+.addcard-ic { font-size: 26px; color: var(--sub); }
+.addcard input { flex: 1; }
+.rule { text-align: center; font-size: 14px; color: var(--sub); margin: 14px 0 0; }
+.rule b { color: var(--ink); }
+
+/* ---- ゲームじかん ---- */
+.gamemin { font-size: 20px; font-weight: 800; margin-top: 2px; }
+.gamemin b { font-size: 26px; color: var(--accent-ink); font-variant-numeric: tabular-nums; }
+.hero .rule { margin-top: 10px; }
+.game { margin-top: 16px; text-align: center; }
+.game h2 { margin: 0 0 12px; }
+.gamepick { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+.gbtn { display: flex; flex-direction: column; align-items: center; min-width: 96px; padding: 10px 14px; border-radius: 16px; }
+.gbtn b { font-size: 20px; }
+.gbtn small { font-size: 12px; font-weight: 600; }
+.gbtn:disabled { opacity: .4; cursor: default; }
+.gamerun .gleft { font-size: 64px; font-weight: 800; font-variant-numeric: tabular-nums; color: var(--accent-ink); line-height: 1.1; }
+.gamerun p { margin: 6px 0 12px; font-weight: 700; }
+button.ghost { background: var(--chip); color: var(--ink); }
