@@ -59,8 +59,12 @@
             <label class="button ghost">🖼 画像・動画を追加<input type="file" id="file" accept="image/jpeg,image/png,image/webp,image/gif,video/mp4,video/quicktime,video/webm" multiple hidden></label>
             <button class="ai" id="ai-generate" type="button">✨ AIでSNSごとに書き分ける</button>
           </div>
+          <div class="pillar-bar" id="pillar-bar"></div>
           <div class="tag-bar" id="tag-bar"></div>
-          <p class="muted small" id="ai-hint">Instagram は JPEG のみ・1枚以上必須。動画は YouTube にだけ送ります
+          <div class="lang-bar" id="lang-bar"><span class="label">AIで添える訳：</span>
+            <label><input type="checkbox" value="en">英語</label><label><input type="checkbox" value="fr">フランス語</label><label><input type="checkbox" value="zh">中国語</label>
+            <span class="muted small">（Instagram・YouTube・Pinterest に付けます）</span></div>
+          <p class="muted small" id="ai-hint">Instagram・Threads は動画があればリール・動画として投稿（画像は JPEG）。YouTube は動画のみ
           </p>
         </div>
 
@@ -90,6 +94,8 @@
         <button class="ghost small" id="cal-next" aria-label="次の月">›</button>
         <button class="ghost small" id="cal-today">今日</button>
       </div>
+      <div class="season" id="season"></div>
+      <div class="pillar-balance" id="pillar-balance"></div>
       <div class="cal" id="cal"></div>
       <p class="muted small">日にちを押すとその日の予約投稿を作れます。予約中の投稿はドラッグで別の日に動かせます（時刻はそのまま）。下書きは「予約・下書き」にあります。</p>
     </section>
@@ -133,6 +139,11 @@
           <button class="primary">追加</button>
         </form>
         <p class="error" id="member-error"></p>
+      </div>
+      <div class="card admin-only">
+        <h2>リンクの計測（UTM）</h2>
+        <label class="row" style="color:var(--ink);font-size:14px"><input type="checkbox" id="utm-on"> yusando.com へのリンクに、媒体ごとの UTM を自動で付ける</label>
+        <p class="muted small">例：https://yusando.com/products/aki → …?utm_source=instagram&amp;utm_medium=social&amp;utm_campaign=field（キャンペーン名は投稿の柱）。Shopify の分析で、どのSNSから売れたかが見えるようになります。すでに utm_source が付いたリンクは触りません。</p>
       </div>
       <div class="card">
         <h2>AIで書き分け</h2>

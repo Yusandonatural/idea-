@@ -8,7 +8,7 @@ export default {
   label: 'Instagram',
   color: '#e1306c',
   aiGuide: 'Instagramのキャプション。1行目で惹きつけ、短い段落と改行で読みやすく。本文にURLは貼っても押せないので「プロフィールのリンクから」と案内する。末尾にハッシュタグ5〜10個（#日本茶 #自然栽培 など）。600字前後。',
-  limits: { text: 2200, images: 10, requiresImage: true, imageTypes: ['image/jpeg'], publicMedia: true },
+  limits: { text: 2200, images: 10, videos: 1, videoExclusive: true, requiresMedia: true, imageTypes: ['image/jpeg'], videoTypes: ['video/mp4', 'video/quicktime'], publicMedia: true },
   fields: [
     { key: 'user_id', label: 'Instagram ユーザーID（プロアカウント）' },
     { key: 'access_token', label: '長期アクセストークン', secret: true, help: 'Instagram API（Instagramログイン）で発行。60日有効、毎日自動で延長します' },
@@ -25,12 +25,17 @@ export default {
     return { name: '@' + me.username };
   },
   async publish({ text, media }, c, ctx) {
-    if (!media.length) throw new Error('Instagram は画像が1枚以上必要です');
+    if (!media.length) throw new Error('Instagram は画像か動画が必要です');
     const base = api(c, ctx.env);
     const tok = c.access_token;
     const status = (id) => `${base}/${id}?fields=status_code&access_token=${encodeURIComponent(tok)}`;
     let creation;
-    if (media.length === 1) {
+    const video = media.find((m) => m.type.startsWith('video/'));
+    if (video) {
+      // 動画はリールとして投稿（フィードにも表示）。処理に数分かかることがある
+      creation = await post(`${base}/${c.user_id}/media`, { media_type: 'REELS', video_url: ctx.mediaUrl(video), caption: text, share_to_feed: true, access_token: tok });
+      await waitReady(status(creation.id), 'status_code', { tries: 60, interval: 5000 });
+    } else if (media.length === 1) {
       creation = await post(`${base}/${c.user_id}/media`, { image_url: ctx.mediaUrl(media[0]), caption: text, alt_text: media[0].alt || undefined, access_token: tok });
     } else {
       const children = [];

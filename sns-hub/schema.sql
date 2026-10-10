@@ -16,6 +16,7 @@ CREATE TABLE IF NOT EXISTS posts (
   status TEXT NOT NULL,               -- draft | scheduled | publishing | done | partial | failed
   scheduled_at INTEGER,
   published_at INTEGER,
+  pillar TEXT,                        -- 投稿の柱（public/plan.js の PILLARS）
   created_by TEXT,                    -- 作った人の名前
   updated_by TEXT,                    -- 最後に直した人の名前
   created_at INTEGER NOT NULL,

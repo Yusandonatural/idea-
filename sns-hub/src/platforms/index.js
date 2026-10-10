@@ -7,9 +7,10 @@ import bluesky from './bluesky.js';
 import mastodon from './mastodon.js';
 import youtube from './youtube.js';
 import shopify from './shopify.js';
-import { note, newsletter } from './manual.js';
+import pinterest from './pinterest.js';
+import { newsletter, note, red, tiktok } from './manual.js';
 
-export const platforms = Object.fromEntries([x, instagram, threads, facebook, line, bluesky, mastodon, youtube, shopify, note, newsletter].map((p) => [p.id, p]));
+export const platforms = Object.fromEntries([instagram, facebook, youtube, threads, x, line, newsletter, tiktok, pinterest, note, shopify, red, bluesky, mastodon].map((p) => [p.id, p]));
 
 // 画面に渡す情報（関数は除く）
 export function describe() {

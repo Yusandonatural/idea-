@@ -3,9 +3,10 @@ import { randomId } from './crypto.js';
 import { describe, platforms } from './platforms/index.js';
 import { AiError, DEFAULT_BRAND, generate } from './ai.js';
 import STATIC from './static.gen.js';
-import { check, makeCtx, publishPost, refreshTokens, runDue } from './publish.js';
-import { encryptCreds, getPost, loadAccount, loadHashtagSets, now, publicAccount, saveCredentials } from './store.js';
-import { parseTags, tagsIn, withAutoTags } from '../public/hashtags.js';
+import { check, finalText, makeCtx, publishPost, refreshTokens, runDue } from './publish.js';
+import { pillarOf } from '../public/plan.js';
+import { encryptCreds, getPost, getSetting, loadAccount, loadHashtagSets, loadSendOptions, now, publicAccount, saveCredentials } from './store.js';
+import { parseTags, tagsIn } from '../public/hashtags.js';
 
 const MAX_IMAGE = 8 * 1024 * 1024;
 const MAX_VIDEO = 95 * 1024 * 1024; // Workers が1回に受け取れるのは100MBまで
@@ -50,6 +51,7 @@ async function verifyCreds(env, platform, creds, origin) {
 // 本文・画像・投稿先を受け取って検証する（作成と編集で共通）
 async function readPostInput(env, body) {
   const text = String(body.body ?? '');
+  const pillar = pillarOf(body.pillar) ? body.pillar : null;
   const media = (Array.isArray(body.media) ? body.media : []).map((m) => ({
     key: String(m.key), type: String(m.type), size: Number(m.size) || 0, alt: String(m.alt ?? '').slice(0, 1000),
   }));
@@ -66,9 +68,9 @@ async function readPostInput(env, body) {
   }
   const mode = body.mode;
   if (mode !== 'draft') {
-    const sets = await loadHashtagSets(env);
+    const opts = await loadSendOptions(env);
     const problems = rows.map((r) => {
-      const msg = check(r.platform, withAutoTags(r.platform, r.body ?? text, sets, platforms[r.platform].limits.text), media, r.title);
+      const msg = check(r.platform, finalText(r.platform, r.body ?? text, { pillar }, opts), media, r.title);
       return msg && `${r.name}：${msg}`;
     }).filter(Boolean);
     if (problems.length) throw new HttpError(400, problems.join('\n'));
@@ -81,7 +83,7 @@ async function readPostInput(env, body) {
   } else if (mode !== 'now' && mode !== 'draft') {
     throw new HttpError(400, 'mode は now / schedule / draft のどれかです');
   }
-  return { text, media, rows, mode, scheduledAt };
+  return { text, media, rows, mode, scheduledAt, pillar };
 }
 
 const MAX_MEMBERS = 20;
@@ -109,11 +111,6 @@ function checkPassword(pw) {
   if (s.length < 8) throw new HttpError(400, 'パスワードは8文字以上にしてください');
   if (s.length > 200) throw new HttpError(400, 'パスワードが長すぎます');
   return s;
-}
-
-async function getSetting(env, key) {
-  const row = await env.DB.prepare('SELECT value FROM settings WHERE key = ?').bind(key).first();
-  return row?.value ?? null;
 }
 
 async function writeTargets(env, postId, rows) {
@@ -222,14 +219,18 @@ async function api(req, env, url) {
 
   // ── AI で書き分け・設定 ──
   if (path === '/settings' && method === 'GET') {
-    const brand = await getSetting(env, 'brand');
-    return json({ ai_enabled: !!env.ANTHROPIC_API_KEY, brand: brand ?? DEFAULT_BRAND, brand_is_default: brand == null });
+    const [brand, utm] = await Promise.all([getSetting(env, 'brand'), getSetting(env, 'utm')]);
+    return json({ ai_enabled: !!env.ANTHROPIC_API_KEY, brand: brand ?? DEFAULT_BRAND, brand_is_default: brand == null, utm: utm !== 'off' });
   }
   if (path === '/settings' && method === 'PUT') {
     if (!isAdmin) return adminOnly();
-    const brand = String(body?.brand ?? '').trim();
-    if (brand) await env.DB.prepare('INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value').bind('brand', brand.slice(0, 4000)).run();
-    else await env.DB.prepare(`DELETE FROM settings WHERE key = 'brand'`).run();
+    const put = (key, value) => env.DB.prepare('INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value').bind(key, value).run();
+    if (body && 'brand' in body) {
+      const brand = String(body.brand ?? '').trim();
+      if (brand) await put('brand', brand.slice(0, 4000));
+      else await env.DB.prepare(`DELETE FROM settings WHERE key = 'brand'`).run();
+    }
+    if (body && typeof body.utm === 'boolean') await put('utm', body.utm ? 'on' : 'off');
     return json({ ok: true });
   }
   if (path === '/generate' && method === 'POST') {
@@ -238,6 +239,9 @@ async function api(req, env, url) {
       return json(await generate(env, {
         brand,
         hashtagSets: await loadHashtagSets(env),
+        pillar: typeof body?.pillar === 'string' ? body.pillar : null,
+        month: Number(body?.month) || null,
+        langs: Array.isArray(body?.langs) ? body.langs.map(String) : [],
         source: String(body?.source ?? '').slice(0, 20000),
         platformIds: Array.isArray(body?.platforms) ? body.platforms.map(String) : [],
       }));
@@ -396,8 +400,8 @@ async function api(req, env, url) {
     const input = await readPostInput(env, body);
     const status = input.mode === 'schedule' ? 'scheduled' : 'draft';
     const post = await env.DB.prepare(
-      'INSERT INTO posts (body, media, status, scheduled_at, created_by, updated_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?) RETURNING id',
-    ).bind(input.text, JSON.stringify(input.media), status, input.scheduledAt, user.name, user.name, now(), now()).first();
+      'INSERT INTO posts (body, media, status, scheduled_at, pillar, created_by, updated_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id',
+    ).bind(input.text, JSON.stringify(input.media), status, input.scheduledAt, input.pillar, user.name, user.name, now(), now()).first();
     await writeTargets(env, post.id, input.rows);
     if (input.mode === 'now') return json(await publishPost(env, post.id, url.origin));
     return json(await getPost(env, post.id));
@@ -430,8 +434,8 @@ async function api(req, env, url) {
       if (!['draft', 'scheduled'].includes(post.status)) return fail('公開後の投稿は編集できません', 409);
       const input = await readPostInput(env, body);
       const status = input.mode === 'schedule' ? 'scheduled' : 'draft';
-      await env.DB.prepare('UPDATE posts SET body = ?, media = ?, status = ?, scheduled_at = ?, updated_by = ?, updated_at = ? WHERE id = ?')
-        .bind(input.text, JSON.stringify(input.media), status, input.scheduledAt, user.name, now(), id).run();
+      await env.DB.prepare('UPDATE posts SET body = ?, media = ?, status = ?, scheduled_at = ?, pillar = ?, updated_by = ?, updated_at = ? WHERE id = ?')
+        .bind(input.text, JSON.stringify(input.media), status, input.scheduledAt, input.pillar, user.name, now(), id).run();
       await writeTargets(env, id, input.rows);
       if (input.mode === 'now') return json(await publishPost(env, id, url.origin));
       return json(await getPost(env, id));

@@ -1,5 +1,7 @@
 import { countFor } from './textlen.js';
 import { appendTags, autoTagsFor, parseTags, withAutoTags } from './hashtags.js';
+import { problems as ruleProblems, skippedNote, mediaFor as ruleMediaFor } from './rules.js';
+import { PILLARS, pillarOf, SEASONS, WEEKLY, withUtm } from './plan.js';
 
 const $ = (s, el = document) => el.querySelector(s);
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
@@ -12,6 +14,7 @@ const state = {
   targets: new Map(),     // accountId -> {on, custom, body, title}
   ai: { ai_enabled: false },
   hashtags: [],
+  pillar: null,
   editingId: null,
 };
 
@@ -209,37 +212,15 @@ $('#file').addEventListener('change', async (e) => {
   }
 });
 
-// サーバーの mediaFor と同じ：そのSNSに送るファイルだけ
-function mediaFor(platformId) {
-  const l = state.platforms[platformId].limits;
-  if (l.ignoreMedia) return [];
-  return state.media.filter((m) => (isVideo(m) ? (l.videos ?? 0) > 0 : !l.ignoreImages));
-}
+// サーバーと同じルール（public/rules.js）で、送るファイル・問題点・送られないファイルを見る
+const mediaFor = (platformId) => ruleMediaFor(state.platforms[platformId].limits, state.media);
+const problems = (platformId, text, title) => ruleProblems(platformId, state.platforms[platformId].limits, text, state.media.filter((m) => m.type), title);
+const skipped = (platformId) => skippedNote(state.platforms[platformId].limits, state.media);
 
-function problems(platformId, text, title) {
-  const l = state.platforms[platformId].limits;
-  const out = [];
-  const media = mediaFor(platformId);
-  const images = media.filter((m) => !isVideo(m));
-  const videos = media.filter(isVideo);
-  if (countFor(platformId, text) > l.text) out.push('文字数オーバー');
-  if (title && l.title && [...title].length > l.title) out.push(`タイトルは${l.title}字まで`);
-  if (l.requiresImage && !images.length) out.push('画像が必要');
-  if (l.requiresVideo && !videos.length) out.push('動画が必要');
-  if (images.length > l.images) out.push(`画像は${l.images}枚まで`);
-  if (videos.length > (l.videos ?? 0)) out.push(`動画は${l.videos}本まで`);
-  const bad = images.find((m) => m.type && !l.imageTypes.includes(m.type)) || videos.find((m) => !(l.videoTypes ?? []).includes(m.type));
-  if (bad) out.push(`${bad.type.split('/')[1]} 非対応`);
-  return out;
-}
-
-// 送られないファイルがあることを知らせる
-function skipped(platformId) {
-  const l = state.platforms[platformId].limits;
-  if (l.ignoreMedia) return state.media.length ? '画像・動画は使いません（文章だけ）' : '';
-  const n = state.media.length - mediaFor(platformId).length;
-  if (!n) return '';
-  return l.ignoreImages ? '画像は使いません' : '動画は送られません';
+// 送る直前の本文（サーバーの finalText と同じ：UTM → 自動ハッシュタグ）
+function finalText(platformId, text) {
+  const base = state.ai.utm ? withUtm(platformId, text, { campaign: state.pillar || 'sns' }) : text;
+  return withAutoTags(platformId, base, state.hashtags, state.platforms[platformId].limits.text);
 }
 
 function renderTargets() {
@@ -250,7 +231,7 @@ function renderTargets() {
     const p = state.platforms[a.platform];
     const own = t.custom ? t.body : state.body;
     const autos = t.on ? autoTagsFor(a.platform, own, state.hashtags, p.limits.text) : [];
-    const text = withAutoTags(a.platform, own, state.hashtags, p.limits.text);
+    const text = finalText(a.platform, own);
     const n = countFor(a.platform, text);
     const probs = t.on ? problems(a.platform, text, t.title) : [];
     const skip = t.on ? skipped(a.platform) : '';
@@ -303,7 +284,7 @@ $('#targets').addEventListener('input', (e) => {
   const box = e.target.closest('.target');
   const a = state.accounts.find((x) => x.id === id);
   const p = state.platforms[a.platform];
-  const n = countFor(a.platform, withAutoTags(a.platform, e.target.value, state.hashtags, p.limits.text));
+  const n = countFor(a.platform, finalText(a.platform, e.target.value));
   const c = $('.count', box);
   c.textContent = `${n} / ${p.limits.text}`;
   c.classList.toggle('over', n > p.limits.text);
@@ -332,6 +313,7 @@ function payload(mode) {
       .filter(([id, t]) => t.on && state.accounts.some((a) => a.id === id && a.enabled))
       .map(([id, t]) => ({ account_id: id, body: t.custom ? t.body : null, title: t.title || null })),
     scheduled_at: mode === 'schedule' ? new Date($('#scheduled-at').value).toISOString() : null,
+    pillar: state.pillar,
   };
 }
 
@@ -366,6 +348,7 @@ function resetCompose() {
     t.title = '';
   }
   bodyEl.value = '';
+  setPillar(null);
   useSchedule.checked = false;
   useSchedule.dispatchEvent(new Event('change'));
   $('#editing-banner').hidden = true;
@@ -381,6 +364,7 @@ function loadIntoCompose(post, asCopy) {
   bodyEl.value = post.body;
   state.media = post.media.map((m) => ({ ...m, url: `/m/${m.key}` }));
   state.lastPost = post;
+  setPillar(post.pillar ?? null);
   state.targets = new Map();
   for (const t of post.targets) state.targets.set(t.account_id, { on: true, custom: t.body != null, body: t.body ?? '', title: t.title ?? '' });
   const scheduled = !asCopy && post.status === 'scheduled';
@@ -439,7 +423,7 @@ async function loadPosts(kind) {
     const when = p.status === 'scheduled' ? `🕒 ${fmt(p.scheduled_at)}` : p.published_at ? fmt(p.published_at) : `更新 ${fmt(p.updated_at)}`;
     return `
       <article class="post" data-id="${p.id}">
-        <div class="post-meta"><span class="status ${p.status}">${STATUS[p.status]}</span><span>${when}</span>${p.updated_by ? `<span class="by">${p.created_by && p.created_by !== p.updated_by ? `作成 ${esc(p.created_by)}・` : ''}${p.created_by === p.updated_by ? '作成' : '更新'} ${esc(p.updated_by)}</span>` : ''}</div>
+        <div class="post-meta"><span class="status ${p.status}">${STATUS[p.status]}</span>${pillarBadge(p.pillar)}<span>${when}</span>${p.updated_by ? `<span class="by">${p.created_by && p.created_by !== p.updated_by ? `作成 ${esc(p.created_by)}・` : ''}${p.created_by === p.updated_by ? '作成' : '更新'} ${esc(p.updated_by)}</span>` : ''}</div>
         <div class="post-body">${esc(p.body) || '<span class="muted">（本文なし）</span>'}</div>
         ${p.media.length ? `<div class="media">${p.media.map((m) => `<div class="thumb">${isVideo(m) ? `<video src="/m/${esc(m.key)}" muted preload="metadata"></video><span class="badge-video">動画</span>` : `<img src="/m/${esc(m.key)}" alt="${esc(m.alt)}" loading="lazy">`}</div>`).join('')}</div>` : ''}
         <div class="post-targets">${p.targets.map((t) => {
@@ -596,6 +580,40 @@ $('#account-form').addEventListener('submit', async (e) => {
   });
 });
 
+// ── 投稿の柱（プラン） ──
+const pillarBadge = (key) => {
+  const p = pillarOf(key);
+  return p ? `<span class="pill-pillar" style="--pc:${p.color}">${esc(p.label)}</span>` : '';
+};
+
+function setPillar(key) {
+  state.pillar = pillarOf(key) ? key : null;
+  renderPillarBar();
+  if (state.platforms && Object.keys(state.platforms).length) renderTargets();
+}
+
+function renderPillarBar() {
+  $('#pillar-bar').innerHTML = `<span class="label">柱：</span>${PILLARS.map((p) =>
+    `<button type="button" class="pillar-chip" data-pillar="${p.key}" aria-pressed="${state.pillar === p.key}" style="--pc:${p.color}" title="${esc(p.about)}（導線：${esc(p.link)}・目安${p.ratio}%）"><span class="dot" style="background:${p.color}"></span>${esc(p.label)}</button>`).join('')}`;
+}
+
+$('#pillar-bar').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-pillar]');
+  if (b) setPillar(state.pillar === b.dataset.pillar ? null : b.dataset.pillar);
+});
+
+$('#utm-on').addEventListener('change', async (e) => {
+  try {
+    await api('/settings', { method: 'PUT', json: { utm: e.target.checked } });
+    state.ai.utm = e.target.checked;
+    renderTargets();
+    toast(e.target.checked ? 'リンクに UTM を付けます' : 'UTM を付けないようにしました');
+  } catch (err) {
+    e.target.checked = !e.target.checked;
+    toast(err.message);
+  }
+});
+
 // ── AI で書き分け ──
 const aiBtn = $('#ai-generate');
 function renderAi() {
@@ -605,6 +623,7 @@ function renderAi() {
     ? 'AIは使える状態です。投稿画面の「AIでSNSごとに書き分ける」を押すと、共通の本文をメモとして、選んだSNSごとの文章を作ります。'
     : 'AIはまだ使えません。Cloudflare に ANTHROPIC_API_KEY を設定してください（README の「AIで書き分け」）。';
   $('#brand').value = state.ai.brand ?? '';
+  $('#utm-on').checked = !!state.ai.utm;
 }
 
 aiBtn.addEventListener('click', async () => {
@@ -619,7 +638,9 @@ aiBtn.addEventListener('click', async () => {
   aiBtn.textContent = '✨ 書き分けています…（30秒ほど）';
   aiBtn.disabled = true;
   try {
-    const r = await api('/generate', { method: 'POST', json: { source: state.body, platforms: [...new Set(chosen.map((a) => a.platform))] } });
+    const when = useSchedule.checked && $('#scheduled-at').value ? new Date($('#scheduled-at').value) : new Date();
+    const langs = [...document.querySelectorAll('#lang-bar input:checked')].map((i) => i.value);
+    const r = await api('/generate', { method: 'POST', json: { source: state.body, platforms: [...new Set(chosen.map((a) => a.platform))], pillar: state.pillar, month: when.getMonth() + 1, langs } });
     for (const a of chosen) {
       const g = r.posts[a.platform];
       if (!g) continue;
@@ -679,18 +700,46 @@ async function renderCalendar() {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   let html = DOW.map((d, i) => `<div class="dow ${i === 0 ? 'sun' : i === 6 ? 'sat' : ''}">${d}</div>`).join('');
+  // 週間投稿スケジュール（プラン）を曜日の下に
+  html += DOW.map((_, i) => {
+    const w = WEEKLY[i];
+    return `<div class="plan" title="${esc([w.instagram, w.youtube && `YouTube：${w.youtube}`, w.other, w.work && `作業：${w.work}`].filter(Boolean).join(' ／ '))}">${esc(w.instagram)}${w.youtube ? `<br>YT：${esc(w.youtube)}` : ''}</div>`;
+  }).join('');
+  renderSeason(mo + 1);
+  renderBalance(posts.filter((p) => new Date(postAt(p)).getMonth() === mo));
   for (let i = 0; i < 42; i++) {
     const d = new Date(start.getFullYear(), start.getMonth(), start.getDate() + i);
     const cls = ['day', d.getMonth() !== mo && 'other', d < today && 'past', +d === +today && 'today', d.getDay() === 0 && 'sun', d.getDay() === 6 && 'sat'].filter(Boolean).join(' ');
     const evs = (byDay[dayKey(d)] || []).map((p) => {
       const plats = [...new Set(p.targets.map((t) => t.platform))];
       return `<div class="ev ${p.status}" data-id="${p.id}" ${p.status === 'scheduled' ? 'draggable="true"' : ''} title="${esc(STATUS[p.status])}：${esc(p.body.slice(0, 80))}">
-        <span class="t">${hhmm(postAt(p))}</span><span class="dots">${plats.map(dot).join('')}</span>
+        <span class="t">${pillarOf(p.pillar) ? `<span class="pdot" style="background:${pillarOf(p.pillar).color}" title="${esc(pillarOf(p.pillar).label)}"></span>` : ''}${hhmm(postAt(p))}</span><span class="dots">${plats.map(dot).join('')}</span>
         <span class="s">${esc(p.targets.find((t) => t.title)?.title || p.body.split('\n')[0] || '（本文なし）')}</span></div>`;
     }).join('');
     html += `<div class="${cls}" data-date="${d.getTime()}"><span class="num">${d.getDate()}</span>${evs}</div>`;
   }
   $('#cal').innerHTML = html;
+}
+
+// 今月のお茶ごよみ（プラン）
+function renderSeason(month) {
+  const s = SEASONS[month];
+  $('#season').innerHTML = `<div><b>${month}月の作業</b>${esc(s.work)}</div><div><b>発信テーマ</b>${esc(s.theme)}</div><div><b>販売・集客の山</b>${esc(s.peak)}</div>`;
+}
+
+// 今月の投稿の柱の比率と、プランの目安
+function renderBalance(posts) {
+  const total = posts.filter((p) => p.pillar).length;
+  const none = posts.length - total;
+  $('#pillar-balance').innerHTML = `
+    <div class="head"><span>今月の柱の比率（予約・公開 ${posts.length}件${none ? `、柱なし ${none}件` : ''}）</span><span>縦線＝プランの目安</span></div>
+    ${PILLARS.map((p) => {
+      const n = posts.filter((x) => x.pillar === p.key).length;
+      const pct = total ? Math.round((n / total) * 100) : 0;
+      return `<div class="pb-row" style="--pc:${p.color}"><span>${esc(p.label)}</span>
+        <span class="pb-track"><span class="pb-fill" style="width:${pct}%"></span><span class="pb-target" style="left:${p.ratio}%"></span></span>
+        <span class="pb-num">${n}件 ${pct}%／${p.ratio}%</span></div>`;
+    }).join('')}`;
 }
 
 $('#cal-prev').addEventListener('click', () => { cal.month = new Date(cal.month.getFullYear(), cal.month.getMonth() - 1, 1); renderCalendar(); });
@@ -720,6 +769,8 @@ function newPostOn(date) {
     at.setMinutes(0, 0, 0);
   }
   $('#scheduled-at').value = localInput(at.getTime());
+  // 週間スケジュールでその曜日に決めた柱を選んでおく
+  setPillar(WEEKLY[at.getDay()]?.pillar ?? null);
   showTab('compose');
   bodyEl.focus();
 }
@@ -945,6 +996,7 @@ async function start() {
   renderAi();
   state.hashtags = await api('/hashtags');
   renderTagBar();
+  renderPillarBar();
   await loadAccounts();
   // 最初は有効なアカウントを全部選んでおく
   for (const a of state.accounts) if (!state.targets.has(a.id)) state.targets.set(a.id, newTarget(!state.platforms[a.platform].manual));
