@@ -19,6 +19,8 @@ CREATE TABLE IF NOT EXISTS posts (
   pillar TEXT,                        -- 投稿の柱（public/plan.js の PILLARS）
   created_by TEXT,                    -- 作った人の名前
   updated_by TEXT,                    -- 最後に直した人の名前
+  review TEXT,                        -- ふりかえり JSON：summary・good・next・idea
+  review_at INTEGER,
   created_at INTEGER NOT NULL,
   updated_at INTEGER NOT NULL
 );
@@ -35,7 +37,10 @@ CREATE TABLE IF NOT EXISTS targets (
   remote_id TEXT,
   url TEXT,
   error TEXT,
-  published_at INTEGER
+  published_at INTEGER,
+  metrics TEXT,                       -- 反応 JSON：views・reach・likes・comments・shares・saves・clicks（manual: true は手入力）
+  metrics_at INTEGER,
+  metrics_error TEXT
 );
 CREATE INDEX IF NOT EXISTS targets_post ON targets(post_id);
 
@@ -69,3 +74,41 @@ CREATE TABLE IF NOT EXISTS hashtag_sets (
 );
 
 CREATE UNIQUE INDEX IF NOT EXISTS users_email ON users(email);
+
+-- 競合チェック・話題の投稿
+CREATE TABLE IF NOT EXISTS watches (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  kind TEXT NOT NULL,          -- ig_user | ig_tag | yt_channel | yt_query
+  value TEXT NOT NULL,         -- ユーザー名・タグ・@ハンドル・キーワード
+  info TEXT,                   -- JSON：名前・フォロワー数など（最後に取れたもの）
+  last_error TEXT,
+  fetched_at INTEGER,
+  created_by TEXT,
+  created_at INTEGER NOT NULL,
+  UNIQUE (kind, value)
+);
+
+CREATE TABLE IF NOT EXISTS watch_items (
+  watch_id INTEGER NOT NULL,
+  item_id TEXT NOT NULL,
+  url TEXT,
+  caption TEXT,
+  thumb TEXT,
+  media_type TEXT,             -- image | video | carousel_album | reel | short
+  posted_at INTEGER,
+  likes INTEGER,
+  comments INTEGER,
+  views INTEGER,
+  duration INTEGER,            -- 秒（YouTube）
+  author TEXT,
+  fetched_at INTEGER NOT NULL,
+  PRIMARY KEY (watch_id, item_id)
+);
+
+CREATE TABLE IF NOT EXISTS watch_stats (
+  watch_id INTEGER NOT NULL,
+  day TEXT NOT NULL,           -- 日本時間の日付
+  followers INTEGER,
+  posts INTEGER,
+  PRIMARY KEY (watch_id, day)
+);

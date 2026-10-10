@@ -47,5 +47,10 @@ export async function getPost(env, id) {
   const { results } = await env.DB.prepare(
     `SELECT t.*, a.platform, a.name AS account_name FROM targets t JOIN accounts a ON a.id = t.account_id WHERE t.post_id = ? ORDER BY t.id`,
   ).bind(id).all();
-  return { ...post, media: JSON.parse(post.media), targets: results };
+  return {
+    ...post,
+    media: JSON.parse(post.media),
+    review: post.review ? JSON.parse(post.review) : null,
+    targets: results.map((t) => ({ ...t, metrics: t.metrics ? JSON.parse(t.metrics) : null })),
+  };
 }

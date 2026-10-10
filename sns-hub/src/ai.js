@@ -17,7 +17,7 @@ export class AiError extends Error {}
 export const LANGS = { en: '英語', fr: 'フランス語', zh: '中国語（簡体字）' };
 const MULTI_TARGETS = ['instagram', 'youtube', 'pinterest'];
 
-export function buildPrompt({ brand, source, platformIds, hashtagSets = [], pillar = null, month = null, langs = [] }) {
+export function buildPrompt({ brand, source, platformIds, hashtagSets = [], pillar = null, month = null, langs = [], advice = [] }) {
   const lines = platformIds.map((id) => {
     const p = platforms[id];
     const limit = p.limits.title ? `本文${p.limits.text}字以内、title ${p.limits.title}字以内` : `本文${p.limits.text}字以内（titleは空文字）`;
@@ -43,6 +43,7 @@ ${brand || DEFAULT_BRAND}
     p && `- この投稿の柱：${p.label}（${p.about}）。導線は「${p.link}」へ`,
     season && `- 今月（${month}月）のお茶ごよみ：作業は${season.work}、発信テーマは${season.theme}、販売・集客の山は${season.peak}。メモの内容に合うときだけ自然に触れる`,
   ].filter(Boolean);
+  if (advice.length) context.push(`- 最近の投稿のふりかえりで出た改善点（この投稿に合うものだけ取り入れる）：\n${advice.map((a) => `  - ${a}`).join('\n')}`);
   const multi = langs.filter((l) => LANGS[l]);
   const multiTargets = platformIds.filter((id) => MULTI_TARGETS.includes(id));
   if (multi.length && multiTargets.length) {
@@ -56,7 +57,7 @@ ${source}`;
   return { system, user };
 }
 
-export async function generate(env, { brand, source, platformIds, hashtagSets = [], pillar = null, month = null, langs = [] }) {
+export async function generate(env, { brand, source, platformIds, hashtagSets = [], pillar = null, month = null, langs = [], advice = [] }) {
   if (!env.ANTHROPIC_API_KEY) throw new AiError('ANTHROPIC_API_KEY が設定されていません（README の「AIで書き分け」を参照）');
   const ids = [...new Set(platformIds)].filter((id) => platforms[id]);
   if (!ids.length) throw new AiError('投稿先を選んでください');
@@ -69,14 +70,27 @@ export async function generate(env, { brand, source, platformIds, hashtagSets = 
       text: z.string(),
     })),
   });
-  const { system, user } = buildPrompt({ brand, source, platformIds: ids, hashtagSets, pillar, month, langs });
+  const { system, user } = buildPrompt({ brand, source, platformIds: ids, hashtagSets, pillar, month, langs, advice });
+  const { out, model } = await askClaude(env, { system, user, Schema, tooLong: '文章が長くなりすぎました。投稿先を減らしてお試しください' });
+  const result = {};
+  for (const p of out.posts) {
+    if (ids.includes(p.platform) && !result[p.platform]) result[p.platform] = { title: p.title.trim(), text: p.text.trim() };
+  }
+  const missing = ids.filter((id) => !result[id]);
+  if (missing.length === ids.length) throw new AiError('AIの返答に文章がありませんでした。もう一度お試しください');
+  return { posts: result, missing, model };
+}
+
+// Claude に構造化された答えを出してもらう（書き分け・ふりかえりで共通）
+export async function askClaude(env, { system, user, Schema, maxTokens = 16000, tooLong = 'AIの返答が長くなりすぎました' }) {
+  if (!env.ANTHROPIC_API_KEY) throw new AiError('ANTHROPIC_API_KEY が設定されていません（README の「AIで書き分け」を参照）');
   // ANTHROPIC_BASE_URL は Cloudflare AI Gateway などを経由するときだけ設定する
   const client = new Anthropic({ apiKey: env.ANTHROPIC_API_KEY, baseURL: env.ANTHROPIC_BASE_URL || undefined });
   let response;
   try {
     response = await client.beta.messages.parse({
       model: MODEL,
-      max_tokens: 16000,
+      max_tokens: maxTokens,
       output_config: { effort: 'medium', format: betaZodOutputFormat(Schema) },
       // 安全のための判定で断られたときは、おすすめの別モデルで自動的にやり直す
       betas: ['server-side-fallback-2026-07-01'],
@@ -90,16 +104,9 @@ export async function generate(env, { brand, source, platformIds, hashtagSets = 
     if (e instanceof Anthropic.APIError) throw new AiError(`AIの呼び出しに失敗しました（${e.status ?? '接続エラー'}）：${e.message}`);
     throw e;
   }
-  if (response.stop_reason === 'refusal') throw new AiError('AIがこの内容の作成を断りました。メモの表現を変えてお試しください');
-  if (response.stop_reason === 'max_tokens') throw new AiError('文章が長くなりすぎました。投稿先を減らしてお試しください');
+  if (response.stop_reason === 'refusal') throw new AiError('AIがこの内容を断りました。表現を変えてお試しください');
+  if (response.stop_reason === 'max_tokens') throw new AiError(tooLong);
   const out = response.parsed_output;
   if (!out) throw new AiError('AIの返答を読み取れませんでした。もう一度お試しください');
-
-  const result = {};
-  for (const p of out.posts) {
-    if (ids.includes(p.platform) && !result[p.platform]) result[p.platform] = { title: p.title.trim(), text: p.text.trim() };
-  }
-  const missing = ids.filter((id) => !result[id]);
-  if (missing.length === ids.length) throw new AiError('AIの返答に文章がありませんでした。もう一度お試しください');
-  return { posts: result, missing, model: response.model };
+  return { out, model: response.model };
 }

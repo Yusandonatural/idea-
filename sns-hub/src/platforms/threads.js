@@ -22,6 +22,11 @@ export default {
     const me = await call(`${API}/${c.user_id}?fields=username&access_token=${encodeURIComponent(c.access_token)}`);
     return { name: '@' + me.username };
   },
+  async metrics(id, c) {
+    const r = await call(`${API}/${id}/insights?metric=views,likes,replies,reposts,quotes,shares&access_token=${encodeURIComponent(c.access_token)}`);
+    const v = Object.fromEntries((r.data ?? []).map((d) => [d.name, d.values?.[0]?.value ?? d.total_value?.value ?? null]));
+    return { views: v.views ?? null, likes: v.likes ?? null, comments: v.replies ?? null, shares: (v.reposts ?? 0) + (v.quotes ?? 0) + (v.shares ?? 0) };
+  },
   async publish({ text, media }, c, ctx) {
     const tok = c.access_token;
     const u = `${API}/${c.user_id}`;

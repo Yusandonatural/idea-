@@ -17,6 +17,10 @@ export default {
     const me = await call(`${api(ctx.env)}/${c.page_id}?fields=name&access_token=${encodeURIComponent(c.page_access_token)}`);
     return { name: me.name };
   },
+  async metrics(id, c, ctx) {
+    const m = await call(`${api(ctx.env)}/${id}?fields=reactions.summary(total_count).limit(0),comments.summary(total_count).limit(0),shares&access_token=${encodeURIComponent(c.access_token)}`);
+    return { likes: m.reactions?.summary?.total_count ?? null, comments: m.comments?.summary?.total_count ?? null, shares: m.shares?.count ?? 0 };
+  },
   async publish({ text, media }, c, ctx) {
     const base = api(ctx.env);
     const tok = c.page_access_token;

@@ -16,6 +16,10 @@ export default {
     const me = await call(`${base(c)}/api/v1/accounts/verify_credentials`, { headers: { authorization: `Bearer ${c.access_token}` } });
     return { name: '@' + me.acct };
   },
+  async metrics(id, c) {
+    const s = await call(`${base(c)}/api/v1/statuses/${encodeURIComponent(id)}`, { headers: { authorization: `Bearer ${c.access_token}` } });
+    return { likes: s.favourites_count ?? 0, comments: s.replies_count ?? 0, shares: s.reblogs_count ?? 0 };
+  },
   async publish({ text, media, idempotencyKey }, c, ctx) {
     const auth = { authorization: `Bearer ${c.access_token}` };
     const ids = [];

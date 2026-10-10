@@ -72,6 +72,8 @@ npx wrangler d1 execute sns-hub --remote --file=migrations/0003_members.sql    #
 npx wrangler d1 execute sns-hub --remote --file=migrations/0004_hashtags.sql   # ハッシュタグのセット
 npx wrangler d1 execute sns-hub --remote --file=migrations/0005_google_login.sql # Google ログイン（メンバーのメール）
 npx wrangler d1 execute sns-hub --remote --file=migrations/0006_plan.sql        # 投稿の柱
+npx wrangler d1 execute sns-hub --remote --file=migrations/0007_research.sql    # リサーチ（競合・話題の投稿）
+npx wrangler d1 execute sns-hub --remote --file=migrations/0008_reviews.sql     # 反応とふりかえり
 ```
 
 ## Google ログインとメンバー
@@ -100,6 +102,29 @@ npx wrangler d1 execute sns-hub --remote --file=migrations/0006_plan.sql        
 - 料金は1回あたり数円〜十数円程度（投稿先の数と文章の長さによる）。安全のための判定で断られたときは、Anthropic おすすめの別モデルで自動的にやり直す設定にしている
 - Cloudflare AI Gateway を通すときは `ANTHROPIC_BASE_URL` にゲートウェイのURLを入れる（普段は不要）
 
+## 反応とふりかえり
+
+「履歴」の公開済み投稿に、SNSごとの数字（再生・リーチ・いいね・コメント・シェア・保存）と「いつもの何倍か」、AIのふりかえり（反応のまとめ・良かったところ・次回へのアドバイス3つ・次に試す案）が付く。
+
+- 公開から約1日たつと、毎朝3時半ごろに自動で数字を集めてふりかえる（8日目まで数字は毎日更新）。「反応を見てふりかえる」ですぐにもできる
+- 自動で数字を取れるのは Instagram・Facebook・Threads・YouTube・X・Bluesky・Mastodon。TikTok・note・小紅書・メルマガ・LINE などは「数字を入れる」で手入力する
+- 「いつも」は、そのアカウントの直近20件の中央値（3件たまるまでは比べない）。反応の点数は いいね＋（コメント・シェア・保存）×3
+- 次の投稿画面に「前回のふりかえりからのアドバイス」が出る。AIで書き分けるときも、最近のアドバイスを参考にする
+- X は数字の取得にも API の利用枠を使う（プランによっては読み取りが有料）
+- AI のふりかえりには `ANTHROPIC_API_KEY` が必要（なくても数字は見られる）
+
+## リサーチ（競合・話題の投稿）
+
+「リサーチ」タブで、見張る相手を登録すると最近の投稿と反応を集め、勢い（1日あたり）・いつもの何倍・反応率で並べる。同じ相手の中央値の2倍以上反応がある投稿に「話題」の印。「ネタにする」で参考メモとして投稿画面に入る。
+
+| 種類 | 必要なもの |
+|---|---|
+| Instagram アカウント（ビジネス/クリエイターのみ）・ハッシュタグ | Facebook ページ経由（`graph.facebook.com`）で登録した Instagram アカウント。ハッシュタグは Instagram の決まりで7日間に30種類までなので、10個まで |
+| YouTube チャンネル・キーワード | `npx wrangler secret put YOUTUBE_API_KEY`（Google Cloud で YouTube Data API v3 の APIキー）か、登録済みの YouTube アカウント（`youtube.readonly` 付き）。キーワードは直近30日の再生数順 |
+| TikTok・X・Threads・小紅書・note | 他人の投稿を読む公式APIが審査制・有料のため、検索ページへのリンクを作る |
+
+毎朝3時ごろ、古い順に15件ずつ自動で更新する。「すべて更新」でいつでも更新できる。
+
 ## ローカルで試す
 
 ```bash
@@ -118,8 +143,8 @@ npm test
 | SNS | 必要なもの | 取り方 |
 |---|---|---|
 | **X** | API Key / Secret、Access Token / Secret | [developer.x.com](https://developer.x.com) でアプリを作る → User authentication settings で **Read and write** にする → Keys and tokens で Access Token を（権限変更の**後に**）発行。投稿にはAPIの利用料がかかる（プランは X 側で確認） |
-| **Instagram** | ユーザーID、長期トークン | プロアカウント（ビジネス/クリエイター）が必要。Meta for Developers でアプリを作り「Instagram API（Instagramログイン）」を追加 → 権限 `instagram_business_basic` `instagram_business_content_publish` でトークン生成。**画像はJPEGのみ・1枚以上必須**。1日の投稿上限あり |
-| **Threads** | ユーザーID、長期トークン | Meta for Developers で Threads API のアプリ → 権限 `threads_basic` `threads_content_publish` → 短期トークンを長期トークンに交換 |
+| **Instagram** | ユーザーID、長期トークン、APIホスト | プロアカウント（ビジネス/クリエイター）が必要。**おすすめは Facebook ページ経由**（APIホスト `graph.facebook.com`）：Instagram をFacebookページにつなぎ、Meta for Developers のアプリで Graph API エクスプローラーから `instagram_basic` `instagram_content_publish` `instagram_manage_insights` `pages_show_list` `pages_read_engagement` `business_management` 付きのユーザートークンを取り長期化 → `/me/accounts?fields=instagram_business_account` でユーザーIDを確認。この方法だと**投稿・反応の取得・競合リサーチ（他アカウント・ハッシュタグ）**が全部使える。Instagramログイン（`graph.instagram.com`、権限 `instagram_business_basic` `instagram_business_content_publish` `instagram_business_manage_insights`）でも投稿と反応の取得はできるが、競合リサーチはできない。**画像はJPEGのみ・1枚以上必須**。1日の投稿上限あり |
+| **Threads** | ユーザーID、長期トークン | Meta for Developers で Threads API のアプリ → 権限 `threads_basic` `threads_content_publish` `threads_manage_insights`（反応の取得用）→ 短期トークンを長期トークンに交換 |
 | **Facebookページ** | ページID、ページアクセストークン | Graph API エクスプローラーで `pages_manage_posts` `pages_read_engagement` を付けたユーザートークン → 長期化 → `/me/accounts` でページトークンを取る（長期ユーザートークン由来なら無期限） |
 | **LINE公式** | チャネルアクセストークン（長期） | LINE Developers → 公式アカウントの Messaging API チャネル → 「Messaging API設定」で発行。**友だち全員への一斉配信**で、月の無料メッセージ数を消費する |
 | **Bluesky** | ハンドル、アプリパスワード | 設定 → プライバシーとセキュリティ → アプリパスワード |
@@ -135,7 +160,7 @@ Meta 系（Instagram・Threads・Facebook）は、自分のアカウントだけ
 
 ## 今後足せるもの
 
-- SNS上の投稿の削除・いいね数などの取得
+- SNS上の投稿の削除
 - Instagram リール・X などへの動画投稿（今は YouTube のみ）
 - メルマガを Gmail の下書きや Shopify Email に直接作る
 - 投稿カレンダー表示、テンプレート・定型ハッシュタグ

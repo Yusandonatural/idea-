@@ -273,6 +273,68 @@ main > section { display: grid; gap: 16px; }
 .tag-stats { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
 .target .auto-tags { font-size: 12px; color: var(--accent); margin-top: 4px; }
 
+/* ── リサーチ ── */
+.watch-form { display: grid; grid-template-columns: minmax(0, 13em) minmax(0, 1fr) auto; gap: 8px; margin-top: 12px; }
+.watches { display: grid; gap: 8px; margin-top: 12px; }
+.watch { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 8px 12px; background: var(--sunk); }
+.watch img { width: 32px; height: 32px; border-radius: 50%; object-fit: cover; flex: none; background: var(--line); }
+.watch .info { flex: 1; min-width: 160px; }
+.watch .info small { display: block; color: var(--muted); font-variant-numeric: tabular-nums; }
+.watch .info .error { margin: 2px 0 0; }
+.up { color: var(--ok); font-weight: 700; }
+.down { color: var(--danger); font-weight: 700; }
+.rs-status { font-size: 12.5px; color: var(--warn); background: var(--warn-soft); border-radius: var(--radius-sm); padding: 6px 10px; margin: 8px 0 0; }
+.rs-bar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.rs-bar select { width: auto; max-width: 100%; padding: 6px 8px; font-size: 13.5px; }
+.rs-bar label { margin: 0; font-size: 13px; color: var(--ink); }
+.rs-bar #rs-refresh { margin-left: auto; }
+.rs-grid { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(min(100%, 250px), 1fr)); }
+.rs-item { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; display: flex; flex-direction: column; box-shadow: var(--shadow); }
+.rs-item.buzz { border-color: color-mix(in srgb, var(--warn) 60%, var(--line)); }
+.rs-thumb { position: relative; display: block; aspect-ratio: 4 / 3; background: var(--sunk); color: var(--muted); text-decoration: none; }
+.rs-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.rs-thumb .ph { position: absolute; inset: 0; display: grid; place-items: center; font-size: 13px; }
+.rs-thumb .badge { position: absolute; top: 8px; left: 8px; background: var(--warn); color: #fff; font-size: 11.5px; font-weight: 700; padding: 2px 9px; border-radius: 99px; }
+.rs-thumb .kind { position: absolute; bottom: 8px; right: 8px; background: rgba(0, 0, 0, .62); color: #fff; font-size: 11px; padding: 1px 7px; border-radius: 5px; font-variant-numeric: tabular-nums; }
+.rs-body { padding: 10px 12px 12px; display: grid; gap: 6px; flex: 1; align-content: start; }
+.rs-meta { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); min-width: 0; }
+.rs-meta .who2 { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
+.rs-cap { margin: 0; font-size: 13px; line-height: 1.6; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; word-break: break-word; }
+.rs-nums { display: flex; flex-wrap: wrap; gap: 4px 10px; font-size: 12.5px; font-variant-numeric: tabular-nums; }
+.rs-nums .hot { color: var(--warn); font-weight: 700; }
+.rs-nums .sub { color: var(--muted); }
+.rs-acts { display: flex; gap: 6px; margin-top: 2px; }
+.rs-acts .button, .rs-acts button { font-size: 12.5px; padding: 3px 10px; text-decoration: none; }
+.search-links { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+#search-form input { flex: 1; }
+@media (max-width: 600px) { .watch-form { grid-template-columns: minmax(0, 1fr) auto; } .watch-form select { grid-column: 1 / -1; } }
+
+/* ── 反応とふりかえり ── */
+.review { border: 1px solid var(--line); background: var(--sunk); border-radius: var(--radius-sm); padding: 12px 14px; margin: 8px 0 12px; display: grid; gap: 8px; }
+.review-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.review-head button { margin-left: auto; }
+.m-rows { display: grid; gap: 4px; }
+.m-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 13px; }
+.m-name { min-width: 7em; }
+.m-nums { display: inline-flex; flex-wrap: wrap; gap: 2px 10px; font-variant-numeric: tabular-nums; }
+.m-row .error { margin: 0; }
+.m-row button { margin-left: auto; }
+.r-summary { margin: 4px 0 0; font-size: 14px; }
+.r-sec { font-size: 13.5px; }
+.r-sec b { font-size: 12px; color: var(--muted); letter-spacing: .04em; }
+.r-sec ul, .r-sec ol { margin: 2px 0 0; padding-left: 1.4em; }
+.r-next { background: var(--accent-soft); border-radius: var(--radius-sm); padding: 8px 12px; }
+.r-next b { color: var(--accent); }
+.r-idea { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 13.5px; }
+.r-idea span { flex: 1; min-width: 200px; }
+.last-review { margin: 0 20px 12px; background: var(--accent-soft); border-radius: var(--radius-sm); padding: 8px 12px; font-size: 13.5px; }
+.last-review summary { cursor: pointer; color: var(--accent); font-weight: 700; font-size: 13px; }
+.last-review ol { margin: 6px 0; padding-left: 1.4em; }
+.last-review p { margin: 4px 0; }
+.metrics-fields { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 0 10px; }
+#metrics-dialog form { text-align: left; margin: 0; }
+@media (max-width: 600px) { .last-review { margin: 0 16px 12px; } }
+
 /* ── ダイアログ・通知 ── */
 dialog { border: 1px solid var(--line); border-radius: 14px; background: var(--card); color: var(--ink); max-width: min(520px, 92vw); width: 100%; padding: 22px; box-shadow: var(--shadow-pop); }
 dialog::backdrop { background: rgba(10, 16, 12, .45); }

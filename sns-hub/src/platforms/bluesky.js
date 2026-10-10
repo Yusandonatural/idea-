@@ -49,6 +49,12 @@ export default {
     const s = await session(c);
     return { name: '@' + s.handle };
   },
+  async metrics(id) {
+    const r = await call(`https://public.api.bsky.app/xrpc/app.bsky.feed.getPosts?uris=${encodeURIComponent(id)}`);
+    const p = r.posts?.[0];
+    if (!p) throw new Error('投稿が見つかりません');
+    return { likes: p.likeCount ?? 0, comments: p.replyCount ?? 0, shares: (p.repostCount ?? 0) + (p.quoteCount ?? 0) };
+  },
   async publish({ text, media }, c, ctx) {
     const s = await session(c);
     const auth = { authorization: `Bearer ${s.accessJwt}` };

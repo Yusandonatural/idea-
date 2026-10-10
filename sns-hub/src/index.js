@@ -7,6 +7,9 @@ import { check, finalText, makeCtx, publishPost, refreshTokens, runDue } from '.
 import { pillarOf } from '../public/plan.js';
 import { encryptCreds, getPost, getSetting, loadAccount, loadHashtagSets, loadSendOptions, now, publicAccount, saveCredentials } from './store.js';
 import { parseTags, tagsIn } from '../public/hashtags.js';
+import { loadBaselines, recentAdvice, reviewPost, runReviews } from './review.js';
+import { cleanMetrics, ratioTo } from '../public/insights.js';
+import { KINDS, listResearch, MAX_IG_TAGS, MAX_WATCHES, normalizeWatch, refreshResearch, refreshWatch, ResearchError } from './research.js';
 
 const MAX_IMAGE = 8 * 1024 * 1024;
 const MAX_VIDEO = 95 * 1024 * 1024; // Workers が1回に受け取れるのは100MBまで
@@ -242,6 +245,7 @@ async function api(req, env, url) {
         pillar: typeof body?.pillar === 'string' ? body.pillar : null,
         month: Number(body?.month) || null,
         langs: Array.isArray(body?.langs) ? body.langs.map(String) : [],
+        advice: (await recentAdvice(env, 3)).flatMap((r) => r.review.next).slice(0, 6),
         source: String(body?.source ?? '').slice(0, 20000),
         platformIds: Array.isArray(body?.platforms) ? body.platforms.map(String) : [],
       }));
@@ -361,6 +365,55 @@ async function api(req, env, url) {
     }
   }
 
+  // ── リサーチ（競合・話題の投稿。投稿担当も使える） ──
+  if (path === '/research' && method === 'GET') return json(await listResearch(env));
+  if (path === '/research/watches' && method === 'POST') {
+    const kind = String(body?.kind ?? '');
+    if (!KINDS[kind]) return fail('種類の指定が不正です');
+    let value;
+    try {
+      value = normalizeWatch(kind, body?.value);
+    } catch (e) {
+      if (e instanceof ResearchError) return fail(e.message);
+      throw e;
+    }
+    const count = (await env.DB.prepare('SELECT COUNT(*) AS n FROM watches').first()).n;
+    if (count >= MAX_WATCHES) return fail(`見張る相手は${MAX_WATCHES}件までです`);
+    if (kind === 'ig_tag') {
+      const tags = (await env.DB.prepare(`SELECT COUNT(*) AS n FROM watches WHERE kind = 'ig_tag'`).first()).n;
+      if (tags >= MAX_IG_TAGS) return fail(`Instagram のハッシュタグは${MAX_IG_TAGS}個までです（Instagram 側の上限のため）`);
+    }
+    if (await env.DB.prepare('SELECT 1 FROM watches WHERE kind = ? AND value = ?').bind(kind, value).first()) return fail('もう登録されています');
+    const w = await env.DB.prepare('INSERT INTO watches (kind, value, created_by, created_at) VALUES (?, ?, ?, ?) RETURNING *')
+      .bind(kind, value, user.name, now()).first();
+    try {
+      await refreshWatch(env, w);
+    } catch (e) {
+      // 最初に読めない相手は登録しない（名前違い・鍵がないなど）
+      await env.DB.batch([env.DB.prepare('DELETE FROM watch_items WHERE watch_id = ?').bind(w.id), env.DB.prepare('DELETE FROM watches WHERE id = ?').bind(w.id)]);
+      return fail(e.message);
+    }
+    return json(await listResearch(env));
+  }
+  const rw = path.match(/^\/research\/watches\/(\d+)(\/refresh)?$/);
+  if (rw) {
+    const w = await env.DB.prepare('SELECT * FROM watches WHERE id = ?').bind(Number(rw[1])).first();
+    if (!w) return fail('見つかりません', 404);
+    if (rw[2] && method === 'POST') {
+      try {
+        await refreshWatch(env, w);
+      } catch (e) {
+        return fail(`${KINDS[w.kind].label}「${w.value}」を更新できませんでした：${e.message}`);
+      }
+      return json({ ok: true });
+    }
+    if (method === 'DELETE') {
+      await env.DB.batch(['watch_items', 'watch_stats'].map((t) => env.DB.prepare(`DELETE FROM ${t} WHERE watch_id = ?`).bind(w.id))
+        .concat(env.DB.prepare('DELETE FROM watches WHERE id = ?').bind(w.id)));
+      return json({ ok: true });
+    }
+  }
+
   // ── 画像 ──
   if (path === '/media' && method === 'POST') {
     const fd = await req.formData();
@@ -394,7 +447,13 @@ async function api(req, env, url) {
       : status === 'history' ? `WHERE status IN ('done','partial','failed')` : '';
     const order = status === 'queue' ? 'ORDER BY scheduled_at IS NULL, scheduled_at, id DESC' : 'ORDER BY COALESCE(published_at, updated_at) DESC';
     const { results } = await env.DB.prepare(`SELECT id FROM posts ${where} ${order} LIMIT ?`).bind(limit).all();
-    return json(await Promise.all(results.map((r) => getPost(env, r.id))));
+    const posts = await Promise.all(results.map((r) => getPost(env, r.id)));
+    if (status === 'history') {
+      // 反応を「いつも」（アカウントごとの直近の中央値）と比べる
+      const base = await loadBaselines(env, [...new Set(posts.flatMap((p) => p.targets.map((t) => t.account_id)))]);
+      for (const p of posts) for (const t of p.targets) t.ratio = ratioTo(t.metrics, base[t.account_id]);
+    }
+    return json(posts);
   }
   if (path === '/posts' && method === 'POST') {
     const input = await readPostInput(env, body);
@@ -405,6 +464,27 @@ async function api(req, env, url) {
     await writeTargets(env, post.id, input.rows);
     if (input.mode === 'now') return json(await publishPost(env, post.id, url.origin));
     return json(await getPost(env, post.id));
+  }
+  if (path === '/reviews/latest' && method === 'GET') return json(await recentAdvice(env, 1));
+  m = path.match(/^\/posts\/(\d+)\/review$/);
+  if (m && method === 'POST') {
+    // 反応を取り直して、AI にふりかえってもらう（AI がなければ数字だけ）
+    try {
+      return json(await reviewPost(env, Number(m[1]), url.origin));
+    } catch (e) {
+      if (e instanceof AiError) return json({ ...(await getPost(env, Number(m[1]))), review_error: e.message });
+      return fail(e.message, 409);
+    }
+  }
+  m = path.match(/^\/targets\/(\d+)\/metrics$/);
+  if (m && method === 'PUT') {
+    // TikTok・note など、APIで取れない先の数字を手で入れる（空にすると自動取得に戻る）
+    const metrics = cleanMetrics(body?.metrics);
+    const empty = !Object.keys(metrics).length;
+    const r = await env.DB.prepare(`UPDATE targets SET metrics = ?, metrics_at = ?, metrics_error = NULL WHERE id = ? AND status IN ('ok','manual')`)
+      .bind(empty ? null : JSON.stringify({ ...metrics, manual: true }), empty ? null : now(), Number(m[1])).run();
+    if (!r.meta.changes) return fail('公開済みの投稿先だけ数字を入れられます', 404);
+    return json({ ok: true });
   }
   m = path.match(/^\/posts\/(\d+)\/schedule$/);
   if (m && method === 'PATCH') {
@@ -491,7 +571,8 @@ export default {
   },
 
   async scheduled(event, env, ctx) {
-    if (event.cron === '0 18 * * *') ctx.waitUntil(refreshTokens(env));
+    if (event.cron === '0 18 * * *') ctx.waitUntil(refreshTokens(env).then(() => refreshResearch(env)));
+    else if (event.cron === '30 18 * * *') ctx.waitUntil(runReviews(env));
     else ctx.waitUntil(runDue(env));
   },
 };

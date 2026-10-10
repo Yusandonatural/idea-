@@ -24,6 +24,11 @@ export default {
     const me = await signed('GET', `${API}/users/me`, c);
     return { name: '@' + me.data.username };
   },
+  async metrics(id, c) {
+    const r = await signed('GET', `${API}/tweets/${encodeURIComponent(id)}?tweet.fields=public_metrics`, c);
+    const m = r.data?.public_metrics ?? {};
+    return { views: m.impression_count ?? null, likes: m.like_count ?? null, comments: m.reply_count ?? null, shares: (m.retweet_count ?? 0) + (m.quote_count ?? 0), saves: m.bookmark_count ?? null };
+  },
   async publish({ text, media }, c, ctx) {
     const mediaIds = [];
     for (const m of media) {
