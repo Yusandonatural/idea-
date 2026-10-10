@@ -13,7 +13,7 @@ export const DEFAULT_BRAND = `株式会社悠三堂（ゆうさんどう）。�
 
 export class AiError extends Error {}
 
-export function buildPrompt({ brand, source, platformIds }) {
+export function buildPrompt({ brand, source, platformIds, hashtagSets = [] }) {
   const lines = platformIds.map((id) => {
     const p = platforms[id];
     const limit = p.limits.title ? `本文${p.limits.text}字以内、title ${p.limits.title}字以内` : `本文${p.limits.text}字以内（titleは空文字）`;
@@ -29,15 +29,19 @@ ${brand || DEFAULT_BRAND}
 - 各SNSの文字数制限を必ず守る
 - SNSごとに読み手と書き方を変える。同じ文の使い回しにしない
 - 出力は指定された各SNSにつき1件ずつ`;
+  const tagLines = hashtagSets.map((s) => {
+    const auto = s.auto_platforms.filter((p) => platformIds.includes(p)).map((p) => platforms[p].label);
+    return `- ${s.name}：${s.tags.join(' ')}${auto.length ? `（${auto.join('・')}には投稿時に自動で付くので、そのSNSの本文には入れない）` : ''}`;
+  });
   const user = `# 書き分ける先
 ${lines.join('\n')}
-
+${tagLines.length ? `\n# よく使うハッシュタグ（内容に合うものを優先して使う。合わないものは使わない）\n${tagLines.join('\n')}\n` : ''}
 # メモ
 ${source}`;
   return { system, user };
 }
 
-export async function generate(env, { brand, source, platformIds }) {
+export async function generate(env, { brand, source, platformIds, hashtagSets = [] }) {
   if (!env.ANTHROPIC_API_KEY) throw new AiError('ANTHROPIC_API_KEY が設定されていません（README の「AIで書き分け」を参照）');
   const ids = [...new Set(platformIds)].filter((id) => platforms[id]);
   if (!ids.length) throw new AiError('投稿先を選んでください');
@@ -50,7 +54,7 @@ export async function generate(env, { brand, source, platformIds }) {
       text: z.string(),
     })),
   });
-  const { system, user } = buildPrompt({ brand, source, platformIds: ids });
+  const { system, user } = buildPrompt({ brand, source, platformIds: ids, hashtagSets });
   // ANTHROPIC_BASE_URL は Cloudflare AI Gateway などを経由するときだけ設定する
   const client = new Anthropic({ apiKey: env.ANTHROPIC_API_KEY, baseURL: env.ANTHROPIC_BASE_URL || undefined });
   let response;

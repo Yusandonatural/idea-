@@ -1,4 +1,5 @@
 import { countFor } from './textlen.js';
+import { appendTags, autoTagsFor, parseTags, withAutoTags } from './hashtags.js';
 
 const $ = (s, el = document) => el.querySelector(s);
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
@@ -10,6 +11,7 @@ const state = {
   media: [],              // {key,type,size,alt,url,uploading}
   targets: new Map(),     // accountId -> {on, custom, body, title}
   ai: { ai_enabled: false },
+  hashtags: [],
   editingId: null,
 };
 
@@ -101,6 +103,7 @@ function showTab(name) {
     if (isAdmin()) loadMembers();
   }
   if (name === 'calendar') renderCalendar();
+  if (name === 'hashtags') renderHashtagTab();
 }
 
 const isAdmin = () => state.user?.role === 'admin';
@@ -195,7 +198,9 @@ function renderTargets() {
   el.innerHTML = state.accounts.filter((a) => a.enabled).map((a) => {
     const t = state.targets.get(a.id) ?? newTarget(false);
     const p = state.platforms[a.platform];
-    const text = t.custom ? t.body : state.body;
+    const own = t.custom ? t.body : state.body;
+    const autos = t.on ? autoTagsFor(a.platform, own, state.hashtags, p.limits.text) : [];
+    const text = withAutoTags(a.platform, own, state.hashtags, p.limits.text);
     const n = countFor(a.platform, text);
     const probs = t.on ? problems(a.platform, text, t.title) : [];
     const skip = t.on ? skipped(a.platform) : '';
@@ -212,6 +217,7 @@ function renderTargets() {
         ${t.on && p.limits.title ? `<input class="title-input" data-title placeholder="${titleLabel}（${p.limits.title}字まで。空欄なら本文の1行目）" value="${esc(t.title)}">` : ''}
         ${t.on && t.custom ? `<textarea data-body>${esc(t.body)}</textarea>` : ''}
         ${probs.length ? `<div class="warn-text">⚠ ${probs.join('・')}</div>` : ''}
+        ${autos.length ? `<div class="auto-tags">＋ 自動で付くタグ：${autos.map(esc).join(' ')}</div>` : ''}
         ${skip ? `<div class="info-text">${esc(skip)}</div>` : ''}
         ${t.on && p.note ? `<div class="muted small">${esc(p.note)}</div>` : ''}
       </div>`;
@@ -247,7 +253,7 @@ $('#targets').addEventListener('input', (e) => {
   const box = e.target.closest('.target');
   const a = state.accounts.find((x) => x.id === id);
   const p = state.platforms[a.platform];
-  const n = countFor(a.platform, e.target.value);
+  const n = countFor(a.platform, withAutoTags(a.platform, e.target.value, state.hashtags, p.limits.text));
   const c = $('.count', box);
   c.textContent = `${n} / ${p.limits.text}`;
   c.classList.toggle('over', n > p.limits.text);
@@ -358,7 +364,7 @@ function showResult(post) {
 // note・メルマガなど手で貼る先の文章（タイトル＋本文）
 let copySource = null;
 function manualText(post, t) {
-  const body = t.body ?? post.body;
+  const body = t.sent ?? t.body ?? post.body;
   const title = t.title || '';
   return title ? `${title}\n\n${body}` : body;
 }
@@ -773,6 +779,116 @@ $('#password-form').addEventListener('submit', async (e) => {
   }
 });
 
+// ── ハッシュタグ ──
+function renderTagBar() {
+  $('#tag-bar').innerHTML = state.hashtags.length
+    ? `<span class="label">＃ タグを入れる：</span>${state.hashtags.map((s) => `<button type="button" class="tag-chip" data-set="${s.id}" title="${esc(s.tags.join(' '))}">${esc(s.name)}</button>`).join('')}`
+    : '';
+}
+
+$('#tag-bar').addEventListener('click', (e) => {
+  const btn = e.target.closest('[data-set]');
+  if (!btn) return;
+  const set = state.hashtags.find((s) => String(s.id) === btn.dataset.set);
+  state.body = appendTags(state.body, set.tags);
+  bodyEl.value = state.body;
+  // 個別に編集している投稿先にも同じタグを足す
+  for (const t of state.targets.values()) if (t.on && t.custom) t.body = appendTags(t.body, set.tags);
+  renderTargets();
+  toast(`「${set.name}」のタグを入れました`);
+});
+
+let editingSet = null;
+
+function autoPlatformChoices() {
+  const used = new Set(state.accounts.map((a) => a.platform));
+  const list = Object.values(state.platforms).filter((p) => used.has(p.id));
+  return list.length ? list : Object.values(state.platforms);
+}
+
+function renderSetForm(set) {
+  editingSet = set;
+  const f = $('#set-form');
+  f.set_name.value = set?.name ?? '';
+  f.tags.value = set?.tags.join(' ') ?? '';
+  const on = new Set(set?.auto_platforms ?? []);
+  $('#auto-platforms').innerHTML = autoPlatformChoices().map((p) =>
+    `<label><input type="checkbox" value="${p.id}" ${on.has(p.id) ? 'checked' : ''}>${dot(p.id)}${esc(p.label)}</label>`).join('');
+  $('#set-form-title').textContent = set ? `「${set.name}」を編集` : 'セットを追加';
+  $('#set-save').textContent = set ? '保存' : '追加';
+  $('#set-cancel').hidden = !set;
+  $('#set-error').textContent = '';
+}
+
+async function renderHashtagTab() {
+  state.hashtags = await api('/hashtags');
+  renderTagBar();
+  $('#set-list').innerHTML = state.hashtags.length ? state.hashtags.map((s) => `
+    <div class="set" data-id="${s.id}">
+      <div class="set-head"><b>${esc(s.name)}</b>
+        <button class="small" data-act="edit">編集</button><button class="small ghost danger" data-act="delete">削除</button></div>
+      <div class="tags">${s.tags.map((t) => `<span>${esc(t)}</span>`).join('')}</div>
+      <div class="autos">${s.auto_platforms.length ? `自動で付ける：${s.auto_platforms.map((p) => `<span class="pill">${dot(p)}${esc(state.platforms[p]?.label ?? p)}</span>`).join('')}` : '自動では付けない（投稿画面のボタンで入れる）'}</div>
+    </div>`).join('') : '<p class="empty">まだセットがありません。下のフォームから作ってください。</p>';
+  if (!editingSet) renderSetForm(null);
+  const st = await api('/hashtags/stats?days=90');
+  $('#tag-stats-note').textContent = `過去${st.days}日・${st.posts}件の投稿から`;
+  $('#tag-stats').innerHTML = st.tags.length
+    ? st.tags.map((t) => `<button type="button" class="tag-chip" data-tag="${esc(t.tag)}">${esc(t.tag)}<span class="n">${t.count}</span></button>`).join('')
+    : '<p class="muted small">まだ公開した投稿にハッシュタグがありません。</p>';
+}
+
+$('#set-list').addEventListener('click', async (e) => {
+  const btn = e.target.closest('[data-act]');
+  if (!btn) return;
+  const set = state.hashtags.find((s) => String(s.id) === btn.closest('.set').dataset.id);
+  if (btn.dataset.act === 'edit') {
+    renderSetForm(set);
+    $('#set-form').scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
+  if (btn.dataset.act === 'delete') {
+    if (!await ask(`「${set.name}」を削除しますか？`)) return;
+    await api(`/hashtags/${set.id}`, { method: 'DELETE' });
+    if (editingSet?.id === set.id) editingSet = null;
+    toast('削除しました');
+    renderHashtagTab();
+    renderTargets();
+  }
+});
+
+$('#tag-stats').addEventListener('click', (e) => {
+  const btn = e.target.closest('[data-tag]');
+  if (!btn) return;
+  const f = $('#set-form');
+  f.tags.value = parseTags(`${f.tags.value} ${btn.dataset.tag}`).join(' ');
+  f.tags.focus();
+});
+
+$('#set-cancel').addEventListener('click', () => renderSetForm(null));
+
+$('#set-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const f = e.target;
+  const data = {
+    name: f.set_name.value,
+    tags: f.tags.value,
+    auto_platforms: [...f.querySelectorAll('#auto-platforms input:checked')].map((i) => i.value),
+  };
+  await busy($('#set-save'), async () => {
+    try {
+      if (editingSet) await api(`/hashtags/${editingSet.id}`, { method: 'PATCH', json: data });
+      else await api('/hashtags', { method: 'POST', json: data });
+      toast(editingSet ? '保存しました' : 'セットを追加しました');
+      editingSet = null;
+      await renderHashtagTab();
+      renderSetForm(null);
+      renderTargets();
+    } catch (err) {
+      $('#set-error').textContent = err.message;
+    }
+  });
+});
+
 async function loadAccounts() {
   state.accounts = await api('/accounts');
   renderTargets();
@@ -790,6 +906,8 @@ async function start() {
   $('#app').hidden = false;
   state.ai = await api('/settings');
   renderAi();
+  state.hashtags = await api('/hashtags');
+  renderTagBar();
   await loadAccounts();
   // 最初は有効なアカウントを全部選んでおく
   for (const a of state.accounts) if (!state.targets.has(a.id)) state.targets.set(a.id, newTarget(!state.platforms[a.platform].manual));

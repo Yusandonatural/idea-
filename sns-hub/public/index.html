@@ -31,6 +31,7 @@
       <button data-tab="calendar">カレンダー</button>
       <button data-tab="queue">予約・下書き</button>
       <button data-tab="history">履歴</button>
+      <button data-tab="hashtags">ハッシュタグ</button>
       <button data-tab="accounts">設定</button>
     </nav>
     <span class="who" id="who"></span>
@@ -51,6 +52,7 @@
             <label class="button ghost">🖼 画像・動画を追加<input type="file" id="file" accept="image/jpeg,image/png,image/webp,image/gif,video/mp4,video/quicktime,video/webm" multiple hidden></label>
             <button class="ai" id="ai-generate" type="button">✨ AIでSNSごとに書き分ける</button>
           </div>
+          <div class="tag-bar" id="tag-bar"></div>
           <p class="muted small" id="ai-hint">Instagram は JPEG のみ・1枚以上必須。動画は YouTube にだけ送ります
           </p>
         </div>
@@ -87,6 +89,29 @@
 
     <section id="tab-queue" hidden><div id="queue-list" class="list"></div></section>
     <section id="tab-history" hidden><div id="history-list" class="list"></div></section>
+
+    <section id="tab-hashtags" hidden>
+      <div class="card">
+        <h2>ハッシュタグのセット</h2>
+        <p class="muted small">よく使うタグをまとめておくと、投稿画面でワンクリックで入れられます。「自動で付ける」を選んだSNSには、投稿するときに本文の最後へ自動で足します（本文にすでにあるタグと、文字数に収まらない分は足しません）。AIで書き分けるときも、ここのタグを優先して使います。</p>
+        <div id="set-list" class="sets"></div>
+      </div>
+      <div class="card">
+        <h2 id="set-form-title">セットを追加</h2>
+        <form id="set-form" class="set-form">
+          <input name="set_name" placeholder="名前（例：お茶の基本）" maxlength="40" required>
+          <textarea name="tags" rows="3" placeholder="#日本茶 #自然栽培 #奈良（# はなくても、空白・読点区切りでもOK）" required></textarea>
+          <div class="auto-pick"><span class="muted small">投稿するときに自動で付けるSNS：</span><span id="auto-platforms"></span></div>
+          <div class="row"><button class="primary" id="set-save">追加</button><button type="button" class="ghost" id="set-cancel" hidden>やめる</button></div>
+          <p class="error" id="set-error"></p>
+        </form>
+      </div>
+      <div class="card">
+        <h2>よく使ったタグ <span class="muted small" id="tag-stats-note"></span></h2>
+        <div id="tag-stats" class="tag-stats"></div>
+        <p class="muted small">押すと、上のフォームに入ります。</p>
+      </div>
+    </section>
 
     <section id="tab-accounts" hidden>
       <div id="account-list" class="list"></div>

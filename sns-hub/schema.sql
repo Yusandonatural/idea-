@@ -29,6 +29,7 @@ CREATE TABLE IF NOT EXISTS targets (
   account_id INTEGER NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
   body TEXT,                          -- SNSごとに書き分けた本文（NULLなら共通本文）
   title TEXT,                         -- YouTube・ブログ・note の題名、メルマガの件名
+  sent TEXT,                          -- 実際に送った本文（自動ハッシュタグ込み）
   status TEXT NOT NULL DEFAULT 'pending', -- pending | ok | manual（コピーして手で投稿） | error
   remote_id TEXT,
   url TEXT,
@@ -52,4 +53,15 @@ CREATE TABLE IF NOT EXISTS users (
   disabled INTEGER NOT NULL DEFAULT 0,
   last_login_at INTEGER,
   created_at INTEGER NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS hashtag_sets (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT NOT NULL,
+  tags TEXT NOT NULL DEFAULT '[]',          -- ["#日本茶", ...]
+  auto_platforms TEXT NOT NULL DEFAULT '[]', -- 投稿時に自動で付けるSNS（["instagram", ...]）
+  sort INTEGER NOT NULL DEFAULT 0,
+  updated_by TEXT,
+  created_at INTEGER NOT NULL,
+  updated_at INTEGER NOT NULL
 );
