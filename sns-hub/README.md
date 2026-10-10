@@ -12,7 +12,7 @@
 - **メンバー**：投稿する人ごと（5人でも20人まで）にログインIDとパスワードを作れる。「投稿担当」は投稿・予約・AIの書き分けだけ、「管理者」はSNSの鍵・メンバー・AIの設定も変えられる。誰が作った・直した投稿かが履歴に残る
 - **履歴と再試行**：SNSごとの成功・失敗・投稿へのリンクを記録。一部だけ失敗したときは「失敗分を再試行」で、成功済みのSNSには二度投稿せず残りだけ送る
 - **アカウント管理**：接続テスト・停止/再開・鍵の更新。Threads / Instagram のトークン（60日期限）は毎日自動で延長する
-- **安全**：オーナーは合言葉、メンバーは各自のID・パスワード（PBKDF2でハッシュ化）でログイン。停止やパスワード変更でその人のログインはすぐ切れる。各SNSの鍵は AES-GCM で暗号化して保存。検索エンジンには載せない（noindex・robots.txt で全拒否。管理ツールなので GA4 タグも入れない）
+- **安全**：Google アカウントでログイン（メンバーに登録したメールだけ通す。Google の署名をサーバーで確かめる）。オーナーは予備として合言葉でも入れる。停止やメール変更でその人のログインはすぐ切れる。各SNSの鍵は AES-GCM で暗号化して保存。検索エンジンには載せない（noindex・robots.txt で全拒否。管理ツールなので GA4 タグも入れない）
 
 ## 公開先
 
@@ -63,15 +63,24 @@ npm run deploy
 npx wrangler d1 execute sns-hub --remote --file=migrations/0002_ai_titles.sql  # タイトル・AIの設定
 npx wrangler d1 execute sns-hub --remote --file=migrations/0003_members.sql    # メンバー・作った人
 npx wrangler d1 execute sns-hub --remote --file=migrations/0004_hashtags.sql   # ハッシュタグのセット
+npx wrangler d1 execute sns-hub --remote --file=migrations/0005_google_login.sql # Google ログイン（メンバーのメール）
 ```
 
-## メンバーを追加する
+## Google ログインとメンバー
 
-1. オーナー（ログインIDは空欄、パスワードは `ADMIN_PASSWORD`）でログイン
-2. 「設定」→「メンバー」で、名前・ログインID・最初のパスワード・役割（投稿担当／管理者）を入れて追加
-3. 本人にIDと最初のパスワードを伝え、ログイン後に「自分のパスワード」で変えてもらう
+ログインは Google アカウント（Firebase Authentication。90日外国語アプリと同じ `french90days` プロジェクトを使う）。
 
-オーナーの合言葉は画面からは変えられない（`npx wrangler secret put ADMIN_PASSWORD` で変える）。メンバーが1人もいなくても、オーナーだけで全部使える。
+**最初に一度だけ（Firebase の設定）**：[Firebase コンソール](https://console.firebase.google.com/project/french90days/authentication/settings) → Authentication → 設定 →「承認済みドメイン」に `sns-hub.isozaki-f67.workers.dev`（独自ドメインをつけたらそれも）を追加する。追加しないと「承認済みドメインに入っていません」と出てログインできない。
+
+**メンバーの追加**：
+1. 管理者がログインして「設定」→「メンバー」で、名前・Google アカウントのメール・役割（投稿担当／管理者）を入れて追加
+2. 本人は「Google でログイン」を押して、そのアカウントを選ぶだけ（パスワードは不要）
+
+**最初の管理者**：次のどちらか。
+- 「合言葉でログイン（オーナー用の予備）」から `ADMIN_PASSWORD` で入り、自分の Google アカウントを「管理者」としてメンバーに追加する
+- または Cloudflare の管理画面 → Workers → `sns-hub` → 設定 → 変数で `OWNER_EMAILS` に自分のメールを入れる（そのメールで Google ログインするとオーナーになる。カンマ区切りで複数可）
+
+オーナーの合言葉は画面からは変えられない（`npx wrangler secret put ADMIN_PASSWORD` で変える）。`ADMIN_PASSWORD` を登録しなければ、合言葉でのログインは表示されない。
 
 ## AIで書き分け
 

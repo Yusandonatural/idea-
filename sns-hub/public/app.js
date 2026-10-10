@@ -73,18 +73,68 @@ const dot = (pid) => `<span class="dot" style="background:${state.platforms[pid]
 function showLogin() {
   $('#app').hidden = true;
   $('#login').hidden = false;
+  loadAuthConfig().catch(() => {});
 }
 
+// 合言葉（オーナー用の予備）
 $('#login-form').addEventListener('submit', async (e) => {
   e.preventDefault();
   $('#login-error').textContent = '';
   try {
-    await api('/login', { method: 'POST', json: { login: e.target.login.value, password: e.target.password.value } });
+    await api('/login', { method: 'POST', json: { password: e.target.password.value } });
     e.target.password.value = '';
     await start();
   } catch (err) {
     $('#login-error').textContent = err.message;
   }
+});
+
+// Google でログイン（Firebase Authentication。90日外国語アプリと同じプロジェクト）
+const FIREBASE_SDK = 'https://www.gstatic.com/firebasejs/12.19.0';
+let authConfig = null;
+let firebase = null;
+
+async function loadAuthConfig() {
+  if (!authConfig) authConfig = await (await fetch('/api/auth-config')).json();
+  $('#pw-login').hidden = !authConfig.password_login;
+  $('#google-login').hidden = !authConfig.firebase;
+  return authConfig;
+}
+
+async function firebaseAuth() {
+  if (firebase) return firebase;
+  const cfg = await loadAuthConfig();
+  const [{ initializeApp }, mod] = await Promise.all([import(`${FIREBASE_SDK}/firebase-app.js`), import(`${FIREBASE_SDK}/firebase-auth.js`)]);
+  firebase = { auth: mod.getAuth(initializeApp(cfg.firebase, 'sns-hub')), mod };
+  return firebase;
+}
+
+const GOOGLE_ERRORS = {
+  'auth/unauthorized-domain': 'このURLが Firebase の「承認済みドメイン」に入っていません。管理者に追加してもらってください（README の「Google ログイン」）',
+  'auth/popup-blocked': 'ログイン用の小さな画面がブロックされました。ポップアップを許可してもう一度押してください',
+  'auth/network-request-failed': '通信できませんでした。接続を確かめてもう一度お試しください',
+};
+
+$('#google-login').addEventListener('click', async (e) => {
+  $('#login-error').textContent = '';
+  await busy(e.currentTarget, async () => {
+    try {
+      const { auth, mod } = await firebaseAuth();
+      const provider = new mod.GoogleAuthProvider();
+      provider.setCustomParameters({ prompt: 'select_account' });
+      const cred = await mod.signInWithPopup(auth, provider);
+      const idToken = await cred.user.getIdToken();
+      // このアプリのログインに切り替えたら、Firebase 側のログインは残さない
+      await mod.signOut(auth);
+      await api('/login/google', { method: 'POST', json: { idToken } });
+      await start();
+    } catch (err) {
+      if (err?.code === 'auth/popup-closed-by-user' || err?.code === 'auth/cancelled-popup-request') return;
+      const loadFailed = !err?.code && /import|module/i.test(err?.message || '');
+      $('#login-error').textContent = loadFailed ? 'Google ログインの部品を読み込めませんでした。通信を確かめて、もう一度押してください' : GOOGLE_ERRORS[err?.code] || err.message;
+      if (loadFailed) firebase = null;
+    }
+  });
 });
 
 $('#logout').addEventListener('click', async () => {
@@ -716,13 +766,13 @@ async function loadMembers() {
   $('#member-list').innerHTML = (list.length ? list : []).map((m) => `
     <div class="member" data-id="${m.id}">
       <div class="info"><b>${esc(m.name)}</b> <span class="pill ${m.role}">${m.role === 'admin' ? '管理者' : '投稿担当'}</span>${m.disabled ? ' <span class="pill">停止中</span>' : ''}
-        <small>ID：${esc(m.login)}・${m.last_login_at ? `最終ログイン ${fmt(m.last_login_at)}` : 'まだログインしていません'}</small></div>
+        <small>${esc(m.email || '（メール未登録）')}・${m.last_login_at ? `最終ログイン ${fmt(m.last_login_at)}` : 'まだログインしていません'}</small></div>
       ${m.id === state.user.id ? '<span class="muted small">あなた</span>' : `
       <button class="small" data-act="role">${m.role === 'admin' ? '投稿担当にする' : '管理者にする'}</button>
-      <button class="small" data-act="password">パスワード再設定</button>
+      <button class="small" data-act="email">メールを変える</button>
       <button class="small" data-act="toggle">${m.disabled ? '再開' : '停止'}</button>
       <button class="small ghost danger" data-act="delete">削除</button>`}
-    </div>`).join('') || '<p class="muted small">まだメンバーはいません。下のフォームから追加してください（オーナーは合言葉でいつでもログインできます）。</p>';
+    </div>`).join('') || '<p class="muted small">まだメンバーはいません。下のフォームで Google アカウントを追加してください（オーナーは合言葉でもログインできます）。</p>';
   $('#member-list')._list = list;
 }
 
@@ -734,11 +784,11 @@ $('#member-list').addEventListener('click', async (e) => {
   try {
     if (btn.dataset.act === 'role') await api(`/members/${id}`, { method: 'PATCH', json: { role: m.role === 'admin' ? 'editor' : 'admin' } });
     if (btn.dataset.act === 'toggle') await api(`/members/${id}`, { method: 'PATCH', json: { disabled: !m.disabled } });
-    if (btn.dataset.act === 'password') {
-      const pw = prompt(`${m.name} さんの新しいパスワード（8文字以上）`);
-      if (!pw) return;
-      await api(`/members/${id}`, { method: 'PATCH', json: { password: pw } });
-      toast('パスワードを変えました。本人に伝えてください');
+    if (btn.dataset.act === 'email') {
+      const email = prompt(`${m.name} さんの Google アカウントのメール`, m.email || '');
+      if (!email) return;
+      await api(`/members/${id}`, { method: 'PATCH', json: { email } });
+      toast('メールを変えました');
     }
     if (btn.dataset.act === 'delete') {
       if (!await ask(`${m.name} さんを削除しますか？（作った投稿は残ります）`)) return;
@@ -756,9 +806,9 @@ $('#member-form').addEventListener('submit', async (e) => {
   $('#member-error').textContent = '';
   await busy(f.querySelector('button'), async () => {
     try {
-      const m = await api('/members', { method: 'POST', json: { name: f.name.value, login: f.login.value, password: f.password.value, role: f.role.value } });
+      const m = await api('/members', { method: 'POST', json: { name: f.name.value, email: f.email.value, role: f.role.value } });
       f.reset();
-      toast(`${m.name} さんを追加しました（ID：${m.login}）`);
+      toast(`${m.name} さんを追加しました。${m.email} で Google ログインできます`);
       loadMembers();
     } catch (err) {
       $('#member-error').textContent = err.message;
@@ -766,18 +816,6 @@ $('#member-form').addEventListener('submit', async (e) => {
   });
 });
 
-$('#password-form').addEventListener('submit', async (e) => {
-  e.preventDefault();
-  const f = e.target;
-  try {
-    await api('/me/password', { method: 'PATCH', json: { current: f.current.value, next: f.next.value } });
-    f.reset();
-    toast('パスワードを変えました。新しいパスワードでログインし直してください');
-    showLogin();
-  } catch (err) {
-    toast(err.message);
-  }
-});
 
 // ── ハッシュタグ ──
 function renderTagBar() {
@@ -898,7 +936,6 @@ async function start() {
   state.user = (await api('/me')).user;
   document.body.classList.toggle('role-editor', !isAdmin());
   $('#who').textContent = `${state.user.name}（${isAdmin() ? '管理者' : '投稿担当'}）`;
-  $('#my-password').hidden = state.user.id === 0;
   $('#brand').readOnly = !isAdmin();
   const platforms = await api('/platforms');
   state.platforms = Object.fromEntries(platforms.map((p) => [p.id, p]));

@@ -1,4 +1,4 @@
-import { currentUser, hashPassword, login, logoutCookie, sameOrigin, verifyPassword } from './auth.js';
+import { currentUser, hashPassword, login, LoginError, loginWithGoogle, logoutCookie, sameOrigin, verifyPassword } from './auth.js';
 import { randomId } from './crypto.js';
 import { describe, platforms } from './platforms/index.js';
 import { AiError, DEFAULT_BRAND, generate } from './ai.js';
@@ -95,7 +95,14 @@ function readHashtagSet(body) {
   return { name, tags, auto_platforms: [...new Set(auto)] };
 }
 
-const publicUser = (u) => ({ id: u.id, name: u.name, login: u.login, role: u.role });
+const publicUser = (u) => ({ id: u.id, name: u.name, email: u.email ?? null, role: u.role });
+const MEMBER_COLS = 'id, email, name, role, disabled, last_login_at, created_at';
+
+function checkEmail(v) {
+  const s = String(v ?? '').trim().toLowerCase();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s) || s.length > 200) throw new HttpError(400, 'Google アカウントのメールアドレスを正しく入れてください');
+  return s;
+}
 
 function checkPassword(pw) {
   const s = String(pw ?? '');
@@ -122,6 +129,22 @@ async function api(req, env, url) {
     ? (req.headers.get('content-type') || '').includes('application/json') ? await req.json().catch(() => ({})) : null
     : null;
 
+  // ログイン画面が使う公開設定（Firebase の Web 用の値は公開して使う前提のもの）
+  if (path === '/auth-config' && method === 'GET') {
+    return json({
+      firebase: env.FIREBASE_PROJECT_ID ? { apiKey: env.FIREBASE_API_KEY, authDomain: env.FIREBASE_AUTH_DOMAIN, projectId: env.FIREBASE_PROJECT_ID } : null,
+      password_login: !!env.ADMIN_PASSWORD,
+    });
+  }
+  if (path === '/login/google' && method === 'POST') {
+    try {
+      const r = await loginWithGoogle(env, body?.idToken);
+      return json({ ok: true, user: publicUser(r.user) }, 200, { 'set-cookie': r.cookie });
+    } catch (e) {
+      if (e instanceof LoginError) return fail(e.message, 403);
+      throw e;
+    }
+  }
   if (path === '/login' && method === 'POST') {
     const r = await login(env, body?.login, body?.password);
     if (!r) {
@@ -151,22 +174,22 @@ async function api(req, env, url) {
   // ── メンバー（管理者だけ） ──
   if (path === '/members' && method === 'GET') {
     if (!isAdmin) return adminOnly();
-    const { results } = await env.DB.prepare('SELECT id, login, name, role, disabled, last_login_at, created_at FROM users ORDER BY id').all();
+    const { results } = await env.DB.prepare(`SELECT ${MEMBER_COLS} FROM users ORDER BY id`).all();
     return json(results);
   }
   if (path === '/members' && method === 'POST') {
     if (!isAdmin) return adminOnly();
     const count = (await env.DB.prepare('SELECT COUNT(*) AS n FROM users').first()).n;
     if (count >= MAX_MEMBERS) return fail(`メンバーは${MAX_MEMBERS}人までです`);
-    const loginId = String(body?.login ?? '').trim().toLowerCase();
-    if (!/^[a-z0-9._-]{3,32}$/.test(loginId)) return fail('ログインIDは半角英数字（. _ - も可）で3〜32文字にしてください');
+    const email = checkEmail(body?.email);
     const name = String(body?.name ?? '').trim().slice(0, 40);
     if (!name) return fail('名前を入力してください');
     const role = body?.role === 'admin' ? 'admin' : 'editor';
-    const exists = await env.DB.prepare('SELECT 1 FROM users WHERE login = ?').bind(loginId).first();
-    if (exists) return fail('そのログインIDはもう使われています');
-    const r = await env.DB.prepare('INSERT INTO users (login, name, password_hash, role, created_at) VALUES (?, ?, ?, ?, ?) RETURNING id, login, name, role, disabled, last_login_at, created_at')
-      .bind(loginId, name, await hashPassword(checkPassword(body?.password)), role, now()).first();
+    const exists = await env.DB.prepare('SELECT 1 FROM users WHERE email = ? OR login = ?').bind(email, email).first();
+    if (exists) return fail('そのメールアドレスはもう登録されています');
+    // Google でログインするのでパスワードは持たない（login 列にはメールを入れておく）
+    const r = await env.DB.prepare(`INSERT INTO users (login, email, name, password_hash, role, created_at) VALUES (?, ?, ?, '', ?, ?) RETURNING ${MEMBER_COLS}`)
+      .bind(email, email, name, role, now()).first();
     return json(r);
   }
   let mem = path.match(/^\/members\/(\d+)$/);
@@ -182,11 +205,17 @@ async function api(req, env, url) {
     }
     if (method === 'PATCH') {
       if (typeof body.name === 'string' && body.name.trim()) await env.DB.prepare('UPDATE users SET name = ? WHERE id = ?').bind(body.name.trim().slice(0, 40), id).run();
+      if (typeof body.email === 'string') {
+        const email = checkEmail(body.email);
+        const dup = await env.DB.prepare('SELECT 1 FROM users WHERE email = ? AND id != ?').bind(email, id).first();
+        if (dup) return fail('そのメールアドレスはもう登録されています');
+        await env.DB.prepare('UPDATE users SET email = ?, login = ?, session_version = session_version + 1 WHERE id = ?').bind(email, email, id).run();
+      }
       if (body.role === 'admin' || body.role === 'editor') await env.DB.prepare('UPDATE users SET role = ? WHERE id = ?').bind(body.role, id).run();
       // 停止・パスワード再設定は、その人のログインを切る
       if (typeof body.disabled === 'boolean') await env.DB.prepare('UPDATE users SET disabled = ?, session_version = session_version + 1 WHERE id = ?').bind(body.disabled ? 1 : 0, id).run();
       if (body.password) await env.DB.prepare('UPDATE users SET password_hash = ?, session_version = session_version + 1 WHERE id = ?').bind(await hashPassword(checkPassword(body.password)), id).run();
-      return json(await env.DB.prepare('SELECT id, login, name, role, disabled, last_login_at, created_at FROM users WHERE id = ?').bind(id).first());
+      return json(await env.DB.prepare(`SELECT ${MEMBER_COLS} FROM users WHERE id = ?`).bind(id).first());
     }
   }
   if (path === '/platforms') return json(describe());
