@@ -286,6 +286,17 @@ pre.prompt{white-space:pre-wrap;background:var(--sunk);border-radius:12px;paddin
 .lfoot{margin-inline:-16px;padding-inline:16px}
 body.in-lesson .toast{bottom:auto;top:calc(64px + env(safe-area-inset-top,0px))}
 
+/* ---- 動詞・副詞 ---- */
+.word{display:flex;flex-direction:column;gap:4px}
+.wd-head{display:flex;flex-wrap:wrap;align-items:center;gap:6px}
+.wd-rank{font-family:var(--font-py);font-weight:800;font-size:13px;color:var(--purple-d);margin-right:4px}
+.wd-main{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 10px}
+.wd-main .zh{font-size:24px}
+.wd-ja{font-weight:700}
+.wd-ex{background:var(--sunk);border-radius:12px;padding:8px 12px;margin-top:4px}
+.wd-ex .zh{font-size:17px}
+.wd-ex.left{text-align:left;margin-top:14px}
+
 /* 入口（学ぶ言語を選ぶ） */
 .start{display:flex;flex-direction:column;align-items:center;text-align:center;padding:28px 0 32px}
 .st-title{font-size:26px;font-weight:800;line-height:1.4;margin:14px 0 6px;text-wrap:balance}
@@ -309,3 +320,39 @@ body.in-lesson .toast{bottom:auto;top:calc(64px + env(safe-area-inset-top,0px))}
 .start #syncCard{width:100%;text-align:left;margin-top:8px}
 .st-note{font-size:12.5px;margin:6px 4px 0}
 @media (max-width:380px){.lang-card{grid-template-columns:auto 1fr}.lc-go{grid-column:1/-1}}
+
+/* ---- 例文ドリル ---- */
+.sd-modes{display:grid;gap:2px;margin-top:10px;font-size:13px}
+.tray{min-height:64px;display:flex;flex-wrap:wrap;gap:8px;align-content:flex-start;padding:10px 0 12px;border-bottom:2px solid var(--line);margin:8px 0 16px}
+.tray.ok{border-bottom-color:var(--green)} .tray.ng{border-bottom-color:var(--red)}
+.bank{display:flex;flex-wrap:wrap;gap:8px;justify-content:center}
+.chip-w{font-size:20px;padding:8px 14px;border-radius:12px;font-weight:700}
+.chip-w.used{visibility:hidden}
+.tray .chip-w:disabled{background:var(--surface);color:var(--ink)}
+.blank-q{text-align:center;margin:12px 0}
+.blank-q .zh.lg{font-size:26px}
+.gap{display:inline-block;min-width:2.2em;border-bottom:3px solid var(--blue);color:var(--blue-d);margin:0 2px}
+.left-exs{text-align:left;margin-top:12px;display:grid;gap:6px}
+.fb-sent{margin-top:2px;color:var(--ink)} .fb-sent .zh{font-size:18px}
+.fb-msg .py{font-size:13px}
+
+/* ---- 言語を選ぶボタンとシート ---- */
+button.stat-chip.lang{font:inherit;font-family:var(--font-han);font-weight:800;font-size:15px;gap:4px;cursor:pointer;background:var(--surface);color:var(--ink)}
+.lb-flag{font-size:17px;line-height:1}
+.lb-caret{font-size:11px;color:var(--ink2);margin-left:1px}
+.sheet-wrap{position:fixed;inset:0;z-index:80;display:flex;align-items:flex-end;justify-content:center}
+.sheet-bg{position:absolute;inset:0;background:rgba(0,0,0,.45)}
+.sheet{position:relative;width:100%;max-width:520px;background:var(--bg);border-radius:20px 20px 0 0;padding:10px 16px calc(16px + env(safe-area-inset-bottom,0px));display:flex;flex-direction:column;gap:10px;max-height:85vh;overflow:auto;animation:sheetUp .22s ease-out}
+@keyframes sheetUp{from{transform:translateY(40px);opacity:0}}
+@media (prefers-reduced-motion:reduce){.sheet{animation:none}}
+@media (min-width:600px){.sheet-wrap{align-items:center}.sheet{border-radius:20px}}
+.sheet-grip{width:40px;height:5px;border-radius:999px;background:var(--line);margin:0 auto 4px}
+.sheet-title{font-size:19px;margin:0 0 4px;text-align:center}
+.sheet-list{display:flex;flex-direction:column;gap:10px}
+.sheet-lang{display:grid;grid-template-columns:auto 1fr auto;gap:12px;align-items:center;text-decoration:none;color:var(--ink);background:var(--surface);border:2px solid var(--line);border-bottom-width:4px;border-radius:var(--r);padding:12px 14px}
+.sheet-lang:active{transform:translateY(2px);border-bottom-width:2px}
+.sheet-lang.cur{border-color:var(--green);background:var(--green-soft)}
+.sheet-lang .lc-flag{width:46px;height:46px;font-size:32px}
+.sheet-cur{display:inline-flex;align-items:center;gap:4px;font-size:13px;font-weight:800;color:var(--green-d)}
+.sheet-cur .ico{width:18px;height:18px}
+.sheet-cancel{border-color:transparent;background:transparent;color:var(--ink2)}
