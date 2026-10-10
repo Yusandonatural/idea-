@@ -2,6 +2,7 @@ import { currentUser, hashPassword, login, logoutCookie, sameOrigin, verifyPassw
 import { randomId } from './crypto.js';
 import { describe, platforms } from './platforms/index.js';
 import { AiError, DEFAULT_BRAND, generate } from './ai.js';
+import STATIC from './static.gen.js';
 import { check, makeCtx, publishPost, refreshTokens, runDue } from './publish.js';
 import { encryptCreds, getPost, loadAccount, loadHashtagSets, now, publicAccount, saveCredentials } from './store.js';
 import { parseTags, tagsIn, withAutoTags } from '../public/hashtags.js';
@@ -419,6 +420,16 @@ async function api(req, env, url) {
   return fail('見つかりません', 404);
 }
 
+// 管理画面のファイル。HTML は毎回確認、それ以外も ETag で更新を検知する
+function serveStatic(req, url) {
+  const file = STATIC[url.pathname === '/' ? '/index.html' : url.pathname];
+  if (!file || (req.method !== 'GET' && req.method !== 'HEAD')) return new Response('Not found', { status: 404 });
+  const headers = { 'content-type': file.type, etag: file.etag, 'cache-control': 'no-cache', 'x-content-type-options': 'nosniff' };
+  if (file.type.startsWith('text/html')) headers['x-robots-tag'] = 'noindex, nofollow';
+  if (req.headers.get('if-none-match') === file.etag) return new Response(null, { status: 304, headers });
+  return new Response(req.method === 'HEAD' ? null : file.body, { headers });
+}
+
 export default {
   async fetch(req, env) {
     const url = new URL(req.url);
@@ -438,7 +449,7 @@ export default {
           },
         });
       }
-      return env.ASSETS.fetch(req);
+      return serveStatic(req, url);
     } catch (e) {
       if (e instanceof HttpError) return fail(e.message, e.status);
       console.error(e);

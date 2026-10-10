@@ -14,6 +14,11 @@
 - **アカウント管理**：接続テスト・停止/再開・鍵の更新。Threads / Instagram のトークン（60日期限）は毎日自動で延長する
 - **安全**：オーナーは合言葉、メンバーは各自のID・パスワード（PBKDF2でハッシュ化）でログイン。停止やパスワード変更でその人のログインはすぐ切れる。各SNSの鍵は AES-GCM で暗号化して保存。検索エンジンには載せない（noindex・robots.txt で全拒否。管理ツールなので GA4 タグも入れない）
 
+## 公開先
+
+- 管理画面：https://sns-hub.isozaki-f67.workers.dev （Cloudflare Workers `sns-hub`、D1 `sns-hub`、R2 `sns-hub-media`）
+- 独自ドメイン（例 `sns.yusando.com`）をつけたら、`wrangler.toml` の `PUBLIC_URL` を変えて `npm run deploy`
+
 ## 仕組み
 
 ```
@@ -29,7 +34,7 @@
 | `src/publish.js` | 投稿の実行・再試行・予約の処理・制限チェック |
 | `src/ai.js` | AIで書き分け（Claude API。SNSごとの書き方は各 `src/platforms/*.js` の `aiGuide`） |
 | `src/platforms/*.js` | SNSごとの接続（1ファイル1SNS。増やすときはここに足して `index.js` に登録） |
-| `public/` | 管理画面（`textlen.js` は Worker と共用の文字数計算） |
+| `public/` | 管理画面（`textlen.js`・`hashtags.js` は Worker と共用）。デプロイ時に `scripts/build-static.mjs` が Worker に埋め込む |
 | `schema.sql` | D1 のテーブル |
 
 ## 公開する（初回だけ）

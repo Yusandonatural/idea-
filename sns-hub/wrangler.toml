@@ -2,15 +2,14 @@ name = "sns-hub"
 main = "src/index.js"
 compatibility_date = "2026-09-01"
 
-# 管理画面（public/）。/api/* と /m/* はファイルが無いので Worker に回る
-[assets]
-directory = "./public"
-binding = "ASSETS"
+# 管理画面（public/）は build で Worker に埋め込んで配る（src/static.gen.js）
+[build]
+command = "node scripts/build-static.mjs"
 
 [[d1_databases]]
 binding = "DB"
 database_name = "sns-hub"
-database_id = "00000000-0000-0000-0000-000000000000" # `wrangler d1 create sns-hub` の結果に差し替える
+database_id = "ce194243-879a-4dc3-aef1-500f4dc11221"
 
 [[r2_buckets]]
 binding = "MEDIA"
@@ -22,7 +21,7 @@ crons = ["* * * * *", "0 18 * * *"]
 
 [vars]
 # 公開URL。Instagram・Threads・LINE が画像を取りに来るので、予約投稿（cron）ではここを使う
-PUBLIC_URL = "https://sns.yusando.com"
+PUBLIC_URL = "https://sns-hub.isozaki-f67.workers.dev" # 独自ドメインをつけたら差し替える
 GRAPH_VERSION = "v23.0"
 
 # 秘密情報は `wrangler secret put` で入れる：
