@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>こども学習アプリ えらぶ画面</title>
+<meta name="description" content="まいにち30ぷん・百人一首・日本史・世界史 など、こども学習アプリをえらんで ひらく入口。まなびポイントもここで見られます">
+<meta name="robots" content="noindex">
+<meta http-equiv="Cache-Control" content="no-cache">
+<meta name="theme-color" content="#fff8ec">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@500;700;800&display=swap">
+<link rel="stylesheet" href="hub.css?v=5">
+</head>
+<body>
+<header>
+  <h1>🎒 まなびの いりぐち</h1>
+  <button type="button" id="whochip" class="whochip" hidden></button>
+</header>
+<main>
+  <!-- 1. さいしょに だれが やるかを えらぶ -->
+  <section id="pick" hidden>
+    <h2 class="pick-title">だれが べんきょう する？</h2>
+    <div id="pickgrid" class="pickgrid"></div>
+    <form id="addkid2" class="card addcard" autocomplete="off">
+      <span class="addcard-ic">＋</span>
+      <input name="name" placeholder="なまえを いれて ついか" maxlength="20" required aria-label="あたらしい 子の なまえ">
+      <button>ついか</button>
+    </form>
+    <p class="rule">⭕ せいかい <b>1もん</b> ＝ ⭐ <b>5</b>ポイント ／ ⭐ <b>10</b>ポイント ＝ 🎮 ゲーム <b>1ぷん</b></p>
+  </section>
+
+  <!-- 2. えらんだ子の ポイントと アプリ -->
+  <div id="home" hidden>
+    <section class="card hero" aria-live="polite">
+      <div class="who" id="who"></div>
+      <div class="balance"><b id="balance">0</b><span>ポイント</span></div>
+      <div class="gamemin">🎮 ゲーム <b id="gamemin">0</b>ぷん ぶん</div>
+      <div class="lv">
+        <span id="lv">Lv.1</span>
+        <span class="bar"><i id="lvbar"></i></span>
+        <small id="lvrest"></small>
+      </div>
+      <div class="stats">
+        <div><b id="today">0</b><span>きょう もらった</span></div>
+        <div><b id="earned">0</b><span>これまでの るいけい</span></div>
+        <div><b id="streak">0</b><span>れんぞく（日）</span></div>
+      </div>
+      <p class="rule">せいかい 1もん ＝ 5ポイント ・ 300ポイント ＝ ゲーム 30ぷん</p>
+    </section>
+
+    <section class="card game" id="game">
+      <h2>🎮 ゲームじかんに つかう</h2>
+      <div id="gamepick" class="gamepick"></div>
+      <div id="gamerun" class="gamerun" hidden>
+        <div class="gleft" id="gleft">10:00</div>
+        <p id="gmsg">たのしんでね！</p>
+        <button type="button" id="gstop" class="ghost">おわりに する</button>
+      </div>
+    </section>
+
+    <h2>📚 アプリを えらぶ</h2>
+    <section id="apps" class="apps" aria-label="アプリをえらぶ"></section>
+    <p class="note center" id="soonnote" hidden>「じゅんびちゅう」の アプリは もうすぐ あそべるように なるよ。</p>
+
+    <h2>さいきん</h2>
+    <section class="card"><ul id="recent" class="recent"></ul></section>
+
+    <details class="card parent" id="parent">
+      <summary>保護者の方へ（子どもの管理・バックアップ）</summary>
+      <div class="row">
+        <h3>ポイントのきまり</h3>
+        <p class="note">どのアプリも、時間に関係なく 正解1問 = 5ポイント（30分で60問くらい = 300ポイント）。ゲームは 10ポイント = 1分 で交換します。まいにち30ぷん の中のゲームタイムを使ったときも、同じだけポイントが減ります。</p>
+      </div>
+      <div class="row">
+        <h3>子ども</h3>
+        <ul id="kidlist" class="kidlist"></ul>
+        <form id="addkid" class="inline">
+          <input name="name" placeholder="なまえ" maxlength="20" required>
+          <button>追加</button>
+        </form>
+      </div>
+      <div class="row">
+        <h3>バックアップ</h3>
+        <p class="note">記録はこの端末（ブラウザ）に保存されています。別の端末へ移すときは、書き出したファイルを向こうで読み込んでください（今の記録は消さずに合わせます）。</p>
+        <div class="inline">
+          <button id="export" type="button">書き出す</button>
+          <label class="btn">読み込む<input id="import" type="file" accept="application/json,.json" hidden></label>
+        </div>
+        <p class="note" id="iomsg"></p>
+      </div>
+      <div class="row" id="demo" hidden>
+        <h3>テスト（?demo のときだけ）</h3>
+        <div class="inline" id="demobtns"></div>
+      </div>
+    </details>
+  </div>
+</main>
+<script src="points.js?v=6"></script>
+<script src="apps.js?v=6"></script>
+<script src="hub.js?v=6"></script>
+</body>
+</html>

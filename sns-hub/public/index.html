@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>SNS一括投稿</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='24' fill='%232c6a4c'/><text x='50' y='70' font-size='60' text-anchor='middle' fill='white'>茶</text></svg>">
+<meta name="theme-color" content="#2c6a4c">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="login" class="login" hidden>
+  <form id="login-form" class="card">
+    <h1>SNS一括投稿</h1>
+    <label>ログインID（オーナーは空欄）<input name="login" autocomplete="username" autocapitalize="off" spellcheck="false"></label>
+    <label>パスワード（オーナーは合言葉）<input type="password" name="password" autocomplete="current-password" required autofocus></label>
+    <button class="primary">ログイン</button>
+    <p class="error" id="login-error"></p>
+  </form>
+</div>
+
+<div id="app" hidden>
+  <header>
+    <h1><span class="mark" aria-hidden="true">茶</span>SNS一括投稿</h1>
+    <nav>
+      <button data-tab="compose" class="active">投稿する</button>
+      <button data-tab="calendar">カレンダー</button>
+      <button data-tab="queue">予約・下書き</button>
+      <button data-tab="history">履歴</button>
+      <button data-tab="accounts">設定</button>
+    </nav>
+    <span class="who" id="who"></span>
+    <button id="logout" class="ghost small">ログアウト</button>
+  </header>
+
+  <main>
+    <section id="tab-compose">
+      <div class="compose">
+        <div class="card editor">
+          <div class="editing-banner" id="editing-banner" hidden>
+            <span id="editing-label"></span>
+            <button class="ghost small" id="cancel-edit">新しい投稿にする</button>
+          </div>
+          <textarea id="body" rows="8" placeholder="投稿する内容を書きます。#ハッシュタグ や URL もそのまま書けます。&#10;AIで書き分けるときは、ここに伝えたいことをメモ書きしてください"></textarea>
+          <div class="media" id="media"></div>
+          <div class="row">
+            <label class="button ghost">🖼 画像・動画を追加<input type="file" id="file" accept="image/jpeg,image/png,image/webp,image/gif,video/mp4,video/quicktime,video/webm" multiple hidden></label>
+            <button class="ai" id="ai-generate" type="button">✨ AIでSNSごとに書き分ける</button>
+          </div>
+          <p class="muted small" id="ai-hint">Instagram は JPEG のみ・1枚以上必須。動画は YouTube にだけ送ります
+          </p>
+        </div>
+
+        <div class="card">
+          <h2>投稿先</h2>
+          <div id="targets" class="targets"></div>
+          <p class="muted small" id="no-accounts" hidden>まだアカウントがありません。「アカウント」タブから追加してください。</p>
+        </div>
+
+        <div class="card actions">
+          <label class="row"><input type="checkbox" id="use-schedule"> 日時を予約する</label>
+          <input type="datetime-local" id="scheduled-at" hidden>
+          <div class="row wrap">
+            <button class="primary" id="post-now">今すぐ投稿</button>
+            <button class="primary" id="post-schedule" hidden>予約する</button>
+            <button class="ghost" id="post-draft">下書き保存</button>
+          </div>
+          <p class="error" id="compose-error"></p>
+        </div>
+      </div>
+    </section>
+
+    <section id="tab-calendar" hidden>
+      <div class="cal-head">
+        <button class="ghost small" id="cal-prev" aria-label="前の月">‹</button>
+        <h2 id="cal-title"></h2>
+        <button class="ghost small" id="cal-next" aria-label="次の月">›</button>
+        <button class="ghost small" id="cal-today">今日</button>
+      </div>
+      <div class="cal" id="cal"></div>
+      <p class="muted small">日にちを押すとその日の予約投稿を作れます。予約中の投稿はドラッグで別の日に動かせます（時刻はそのまま）。下書きは「予約・下書き」にあります。</p>
+    </section>
+
+    <section id="tab-queue" hidden><div id="queue-list" class="list"></div></section>
+    <section id="tab-history" hidden><div id="history-list" class="list"></div></section>
+
+    <section id="tab-accounts" hidden>
+      <div id="account-list" class="list"></div>
+      <div class="card" id="my-password" hidden>
+        <h2>自分のパスワード</h2>
+        <form id="password-form" class="row wrap">
+          <input type="password" name="current" placeholder="今のパスワード" autocomplete="current-password" required>
+          <input type="password" name="next" placeholder="新しいパスワード（8文字以上）" autocomplete="new-password" minlength="8" required>
+          <button class="primary">変更する</button>
+        </form>
+      </div>
+      <div class="card admin-only">
+        <h2>メンバー</h2>
+        <p class="muted small">投稿する人ごとにログインIDを作れます。「投稿担当」は投稿・予約・AIの書き分けができ、「管理者」はさらにSNSの鍵・メンバー・AIの設定も変えられます。</p>
+        <div id="member-list" class="members"></div>
+        <form id="member-form" class="member-form">
+          <input name="name" placeholder="名前（例：山田）" required>
+          <input name="login" placeholder="ログインID（半角英数字）" autocapitalize="off" spellcheck="false" required>
+          <input name="password" type="password" placeholder="最初のパスワード（8文字以上）" autocomplete="new-password" minlength="8" required>
+          <select name="role"><option value="editor">投稿担当</option><option value="admin">管理者</option></select>
+          <button class="primary">追加</button>
+        </form>
+        <p class="error" id="member-error"></p>
+      </div>
+      <div class="card">
+        <h2>AIで書き分け</h2>
+        <p class="muted small" id="ai-status"></p>
+        <label for="brand">お店の説明と口調（AIが文章を書くときの前提になります）</label>
+        <textarea id="brand" rows="6"></textarea>
+        <div class="row admin-only"><button class="primary" id="brand-save">保存</button><button class="ghost" id="brand-reset">初期の文に戻す</button></div>
+      </div>
+      <div class="card admin-only">
+        <h2>SNSアカウントを追加</h2>
+        <div class="platform-picker" id="platform-picker"></div>
+        <form id="account-form" hidden>
+          <p class="muted small" id="account-note"></p>
+          <div id="account-fields"></div>
+          <label>表示名（空欄ならSNSの名前）<input name="display_name"></label>
+          <div class="row"><button class="primary">接続して追加</button></div>
+          <p class="error" id="account-error"></p>
+        </form>
+      </div>
+    </section>
+  </main>
+</div>
+
+<dialog id="dialog"><div id="dialog-body"></div><form method="dialog"><button class="primary">閉じる</button></form></dialog>
+<div id="toast" class="toast" hidden></div>
+<script type="module" src="app.js"></script>
+</body>
+</html>
