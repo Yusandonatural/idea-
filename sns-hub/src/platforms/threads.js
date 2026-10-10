@@ -8,7 +8,7 @@ export default {
   label: 'Threads',
   color: '#101010',
   aiGuide: 'Threads。会話するような親しみやすい口調で、問いかけで終えると良い。300字前後（500字以内）、ハッシュタグは1つまで。',
-  limits: { text: 500, images: 20, requiresImage: false, imageTypes: ['image/jpeg', 'image/png'], publicMedia: true },
+  limits: { text: 500, images: 20, videos: 1, videoExclusive: true, requiresImage: false, imageTypes: ['image/jpeg', 'image/png'], videoTypes: ['video/mp4', 'video/quicktime'], publicMedia: true },
   fields: [
     { key: 'user_id', label: 'Threads ユーザーID' },
     { key: 'access_token', label: '長期アクセストークン', secret: true, help: 'Meta for Developers の Threads API アプリで発行（60日有効。毎日自動で延長します）' },
@@ -26,7 +26,11 @@ export default {
     const tok = c.access_token;
     const u = `${API}/${c.user_id}`;
     let creation;
-    if (media.length === 0) {
+    const video = media.find((m) => m.type.startsWith('video/'));
+    if (video) {
+      creation = await post(`${u}/threads`, { media_type: 'VIDEO', video_url: ctx.mediaUrl(video), text, access_token: tok });
+      await waitReady(`${API}/${creation.id}?fields=status,error_message&access_token=${encodeURIComponent(tok)}`, 'status', { tries: 60, interval: 5000 });
+    } else if (media.length === 0) {
       creation = await post(`${u}/threads`, { media_type: 'TEXT', text, access_token: tok });
     } else if (media.length === 1) {
       creation = await post(`${u}/threads`, { media_type: 'IMAGE', image_url: ctx.mediaUrl(media[0]), text, alt_text: media[0].alt || undefined, access_token: tok });

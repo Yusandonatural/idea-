@@ -1,9 +1,8 @@
 import { platforms } from './platforms/index.js';
-import { getPost, loadAccount, loadHashtagSets, now, saveCredentials } from './store.js';
+import { getPost, loadAccount, loadSendOptions, now, saveCredentials } from './store.js';
+import { withUtm } from '../public/plan.js';
 import { withAutoTags } from '../public/hashtags.js';
-import { countFor } from '../public/textlen.js';
-
-export const isVideo = (m) => m.type.startsWith('video/');
+import { isVideo as isVideoRule, mediaFor as mediaForRule, problems } from '../public/rules.js';
 
 export function makeCtx(env, origin) {
   const base = (env.PUBLIC_URL || origin || '').replace(/\/$/, '');
@@ -27,43 +26,34 @@ export function makeCtx(env, origin) {
   };
 }
 
-// そのSNSに送るファイルだけに絞る（動画に対応しないSNSには動画を送らない、など）
+export const isVideo = isVideoRule;
+
 export function mediaFor(platformId, media) {
-  const l = platforms[platformId]?.limits ?? {};
-  if (l.ignoreMedia) return [];
-  return media.filter((m) => (isVideo(m) ? (l.videos ?? 0) > 0 : !l.ignoreImages));
+  return mediaForRule(platforms[platformId]?.limits, media);
 }
 
 // 投稿の前に、SNSごとの制限に合っているかを確かめる
 export function check(platformId, text, media, title) {
   const p = platforms[platformId];
   if (!p) return `未対応のSNSです: ${platformId}`;
-  const l = p.limits;
-  const n = countFor(platformId, text);
-  if (n > l.text) return `${p.label}の文字数制限（${l.text}）を超えています：${n}`;
-  if (title && l.title && [...title].length > l.title) return `${p.label}のタイトルは${l.title}字までです`;
-  const m = mediaFor(platformId, media);
-  const images = m.filter((x) => !isVideo(x));
-  const videos = m.filter(isVideo);
-  if (!text.trim() && !m.length) return '本文も画像もありません';
-  if (l.requiresImage && !images.length) return `${p.label}は画像が必要です`;
-  if (l.requiresVideo && !videos.length) return `${p.label}は動画が必要です`;
-  if (images.length > l.images) return `${p.label}の画像は${l.images}枚までです`;
-  if (videos.length > (l.videos ?? 0)) return `${p.label}の動画は${l.videos}本までです`;
-  const bad = images.find((x) => !l.imageTypes.includes(x.type)) || videos.find((x) => !(l.videoTypes ?? []).includes(x.type));
-  if (bad) return `${p.label}は ${bad.type} に対応していません（${[...l.imageTypes, ...(l.videoTypes ?? [])].join(', ')}）`;
-  return null;
+  const probs = problems(platformId, p.limits, text, media, title);
+  return probs.length ? `${p.label}：${probs[0]}` : null;
 }
 
 const DONE = ['ok', 'manual'];
 
-async function publishTarget(env, ctx, post, t, sets) {
+export function finalText(platformId, text, post, opts) {
+  const base = opts.utm ? withUtm(platformId, text, { campaign: post.pillar || 'sns' }) : text;
+  return withAutoTags(platformId, base, opts.sets, platforms[platformId].limits.text);
+}
+
+async function publishTarget(env, ctx, post, t, opts) {
   const account = await loadAccount(env, t.account_id);
   if (!account) throw new Error('アカウントが削除されています');
   if (!account.enabled) throw new Error('アカウントが停止中です');
   const p = platforms[account.platform];
   // セットで「自動で付ける」にしたハッシュタグを足す（文字数に収まる分だけ）
-  const text = withAutoTags(account.platform, t.body ?? post.body, sets, p.limits.text);
+  const text = finalText(account.platform, t.body ?? post.body, post, opts);
   const problem = check(account.platform, text, post.media, t.title);
   if (problem) throw new Error(problem);
   const r = await p.publish(
@@ -82,12 +72,12 @@ export async function publishPost(env, postId, origin) {
 
   const post = await getPost(env, postId);
   const ctx = makeCtx(env, origin);
-  const sets = await loadHashtagSets(env);
+  const opts = await loadSendOptions(env);
   const todo = post.targets.filter((t) => !DONE.includes(t.status));
 
   await Promise.all(todo.map(async (t) => {
     try {
-      const r = await publishTarget(env, ctx, post, t, sets);
+      const r = await publishTarget(env, ctx, post, t, opts);
       await env.DB.prepare(`UPDATE targets SET status = ?, remote_id = ?, url = ?, sent = ?, error = NULL, published_at = ? WHERE id = ?`)
         .bind(r.manual ? 'manual' : 'ok', r.id ?? null, r.url ?? null, r.sent, now(), t.id).run();
     } catch (e) {

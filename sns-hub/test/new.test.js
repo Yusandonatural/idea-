@@ -11,6 +11,9 @@ const mp4 = { key: 'a.mp4', type: 'video/mp4' };
 test('動画は YouTube にだけ送り、YouTube には画像を送らない', () => {
   assert.deepEqual(mediaFor('youtube', [jpg, mp4]), [mp4]);
   assert.deepEqual(mediaFor('x', [jpg, mp4]), [jpg]);
+  // Instagram・Threads は動画があれば動画1本だけ（リール・動画投稿）
+  assert.deepEqual(mediaFor('instagram', [jpg, mp4]), [mp4]);
+  assert.deepEqual(mediaFor('threads', [jpg]), [jpg]);
   assert.deepEqual(mediaFor('note', [jpg, mp4]), []);
 });
 
@@ -18,7 +21,8 @@ test('YouTube は動画が必要、ほかのSNSは動画があっても止めな
   assert.match(check('youtube', '説明', [jpg]), /動画が必要/);
   assert.equal(check('youtube', '説明', [mp4]), null);
   assert.equal(check('x', 'hello', [mp4]), null);
-  assert.match(check('instagram', 'hello', [mp4]), /画像が必要/);
+  assert.equal(check('instagram', 'hello', [mp4]), null); // リールとして投稿できる
+  assert.match(check('instagram', 'hello', [{ key: 'a.webm', type: 'video/webm' }]), /対応していません/);
   assert.match(check('youtube', '説明', [mp4], 'あ'.repeat(101)), /タイトルは100字/);
 });
 
