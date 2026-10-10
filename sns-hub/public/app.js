@@ -1,7 +1,7 @@
 import { countFor } from './textlen.js';
 import { appendTags, autoTagsFor, parseTags, withAutoTags } from './hashtags.js';
 import { problems as ruleProblems, skippedNote, mediaFor as ruleMediaFor } from './rules.js';
-import { PILLARS, pillarOf, SEASONS, WEEKLY, withUtm } from './plan.js';
+import { activeCampaigns, addDays, CAMPAIGNS, CHANNEL_RULES, cardState, entranceUrl, followerPace, mondayOf, NEXT_STEPS, nextStepOf, PILLAR_NEXT, PILLARS, pillarOf, ruleOf, SEASONS, STAGES, TARGETS, WEEKLY, withUtm, WORKFLOW } from './plan.js';
 import { isBuzz, scoreItems, searchLinks, SORTS } from './buzz.js';
 import { METRICS } from './insights.js';
 
@@ -18,6 +18,8 @@ const state = {
   hashtags: [],
   pillar: null,
   editingId: null,
+  slot: null,             // 投稿枠から作っているとき {id, date, rule, label, pillar}
+  nextStep: null,
 };
 
 async function api(path, opts = {}) {
@@ -160,6 +162,10 @@ function showTab(name) {
   if (name === 'calendar') renderCalendar();
   if (name === 'hashtags') renderHashtagTab();
   if (name === 'research') loadResearch();
+  if (name === 'board') renderBoard();
+  if (name === 'plan') renderPlan();
+  if (name === 'kpi') renderKpi();
+  if (name === 'compose') renderNextBar();
 }
 
 const isAdmin = () => state.user?.role === 'admin';
@@ -317,6 +323,10 @@ function payload(mode) {
       .map(([id, t]) => ({ account_id: id, body: t.custom ? t.body : null, title: t.title || null })),
     scheduled_at: mode === 'schedule' ? new Date($('#scheduled-at').value).toISOString() : null,
     pillar: state.pillar,
+    slot: state.slot?.id ?? null,
+    next_step: state.nextStep,
+    memo: $('#memo').value,
+    stage: document.querySelector('#stage-pick input:checked')?.value ?? 'making',
   };
 }
 
@@ -324,6 +334,7 @@ async function submit(mode, btn) {
   $('#compose-error').textContent = '';
   if (state.media.some((m) => m.uploading)) return toast('画像のアップロード中です');
   const data = payload(mode);
+  if (mode !== 'draft' && !data.next_step && !confirm('次の一歩（リンク先）が未設定です。このまま進めますか？')) return;
   if (mode === 'now' && !confirm(`${data.targets.length}件のSNSに今すぐ投稿します。よろしいですか？`)) return;
   await busy(btn, async () => {
     try {
@@ -352,6 +363,13 @@ function resetCompose() {
   }
   bodyEl.value = '';
   setPillar(null);
+  state.slot = null;
+  state.nextStep = null;
+  $('#memo').value = '';
+  $('#memo-box').open = false;
+  setStage('making');
+  renderSlotBanner();
+  renderNextBar();
   useSchedule.checked = false;
   useSchedule.dispatchEvent(new Event('change'));
   $('#editing-banner').hidden = true;
@@ -368,6 +386,13 @@ function loadIntoCompose(post, asCopy) {
   state.media = post.media.map((m) => ({ ...m, url: `/m/${m.key}` }));
   state.lastPost = post;
   setPillar(post.pillar ?? null);
+  state.nextStep = post.next_step ?? null;
+  state.slot = !asCopy && post.slot ? slotFromId(post.slot) : null;
+  $('#memo').value = post.memo ?? '';
+  $('#memo-box').open = !!post.memo;
+  setStage(post.stage ?? 'making');
+  renderSlotBanner();
+  renderNextBar();
   state.targets = new Map();
   for (const t of post.targets) state.targets.set(t.account_id, { on: true, custom: t.body != null, body: t.body ?? '', title: t.title ?? '' });
   const scheduled = !asCopy && post.status === 'scheduled';
@@ -426,8 +451,10 @@ async function loadPosts(kind) {
     const when = p.status === 'scheduled' ? `🕒 ${fmt(p.scheduled_at)}` : p.published_at ? fmt(p.published_at) : `更新 ${fmt(p.updated_at)}`;
     return `
       <article class="post" data-id="${p.id}">
-        <div class="post-meta"><span class="status ${p.status}">${STATUS[p.status]}</span>${pillarBadge(p.pillar)}<span>${when}</span>${p.updated_by ? `<span class="by">${p.created_by && p.created_by !== p.updated_by ? `作成 ${esc(p.created_by)}・` : ''}${p.created_by === p.updated_by ? '作成' : '更新'} ${esc(p.updated_by)}</span>` : ''}</div>
+        <div class="post-meta"><span class="status ${p.status}">${p.status === 'draft' ? cardState(p).label : STATUS[p.status]}</span>${p.format ? `<span class="pill">${esc(p.format)}</span>` : ''}${pillarBadge(p.pillar)}${p.next_step ? `<span class="pill" title="次の一歩">→ ${esc(nextStepOf(p.next_step)?.label ?? '')}</span>` : kind === 'queue' ? '<span class="pill warn" title="投稿ごとに次の一歩を1つ置きます">⚠ 次の一歩なし</span>' : ''}<span>${when}</span>${p.updated_by ? `<span class="by">${p.created_by && p.created_by !== p.updated_by ? `作成 ${esc(p.created_by)}・` : ''}${p.created_by === p.updated_by ? '作成' : '更新'} ${esc(p.updated_by)}</span>` : ''}</div>
         <div class="post-body">${esc(p.body) || '<span class="muted">（本文なし）</span>'}</div>
+        ${p.memo ? `<details class="post-memo"><summary>素材メモ・台本</summary><div>${esc(p.memo)}</div></details>` : ''}
+        ${!p.targets.length ? '<p class="muted small">投稿先はまだありません（編集で選びます）</p>' : ''}
         ${p.media.length ? `<div class="media">${p.media.map((m) => `<div class="thumb">${isVideo(m) ? `<video src="/m/${esc(m.key)}" muted preload="metadata"></video><span class="badge-video">動画</span>` : `<img src="/m/${esc(m.key)}" alt="${esc(m.alt)}" loading="lazy">`}</div>`).join('')}</div>` : ''}
         <div class="post-targets">${p.targets.map((t) => {
           const icon = t.status === 'ok' ? '✓' : t.status === 'error' ? '✕' : '';
@@ -438,7 +465,7 @@ async function loadPosts(kind) {
         ${errors.length ? `<div class="post-errors">${errors.map((t) => `${esc(t.account_name)}：${esc(t.error)}`).join('\n')}</div>` : ''}
         ${kind === 'history' && ['done', 'partial'].includes(p.status) ? reviewBlock(p) : ''}
         <div class="post-actions">
-          ${['draft', 'scheduled'].includes(p.status) ? '<button class="small" data-act="edit">編集</button><button class="small primary" data-act="publish">今すぐ投稿</button>' : ''}
+          ${['draft', 'scheduled'].includes(p.status) ? `<button class="small" data-act="edit">編集</button>${p.targets.length ? '<button class="small primary" data-act="publish">今すぐ投稿</button>' : ''}` : ''}
           ${['partial', 'failed'].includes(p.status) ? '<button class="small primary" data-act="publish">失敗分を再試行</button>' : ''}
           <button class="small ghost" data-act="copy">複製</button>
           ${p.status !== 'publishing' ? '<button class="small ghost danger" data-act="delete">削除</button>' : ''}
@@ -999,6 +1026,344 @@ $('#set-form').addEventListener('submit', async (e) => {
   });
 });
 
+// ── 投稿カード：枠・次の一歩・状態 ──
+const localDay = (d = new Date()) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+const dayLabel = (s) => { const d = new Date(`${s}T00:00:00`); return `${d.getMonth() + 1}/${d.getDate()}（${DOW[d.getDay()]}）`; };
+function slotFromId(id) {
+  const [date] = id.split(':');
+  return slotsCache.get(id) ?? { id, date, label: '投稿枠', rule: null };
+}
+const slotsCache = new Map();
+
+function setStage(v) {
+  for (const r of document.querySelectorAll('#stage-pick input')) r.checked = r.value === v;
+}
+
+function renderSlotBanner() {
+  const el = $('#slot-banner');
+  const s = state.slot;
+  el.hidden = !s;
+  if (!s) return;
+  const r = ruleOf(s.rule);
+  el.innerHTML = `<b>📅 ${dayLabel(s.date)} ${esc(s.label)} の枠</b>${r ? `<span>${esc(r.how)}</span><span class="muted">次の一歩の目安：${esc(r.next)}</span>` : ''}
+    <button class="ghost small" type="button" id="slot-clear">枠から外す</button>`;
+}
+$('#slot-banner').addEventListener('click', (e) => {
+  if (e.target.id !== 'slot-clear') return;
+  state.slot = null;
+  renderSlotBanner();
+});
+
+// 次の一歩：5つの入り口・LINE・メルマガから1つ。入り口なら媒体ごとのUTM付きリンクをコピーできる
+function renderNextBar() {
+  const cur = state.nextStep;
+  const step = nextStepOf(cur);
+  const plats = [...new Set(state.accounts.filter((a) => a.enabled && state.targets.get(a.id)?.on).map((a) => a.platform))];
+  $('#next-bar').innerHTML = `<span class="label">→ 次の一歩：</span>${NEXT_STEPS.map((s) =>
+    `<button type="button" class="pillar-chip" aria-pressed="${s.key === cur}" data-step="${s.key}">${esc(s.label)}</button>`).join('')}
+    ${!cur ? '<span class="warn-text">⚠ 未設定（投稿ごとに1つだけ置きます）</span>' : ''}
+    ${step?.path && plats.length ? `<span class="utm-chips">${plats.map((p) => `<button type="button" class="tag-chip" data-utm="${p}" title="${esc(entranceUrl(cur, p, state.pillar || 'sns'))}">📋 ${esc(state.platforms[p]?.label ?? p)}用リンク</button>`).join('')}</span>` : ''}`;
+}
+$('#next-bar').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-step]');
+  if (b) {
+    state.nextStep = state.nextStep === b.dataset.step ? null : b.dataset.step;
+    return renderNextBar();
+  }
+  const u = e.target.closest('[data-utm]');
+  if (u) copyText(entranceUrl(state.nextStep, u.dataset.utm, state.pillar || 'sns'));
+});
+$('#targets').addEventListener('change', () => renderNextBar());
+
+// 投稿枠から作る：柱・投稿先・日時・作り方のメモを入れておく
+function startFromSlot(slot) {
+  resetCompose();
+  const r = ruleOf(slot.rule);
+  state.slot = slot;
+  setPillar(slot.pillar ?? null);
+  state.nextStep = slot.pillar ? PILLAR_NEXT[slot.pillar] : ['ig_carousel', 'line', 'newsletter', 'blog'].includes(slot.rule) ? 'buy' : null;
+  if (r) {
+    for (const a of state.accounts) {
+      if (!a.enabled) continue;
+      const t = state.targets.get(a.id) ?? newTarget(false);
+      t.on = r.platforms.includes(a.platform);
+      state.targets.set(a.id, t);
+    }
+    $('#memo').value = `作り方：${r.how}\n素材元：${r.source}`;
+  }
+  const at = new Date(`${slot.date}T09:00:00`);
+  if (at.getTime() < Date.now() + 10 * 60_000) { at.setTime(Date.now() + 3600_000); at.setMinutes(0, 0, 0); }
+  useSchedule.checked = true;
+  useSchedule.dispatchEvent(new Event('change'));
+  $('#scheduled-at').value = localInput(at.getTime());
+  setStage('idea');
+  renderSlotBanner();
+  renderNextBar();
+  renderTargets();
+  showTab('compose');
+  bodyEl.focus();
+}
+
+async function openSlotPost(id) {
+  const p = await api(`/posts/${id}`);
+  return ['draft', 'scheduled'].includes(p.status) ? loadIntoCompose(p, false) : showResult(p);
+}
+
+// ── 今日のボード ──
+const yen = (n) => (n == null ? '–' : `${Math.round(n).toLocaleString()}円`);
+function slotRow(s) {
+  slotsCache.set(s.id, s);
+  const st = cardState(s.post);
+  const r = ruleOf(s.rule);
+  const pl = pillarOf(s.pillar);
+  return `<div class="slot ${st.key}" data-slot="${esc(s.id)}">
+    <span class="slot-state ${st.key}">${st.label}</span>
+    <div class="slot-main"><b>${pl ? `<span class="pdot" style="background:${pl.color}"></span>` : ''}${esc(s.label)}</b>
+      <small>${s.post ? esc((s.post.body || '').split('\n')[0].slice(0, 60) || '（本文なし）') : esc(r?.how ?? '')}</small></div>
+    <button class="small ${s.post ? '' : 'primary'}" data-act="${s.post ? 'open' : 'make'}" ${s.post ? `data-post="${s.post.id}"` : ''}>${s.post ? '開く' : '作る'}</button>
+  </div>`;
+}
+
+async function renderBoard() {
+  const today = localDay();
+  const week = mondayOf(today);
+  const m = new Date().getMonth() + 1;
+  $('#board-date').textContent = `${dayLabel(today)}`;
+  $('#board-season').textContent = `${m}月：${SEASONS[m].work}／発信は${SEASONS[m].theme}`;
+  $('#week-label').textContent = `${dayLabel(week)}〜`;
+  const [slots, tasks, kpi, sources, history] = await Promise.all([
+    api(`/slots?from=${today}&days=28`), api(`/weeks/${week}/tasks`), api('/kpi'), api('/sources'), api('/posts?status=history&limit=40'),
+  ]);
+  // 今日の枠
+  const todays = slots.filter((s) => s.date === today);
+  $('#today-slots').innerHTML = todays.length ? todays.map(slotRow).join('') : '<p class="muted small">今日の枠はありません</p>';
+  // 今週の工程
+  const wd = new Date().getDay();
+  $('#week-tasks').innerHTML = tasks.map((t) => `<label class="task ${t.weekday === wd ? 'today' : ''} ${t.done_at ? 'done' : ''}">
+      <input type="checkbox" data-step="${t.step}" ${t.done_at ? 'checked' : ''}>
+      <span class="task-day">${t.weekday == null ? '毎日' : DOW[t.weekday]}</span>
+      <span class="task-main"><b>${esc(t.name)}</b><small>${esc(t.about)}</small><small class="muted">${esc(t.owner)}・${esc(t.screen)}${t.done_by ? `・✓ ${esc(t.done_by)}` : ''}</small></span></label>`).join('');
+  $('#week-tasks').dataset.week = week;
+  // 数字の進み具合
+  const last = [...kpi].reverse().find((k) => k.followers != null);
+  const recent = kpi.filter((k) => k.week_start >= addDays(week, -28));
+  const ig4 = recent.reduce((a, k) => a + (k.ig_sales_jpy || 0), 0);
+  const st4 = recent.reduce((a, k) => a + (k.store_sales_jpy || 0), 0);
+  const list = [...kpi].reverse().find((k) => k.line_signups != null)?.line_signups;
+  const bar = (label, val, goal, fmtv, note) => {
+    const pct = val == null ? 0 : Math.min(100, (val / goal) * 100);
+    return `<div class="kbar"><div class="kbar-head"><span>${label}</span><b>${val == null ? '未入力' : fmtv(val)}</b><span class="muted">／${fmtv(goal)}</span></div>
+      <div class="pb-track"><span class="pb-fill" style="width:${pct}%;--pc:var(--chart)"></span>${note?.pace != null ? `<span class="pb-target" style="left:${Math.min(100, (note.pace / goal) * 100)}%" title="今日いるべき数"></span>` : ''}</div>
+      ${note?.text ? `<small class="muted">${note.text}</small>` : ''}</div>`;
+  };
+  const pace = followerPace(today);
+  $('#kpi-bars').innerHTML = [
+    bar('Instagramフォロワー', last?.followers ?? null, TARGETS.followers.goal, (n) => `${n.toLocaleString()}人`, { pace, text: `今日の目安 ${pace.toLocaleString()}人（縦線）${last ? `・${dayLabel(last.week_start)}の週の記録` : ''}` }),
+    bar('Instagram経由売上（直近4週）', recent.length ? ig4 : null, TARGETS.igSalesMonthly, yen),
+    bar('オンラインストア売上（直近4週）', recent.length ? st4 : null, TARGETS.storeSalesMonthly, yen),
+    bar('LINE・メルマガ登録者', list ?? null, TARGETS.listSignups, (n) => `${n.toLocaleString()}人`),
+  ].join('') + '<button class="small ghost" data-goto="kpi">数字を入れる →</button>';
+  // キャンペーン
+  const camps = activeCampaigns(today);
+  $('#board-campaigns').innerHTML = camps.length ? camps.map((c) => `<div class="camp"><b>${esc(c.name)}</b><small>${esc(c.when)}・${esc(c.angle)}・→ ${esc(c.dest)}</small></div>`).join('') : '<p class="muted small">今月のキャンペーンはありません</p>';
+  // 先週の振り返りと伸びた投稿
+  const prev = kpi.find((k) => k.week_start === addDays(week, -7)) ?? [...kpi].reverse()[0];
+  const top = history.filter((p) => p.published_at > Date.now() - 14 * 86400e3)
+    .map((p) => ({ p, r: Math.max(...p.targets.map((t) => t.ratio ?? 0)) })).filter((x) => x.r > 0).sort((a, b) => b.r - a.r).slice(0, 3);
+  $('#board-review').innerHTML = `${prev ? `<div class="keepstop"><div><b>続ける型</b>${esc(prev.keep_pattern || '—')}</div><div><b>やめる型</b>${esc(prev.stop_pattern || '—')}</div></div>` : '<p class="muted small">まだ数字の記録がありません（日曜の振り返りで入れます）</p>'}
+    ${top.length ? `<ol class="top-posts">${top.map(({ p, r }) => `<li><span class="up">いつもの${r.toFixed(1)}倍</span> ${pillarBadge(p.pillar)} ${esc(p.body.split('\n')[0].slice(0, 50))}</li>`).join('')}</ol>` : '<p class="muted small">反応の数字が集まると、伸びた投稿がここに出ます</p>'}`;
+  // 素材の展開状況
+  $('#board-sources').innerHTML = sources.length ? sources.slice(0, 6).map((s) => `<div class="src ${s.platforms.length < 5 ? 'low' : ''}">
+      <b>${esc(s.title)}</b><small>${fmt(s.created_at)}・カード${s.cards}枚・公開 <span class="${s.platforms.length < 5 ? 'down' : 'up'}">${s.platforms.length}媒体</span>${s.platforms.length < 5 ? '（目安5）' : ''}</small>
+      <span class="dots">${s.platforms.map(dot).join('')}</span></div>`).join('') : '<p class="muted small">まだ素材がありません。上の「素材から展開」から始めます</p>';
+  // これから4週間
+  const weeks = [0, 1, 2, 3].map((i) => addDays(week, i * 7));
+  $('#next-weeks').innerHTML = weeks.map((w) => {
+    const ws = slots.filter((s) => s.date >= w && s.date < addDays(w, 7));
+    const made = ws.filter((s) => s.post).length;
+    const days = [...new Set(ws.map((s) => s.date))];
+    return `<details class="nw" ${w === week ? 'open' : ''}><summary><b>${dayLabel(w)}〜</b><span class="muted">${ws.length}枠中 ${made}枠に投稿あり</span>
+      <span class="nw-bar"><span style="width:${ws.length ? (made / ws.length) * 100 : 0}%"></span></span></summary>
+      ${days.map((d) => `<div class="nw-day"><span class="nw-date">${dayLabel(d)}</span><div class="nw-slots">${ws.filter((s) => s.date === d).map((s) => {
+        slotsCache.set(s.id, s);
+        const st = cardState(s.post);
+        return `<button class="nw-slot ${st.key}" data-slot="${esc(s.id)}" ${s.post ? `data-post="${s.post.id}"` : ''} title="${esc(st.label)}">${esc(s.label)}</button>`;
+      }).join('')}</div></div>`).join('')}</details>`;
+  }).join('');
+}
+
+$('#tab-board').addEventListener('click', async (e) => {
+  const go = e.target.closest('[data-goto]');
+  if (go) return showTab(go.dataset.goto);
+  const el = e.target.closest('[data-slot]');
+  if (!el || e.target.closest('summary')) return;
+  const postId = e.target.closest('[data-post]')?.dataset.post;
+  if (postId) return openSlotPost(postId);
+  if (e.target.closest('[data-act="make"]') || el.classList.contains('nw-slot')) startFromSlot(slotsCache.get(el.dataset.slot));
+});
+$('#week-tasks').addEventListener('change', async (e) => {
+  const cb = e.target.closest('[data-step]');
+  if (!cb) return;
+  await api(`/weeks/${$('#week-tasks').dataset.week}/tasks/${cb.dataset.step}`, { method: 'PUT', json: { done: cb.checked } });
+  cb.closest('.task').classList.toggle('done', cb.checked);
+});
+
+$('#expand-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const f = e.target;
+  $('#expand-error').textContent = '';
+  if (!state.ai.ai_enabled) return ($('#expand-error').textContent = 'AIはまだ使えません。Cloudflare に ANTHROPIC_API_KEY を設定してください');
+  const btn = $('#expand-btn');
+  const label = btn.textContent;
+  btn.textContent = '✨ 展開しています…（1〜2分）';
+  await busy(btn, async () => {
+    try {
+      const r = await api('/sources', { method: 'POST', json: { kind: f.kind.value, title: f.title.value, transcript: f.transcript.value, month: new Date().getMonth() + 1 } });
+      f.reset();
+      toast(`${r.posts.length}枚の投稿カードを「予約・下書き」に作りました`);
+      showTab('queue');
+    } catch (err) {
+      $('#expand-error').textContent = err.message;
+    }
+  });
+  btn.textContent = label;
+});
+
+// ── 計画（ロードマップ・ごよみ・キャンペーン・ワークフロー・媒体ルール・UTM） ──
+const th = (cols) => `<tr>${cols.map((c) => `<th>${c}</th>`).join('')}</tr>`;
+const tr = (cols) => `<tr>${cols.map((c) => `<td>${c}</td>`).join('')}</tr>`;
+let planDrawn = false;
+async function renderPlan() {
+  const items = await api('/roadmap');
+  const done = items.filter((i) => i.done_at).length;
+  $('#roadmap-progress').textContent = `${done}/${items.length} 完了`;
+  const sections = [...new Set(items.map((i) => i.section))];
+  $('#roadmap').innerHTML = sections.map((sec) => {
+    const list = items.filter((i) => i.section === sec);
+    return `<div class="rm-sec"><h3>${esc(sec)} <span class="muted small">${list.filter((i) => i.done_at).length}/${list.length}</span></h3>
+      ${list.map((i) => `<label class="rm-item ${i.done_at ? 'done' : ''}"><input type="checkbox" data-rm="${i.id}" ${i.done_at ? 'checked' : ''}><span>${esc(i.title)}${i.done_by ? `<small class="muted">　✓ ${esc(i.done_by)}</small>` : ''}</span></label>`).join('')}</div>`;
+  }).join('');
+  if (planDrawn) return;
+  planDrawn = true;
+  const m = new Date().getMonth() + 1;
+  $('#season-table').innerHTML = th(['月', '季節の作業', '発信テーマ', '販売・集客の山']) + Object.entries(SEASONS).map(([k, v]) =>
+    `<tr class="${Number(k) === m ? 'now' : ''}"><td>${k}月</td><td>${esc(v.work)}</td><td>${esc(v.theme)}</td><td>${esc(v.peak)}</td></tr>`).join('');
+  const act = new Set(activeCampaigns(localDay()).map((c) => c.name));
+  $('#campaign-table').innerHTML = th(['キャンペーン', '時期', '切り口', '着地先']) + CAMPAIGNS.map((c) =>
+    `<tr class="${act.has(c.name) ? 'now' : ''}"><td>${esc(c.name)}${act.has(c.name) ? ' <span class="pill">今</span>' : ''}</td><td>${esc(c.when)}</td><td>${esc(c.angle)}</td><td>${esc(c.dest)}</td></tr>`).join('');
+  $('#workflow-table').innerHTML = th(['曜日', '工程', '中身', '担当', 'アプリでの扱い']) + WORKFLOW.map((w) =>
+    tr([w.weekday == null ? '毎日' : DOW[w.weekday], esc(w.name), esc(w.about), esc(w.owner), esc(w.screen)])).join('');
+  $('#rules-table').innerHTML = th(['媒体', '系統', '素材元', '作り方', '出す日', '次の一歩']) + CHANNEL_RULES.map((r) =>
+    tr([`<b>${esc(r.label)}</b>`, esc(r.stream), esc(r.source), esc(r.how), esc(r.days), esc(r.next)])).join('');
+  const f = $('#utm-form');
+  f.step.innerHTML = NEXT_STEPS.filter((s) => s.path).map((s) => `<option value="${s.key}">${esc(s.label)}（${s.path}）</option>`).join('');
+  f.platform.innerHTML = Object.values(state.platforms).map((p) => `<option value="${p.id}">${esc(p.label)}</option>`).join('');
+  renderUtm();
+}
+function renderUtm() {
+  const f = $('#utm-form');
+  $('#utm-url').textContent = entranceUrl(f.step.value, f.platform.value, f.campaign.value.trim() || 'sns') ?? '';
+}
+$('#utm-form').addEventListener('input', renderUtm);
+$('#utm-copy').addEventListener('click', () => copyText($('#utm-url').textContent));
+$('#roadmap').addEventListener('change', async (e) => {
+  const cb = e.target.closest('[data-rm]');
+  if (!cb) return;
+  await api(`/roadmap/${cb.dataset.rm}`, { method: 'PATCH', json: { done: cb.checked } });
+  renderPlan();
+});
+
+// ── 数字（KPI） ──
+let kpiRows = [];
+const KPI_KEYS = ['followers', 'saves', 'shares', 'link_clicks', 'line_signups', 'ig_sales_jpy', 'store_sales_jpy', 'keep_pattern', 'stop_pattern', 'note'];
+function fillKpiForm(week) {
+  const f = $('#kpi-form');
+  f.week.value = week;
+  const row = kpiRows.find((k) => k.week_start === week) ?? {};
+  for (const k of KPI_KEYS) f[k].value = row[k] ?? '';
+  $('#kpi-week-label').textContent = `${dayLabel(week)}〜${dayLabel(addDays(week, 6))}${row.updated_by ? `・${row.updated_by} が入力` : ''}`;
+}
+async function renderKpi() {
+  kpiRows = await api('/kpi');
+  const f = $('#kpi-form');
+  fillKpiForm(f.week.value ? mondayOf(f.week.value) : mondayOf(localDay()));
+  drawFollowers();
+  drawSales();
+  $('#kpi-table').innerHTML = th(['週', 'フォロワー', '保存', 'シェア', 'クリック', '登録者', 'IG売上', 'ストア売上', '続ける型', 'やめる型']) +
+    [...kpiRows].reverse().map((k) => tr([dayLabel(k.week_start), k.followers?.toLocaleString() ?? '', k.saves ?? '', k.shares ?? '', k.link_clicks ?? '', k.line_signups?.toLocaleString() ?? '',
+      k.ig_sales_jpy != null ? yen(k.ig_sales_jpy) : '', k.store_sales_jpy != null ? yen(k.store_sales_jpy) : '', esc(k.keep_pattern ?? ''), esc(k.stop_pattern ?? '')])).join('');
+}
+$('#kpi-form').week.addEventListener('change', (e) => { if (e.target.value) fillKpiForm(mondayOf(e.target.value)); });
+$('#kpi-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const f = e.target;
+  $('#kpi-error').textContent = '';
+  const week = mondayOf(f.week.value || localDay());
+  await busy($('#kpi-save'), async () => {
+    try {
+      kpiRows = await api(`/kpi/${week}`, { method: 'PUT', json: Object.fromEntries(KPI_KEYS.map((k) => [k, f[k].value])) });
+      toast('保存しました');
+      renderKpi();
+    } catch (err) {
+      $('#kpi-error').textContent = err.message;
+    }
+  });
+});
+
+// 折れ線（実績）＋点線（目標）。目盛りは控えめ、ホバーで値
+function lineChart(el, { points, target, yMax, fmtY, fmtX, caption, partialLast = false }) {
+  const W = Math.max(320, Math.round(el.clientWidth || 640)), H = 220, L = 52, R = 16, T = 14, B = 28;
+  if (!points.length) { el.innerHTML = '<p class="muted small">数字を入れると、ここに目標と並んで表示されます</p>'; return; }
+  const xs = [...points.map((p) => p.x), ...(target ?? []).map((p) => p.x)];
+  const x0 = Math.min(...xs), x1 = Math.max(...xs);
+  const sx = (x) => L + ((x - x0) / Math.max(x1 - x0, 1)) * (W - L - R);
+  const sy = (y) => T + (1 - y / yMax) * (H - T - B);
+  const ticks = [0, 0.25, 0.5, 0.75, 1].map((t) => t * yMax);
+  const path = (ps) => ps.map((p, i) => `${i ? 'L' : 'M'}${sx(p.x).toFixed(1)},${sy(p.y).toFixed(1)}`).join('');
+  const last = points[points.length - 1];
+  el.innerHTML = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(caption)}">
+    ${ticks.map((t) => `<line x1="${L}" x2="${W - R}" y1="${sy(t)}" y2="${sy(t)}" class="grid-line"/><text x="${L - 6}" y="${sy(t) + 4}" class="axis" text-anchor="end">${fmtY(t)}</text>`).join('')}
+    <text x="${L}" y="${H - 8}" class="axis">${fmtX(x0)}</text><text x="${W - R}" y="${H - 8}" class="axis" text-anchor="end">${fmtX(x1)}</text>
+    ${target ? `<path d="${path(target)}" class="target-line"/><text x="${sx(target[target.length - 1].x) - 4}" y="${sy(target[target.length - 1].y) - 6}" class="axis" text-anchor="end">目標</text>` : ''}
+    <path d="${path(points)}" class="series-line"/>
+    ${points.map((p, i) => `<circle cx="${sx(p.x)}" cy="${sy(p.y)}" r="4" class="series-dot ${partialLast && i === points.length - 1 ? 'partial' : ''}"/>`).join('')}
+    <text x="${Math.min(sx(last.x) + 6, W - R - 2)}" y="${sy(last.y) - 8}" class="value-label" text-anchor="${sx(last.x) > W - 90 ? 'end' : 'start'}">${fmtY(last.y)}${partialLast ? '（途中）' : ''}</text>
+    <line class="hair" y1="${T}" y2="${H - B}" x1="${L}" x2="${L}" style="opacity:0"/>
+    <rect x="${L}" y="${T}" width="${W - L - R}" height="${H - T - B}" fill="transparent" class="hit"/>
+  </svg><div class="tip" hidden></div>`;
+  const svg = el.querySelector('svg'), tip = el.querySelector('.tip'), hair = el.querySelector('.hair');
+  svg.addEventListener('pointermove', (ev) => {
+    const r = svg.getBoundingClientRect();
+    const px = ((ev.clientX - r.left) / r.width) * W;
+    const near = points.reduce((a, p) => (Math.abs(sx(p.x) - px) < Math.abs(sx(a.x) - px) ? p : a));
+    hair.setAttribute('x1', sx(near.x)); hair.setAttribute('x2', sx(near.x)); hair.style.opacity = 1;
+    tip.hidden = false;
+    tip.replaceChildren();
+    const b = document.createElement('b'); b.textContent = fmtY(near.y);
+    const s = document.createElement('span'); s.textContent = ` ${fmtX(near.x)}${near.partial ? '・集計の途中' : ''}${near.goal != null ? `（目標 ${fmtY(near.goal)}）` : ''}`;
+    tip.append(b, s);
+    tip.style.left = `${(sx(near.x) / W) * 100}%`;
+  });
+  svg.addEventListener('pointerleave', () => { tip.hidden = true; hair.style.opacity = 0; });
+}
+const md = (ms) => { const d = new Date(ms); return `${d.getMonth() + 1}/${d.getDate()}`; };
+function drawFollowers() {
+  const f = TARGETS.followers;
+  const pts = kpiRows.filter((k) => k.followers != null).map((k) => ({ x: Date.parse(`${k.week_start}T00:00:00`), y: k.followers, goal: followerPace(k.week_start) }));
+  const target = [{ x: Date.parse(`${f.startDate}T00:00:00`), y: f.start }, { x: Date.parse(`${f.deadline}T00:00:00`), y: f.goal }];
+  lineChart($('#chart-followers'), { points: pts, target, yMax: Math.ceil(Math.max(f.goal, ...pts.map((p) => p.y)) / 2000) * 2000, fmtY: (n) => Math.round(n).toLocaleString(), fmtX: md, caption: 'Instagramフォロワーの推移と目標' });
+}
+function drawSales() {
+  // 週の売上を月ごとに合計（週の月曜の月で数える）
+  const byMonth = new Map();
+  for (const k of kpiRows) if (k.ig_sales_jpy != null) { const m = k.week_start.slice(0, 7); byMonth.set(m, (byMonth.get(m) || 0) + k.ig_sales_jpy); }
+  const thisMonth = localDay().slice(0, 7);
+  const pts = [...byMonth].sort().map(([m, y]) => ({ x: Date.parse(`${m}-01T00:00:00`), y, goal: TARGETS.igSalesMonthly, partial: m === thisMonth }));
+  const target = pts.length ? [{ x: pts[0].x, y: TARGETS.igSalesMonthly }, { x: pts[pts.length - 1].x, y: TARGETS.igSalesMonthly }] : null;
+  lineChart($('#chart-sales'), { points: pts, target, partialLast: pts.at(-1)?.partial, yMax: Math.ceil(Math.max(TARGETS.igSalesMonthly * 1.2, ...pts.map((p) => p.y)) / 400000) * 400000,
+    fmtY: (n) => `${(n / 10000).toLocaleString(undefined, { maximumFractionDigits: 1 })}万`, fmtX: (ms) => `${new Date(ms).getMonth() + 1}月`, caption: 'Instagram経由の月の売上と目標' });
+}
+
 // ── 投稿ごとの反応とふりかえり ──
 const metricLine = (m) => METRICS.filter(({ key }) => m?.[key] != null)
   .map(({ key, label, icon }) => `<span title="${label}">${icon} ${compact(m[key])}</span>`).join('');
@@ -1272,6 +1637,8 @@ async function start() {
   renderTargets();
   renderPicker();
   loadLastReview();
+  renderNextBar();
+  showTab('board');
 }
 
 start().catch(showLogin);

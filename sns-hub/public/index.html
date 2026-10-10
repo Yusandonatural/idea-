@@ -34,12 +34,15 @@
   <header>
     <h1><span class="mark" aria-hidden="true">茶</span>SNS一括投稿</h1>
     <nav>
-      <button data-tab="compose" class="active">投稿する</button>
+      <button data-tab="board" class="active">今日</button>
+      <button data-tab="compose">投稿する</button>
       <button data-tab="calendar">カレンダー</button>
       <button data-tab="queue">予約・下書き</button>
       <button data-tab="history">履歴</button>
       <button data-tab="hashtags">ハッシュタグ</button>
       <button data-tab="research">リサーチ</button>
+      <button data-tab="plan">計画</button>
+      <button data-tab="kpi">数字</button>
       <button data-tab="accounts">設定</button>
     </nav>
     <span class="who" id="who"></span>
@@ -47,9 +50,34 @@
   </header>
 
   <main>
-    <section id="tab-compose">
+    <section id="tab-board">
+      <div class="board-head"><h2 id="board-date"></h2><span class="muted small" id="board-season"></span></div>
+      <details class="card expand" id="expand-card">
+        <summary><b>🎙 素材から展開</b><span class="muted small">朝の音声メモの文字起こしを貼ると、7種類の下書きを投稿カードにします</span></summary>
+        <form id="expand-form" class="expand-form">
+          <div class="row wrap"><select name="kind" aria-label="素材の種類"><option value="voice">音声メモ</option><option value="shoot">撮影</option><option value="photo">スマホ写真</option></select>
+            <input name="title" placeholder="題（空欄なら1行目）" maxlength="80"></div>
+          <textarea name="transcript" rows="6" placeholder="文字起こしや素材のメモを貼ってください"></textarea>
+          <div class="row wrap"><button class="ai" id="expand-btn">✨ 展開して投稿カードを作る</button>
+            <span class="muted small">ブログ要約・リール台本3本・Threads一言・カルーセル構成・メルマガ文・LINE文・英仏中キャプション</span></div>
+          <p class="error" id="expand-error"></p>
+        </form>
+      </details>
+      <div class="board">
+        <div class="card"><h2>今日の投稿枠</h2><div id="today-slots" class="slots"></div></div>
+        <div class="card"><h2>今週の工程 <span class="muted small" id="week-label"></span></h2><div id="week-tasks" class="tasks"></div></div>
+        <div class="card"><h2>数字の進み具合</h2><div id="kpi-bars" class="kpi-bars"></div></div>
+        <div class="card"><h2>今月のキャンペーン</h2><div id="board-campaigns" class="campaigns"></div></div>
+        <div class="card"><h2>先週の振り返りと、伸びた投稿</h2><div id="board-review"></div></div>
+        <div class="card"><h2>素材の展開状況 <span class="muted small">1本の素材を5か所以上で</span></h2><div id="board-sources" class="sources"></div></div>
+        <div class="card wide"><h2>これから4週間の枠</h2><div id="next-weeks" class="next-weeks"></div></div>
+      </div>
+    </section>
+
+    <section id="tab-compose" hidden>
       <div class="compose">
         <div class="card editor">
+          <div class="slot-banner" id="slot-banner" hidden></div>
           <div class="editing-banner" id="editing-banner" hidden>
             <span id="editing-label"></span>
             <button class="ghost small" id="cancel-edit">新しい投稿にする</button>
@@ -61,10 +89,12 @@
             <button class="ai" id="ai-generate" type="button">✨ AIでSNSごとに書き分ける</button>
           </div>
           <div class="pillar-bar" id="pillar-bar"></div>
+          <div class="next-bar" id="next-bar"></div>
           <div class="tag-bar" id="tag-bar"></div>
           <div class="lang-bar" id="lang-bar"><span class="label">AIで添える訳：</span>
             <label><input type="checkbox" value="en">英語</label><label><input type="checkbox" value="fr">フランス語</label><label><input type="checkbox" value="zh">中国語</label>
             <span class="muted small">（Instagram・YouTube・Pinterest に付けます）</span></div>
+          <details class="memo-box" id="memo-box"><summary>📝 素材メモ・台本（投稿されません）</summary><textarea id="memo" rows="4" placeholder="撮影リスト、台本、使う写真など"></textarea></details>
           <details class="last-review" id="last-review" hidden></details>
           <p class="muted small" id="ai-hint">Instagram・Threads は動画があればリール・動画として投稿（画像は JPEG）。YouTube は動画のみ
           </p>
@@ -78,6 +108,7 @@
 
         <div class="card actions">
           <label class="row"><input type="checkbox" id="use-schedule"> 日時を予約する</label>
+          <div class="row stage-pick" id="stage-pick"><span class="muted small">下書きの状態：</span><label><input type="radio" name="stage" value="idea"> アイデア</label><label><input type="radio" name="stage" value="making" checked> 制作中</label></div>
           <input type="datetime-local" id="scheduled-at" hidden>
           <div class="row wrap">
             <button class="primary" id="post-now">今すぐ投稿</button>
@@ -160,6 +191,44 @@
         <form id="search-form" class="row"><input name="q" placeholder="例：日本茶 自然栽培"><button class="primary">リンクを作る</button></form>
         <div id="search-links" class="search-links"></div>
       </div>
+    </section>
+
+    <section id="tab-plan" hidden>
+      <div class="card"><h2>90日ロードマップ <span class="muted small" id="roadmap-progress"></span></h2><div id="roadmap" class="roadmap"></div></div>
+      <div class="card"><h2>四季のお茶ごよみ</h2><div class="table-wrap"><table class="grid" id="season-table"></table></div></div>
+      <div class="card"><h2>キャンペーン</h2><div class="table-wrap"><table class="grid" id="campaign-table"></table></div></div>
+      <div class="card"><h2>週次ワークフロー</h2><p class="muted small">週1回まとめて作り、毎日少しずつ出す。毎週、「今日」に今週の工程として並びます。</p><div class="table-wrap"><table class="grid" id="workflow-table"></table></div></div>
+      <div class="card"><h2>媒体別の制作ルール</h2><p class="muted small">投稿枠から投稿を作ると、ここの作り方と次の一歩が入ります。</p><div class="table-wrap"><table class="grid" id="rules-table"></table></div></div>
+      <div class="card"><h2>UTMリンクを作る</h2>
+        <form id="utm-form" class="utm-form">
+          <select name="step" aria-label="入り口"></select><select name="platform" aria-label="媒体"></select><input name="campaign" placeholder="キャンペーン名（例：gift2026）" value="sns">
+        </form>
+        <div class="utm-out"><code id="utm-url"></code><button class="small primary" id="utm-copy" type="button">コピー</button></div>
+      </div>
+    </section>
+
+    <section id="tab-kpi" hidden>
+      <div class="card">
+        <h2>今週の数字 <span class="muted small" id="kpi-week-label"></span></h2>
+        <form id="kpi-form" class="kpi-form">
+          <label>週（月曜）<input type="date" name="week"></label>
+          <label>Instagramフォロワー<input name="followers" inputmode="numeric"></label>
+          <label>保存<input name="saves" inputmode="numeric"></label>
+          <label>シェア<input name="shares" inputmode="numeric"></label>
+          <label>リンククリック<input name="link_clicks" inputmode="numeric"></label>
+          <label>LINE・メルマガ登録者（合計）<input name="line_signups" inputmode="numeric"></label>
+          <label>Instagram経由売上（円・週）<input name="ig_sales_jpy" inputmode="numeric"></label>
+          <label>オンラインストア売上（円・週）<input name="store_sales_jpy" inputmode="numeric"></label>
+          <label class="span2">続ける型<input name="keep_pattern" placeholder="例：冒頭に注ぐ音のリール"></label>
+          <label class="span2">やめる型<input name="stop_pattern" placeholder="例：文字だけのカルーセル"></label>
+          <label class="span2">メモ<input name="note"></label>
+          <div class="row span2"><button class="primary" id="kpi-save">保存</button><span class="muted small">Instagram のインサイトと Shopify の数字を週1回（日曜の振り返り）に入れます</span></div>
+          <p class="error span2" id="kpi-error"></p>
+        </form>
+      </div>
+      <div class="card"><h2>Instagramフォロワー <span class="muted small">目標 10,000人（2027年2月末）</span></h2><div class="chart" id="chart-followers"></div></div>
+      <div class="card"><h2>Instagram経由の売上（月） <span class="muted small">目標 月100万円</span></h2><div class="chart" id="chart-sales"></div></div>
+      <div class="card"><h2>記録</h2><div class="table-wrap"><table class="grid" id="kpi-table"></table></div></div>
     </section>
 
     <section id="tab-accounts" hidden>

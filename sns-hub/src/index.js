@@ -4,7 +4,8 @@ import { describe, platforms } from './platforms/index.js';
 import { AiError, DEFAULT_BRAND, generate } from './ai.js';
 import STATIC from './static.gen.js';
 import { check, finalText, makeCtx, publishPost, refreshTokens, runDue } from './publish.js';
-import { pillarOf } from '../public/plan.js';
+import { mondayOf, nextStepOf, pillarOf, STAGES } from '../public/plan.js';
+import { expandSource, isDay, listKpi, listRoadmap, listSlots, listSources, putKpi, setTask, SOURCE_KINDS, weekTasks } from './ops.js';
 import { encryptCreds, getPost, getSetting, loadAccount, loadHashtagSets, loadSendOptions, now, publicAccount, saveCredentials } from './store.js';
 import { parseTags, tagsIn } from '../public/hashtags.js';
 import { loadBaselines, recentAdvice, reviewPost, runReviews } from './review.js';
@@ -60,7 +61,8 @@ async function readPostInput(env, body) {
   }));
   if (media.some((m) => !MEDIA_KEY.test(m.key))) throw new HttpError(400, '画像・動画の指定が不正です');
   const targets = Array.isArray(body.targets) ? body.targets : [];
-  if (!targets.length) throw new HttpError(400, '投稿先を1つ以上選んでください');
+  // 下書き（アイデア段階の投稿カード）は投稿先なしでも保存できる
+  if (!targets.length && body.mode !== 'draft') throw new HttpError(400, '投稿先を1つ以上選んでください');
   const rows = [];
   for (const t of targets) {
     const acc = await env.DB.prepare('SELECT id, platform, name FROM accounts WHERE id = ?').bind(Number(t.account_id)).first();
@@ -86,7 +88,13 @@ async function readPostInput(env, body) {
   } else if (mode !== 'now' && mode !== 'draft') {
     throw new HttpError(400, 'mode は now / schedule / draft のどれかです');
   }
-  return { text, media, rows, mode, scheduledAt, pillar };
+  const card = {
+    stage: STAGES[body.stage] ? body.stage : 'making',
+    slot: typeof body.slot === 'string' && /^\d{4}-\d{2}-\d{2}:[\dd]+$/.test(body.slot) ? body.slot : null,
+    next_step: nextStepOf(body.next_step) ? body.next_step : null,
+    memo: String(body.memo ?? '').slice(0, 10000) || null,
+  };
+  return { text, media, rows, mode, scheduledAt, pillar, card };
 }
 
 const MAX_MEMBERS = 20;
@@ -118,6 +126,7 @@ function checkPassword(pw) {
 
 async function writeTargets(env, postId, rows) {
   await env.DB.prepare('DELETE FROM targets WHERE post_id = ?').bind(postId).run();
+  if (!rows.length) return;
   await env.DB.batch(rows.map((r) =>
     env.DB.prepare('INSERT INTO targets (post_id, account_id, body, title) VALUES (?, ?, ?, ?)').bind(postId, r.account_id, r.body, r.title)));
 }
@@ -414,6 +423,59 @@ async function api(req, env, url) {
     }
   }
 
+  // ── 毎日の運用（今日のボード・枠・週の工程・KPI・ロードマップ・素材） ──
+  if (path === '/slots' && method === 'GET') {
+    const from = url.searchParams.get('from');
+    const days = Math.min(Math.max(Number(url.searchParams.get('days')) || 1, 1), 42);
+    if (!isDay(from)) return fail('日付の指定が不正です');
+    return json(await listSlots(env, from, days));
+  }
+  let wk = path.match(/^\/weeks\/(\d{4}-\d{2}-\d{2})\/tasks(?:\/(\d+))?$/);
+  if (wk) {
+    if (!isDay(wk[1]) || mondayOf(wk[1]) !== wk[1]) return fail('週の指定が不正です（月曜の日付）');
+    if (method === 'GET' && !wk[2]) return json(await weekTasks(env, wk[1]));
+    if (method === 'PUT' && wk[2]) {
+      try {
+        await setTask(env, wk[1], Number(wk[2]), !!body?.done, user.name);
+      } catch (e) {
+        return fail(e.message, 404);
+      }
+      return json(await weekTasks(env, wk[1]));
+    }
+  }
+  if (path === '/kpi' && method === 'GET') return json(await listKpi(env));
+  wk = path.match(/^\/kpi\/(\d{4}-\d{2}-\d{2})$/);
+  if (wk && method === 'PUT') {
+    if (!isDay(wk[1]) || mondayOf(wk[1]) !== wk[1]) return fail('週の指定が不正です（月曜の日付）');
+    try {
+      await putKpi(env, wk[1], body, user.name);
+    } catch (e) {
+      return fail(e.message);
+    }
+    return json(await listKpi(env));
+  }
+  if (path === '/roadmap' && method === 'GET') return json(await listRoadmap(env));
+  wk = path.match(/^\/roadmap\/(\d+)$/);
+  if (wk && method === 'PATCH') {
+    const r = await env.DB.prepare('UPDATE roadmap_tasks SET done_by = ?, done_at = ? WHERE id = ?')
+      .bind(body?.done ? user.name : null, body?.done ? now() : null, Number(wk[1])).run();
+    if (!r.meta.changes) return fail('項目が見つかりません', 404);
+    return json(await listRoadmap(env));
+  }
+  if (path === '/sources' && method === 'GET') return json(await listSources(env));
+  if (path === '/sources' && method === 'POST') {
+    const kind = SOURCE_KINDS[body?.kind] ? body.kind : 'voice';
+    const transcript = String(body?.transcript ?? '').trim();
+    if (transcript.length < 20) return fail('文字起こし（素材の中身）を貼ってください');
+    const title = String(body?.title ?? '').trim().slice(0, 80) || transcript.split('\n')[0].slice(0, 40);
+    try {
+      return json(await expandSource(env, { kind, title, transcript: transcript.slice(0, 30000), month: Number(body?.month) || null }, user.name));
+    } catch (e) {
+      if (e instanceof AiError) return fail(e.message);
+      throw e;
+    }
+  }
+
   // ── 画像 ──
   if (path === '/media' && method === 'POST') {
     const fd = await req.formData();
@@ -458,9 +520,11 @@ async function api(req, env, url) {
   if (path === '/posts' && method === 'POST') {
     const input = await readPostInput(env, body);
     const status = input.mode === 'schedule' ? 'scheduled' : 'draft';
+    const c = input.card;
     const post = await env.DB.prepare(
-      'INSERT INTO posts (body, media, status, scheduled_at, pillar, created_by, updated_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id',
-    ).bind(input.text, JSON.stringify(input.media), status, input.scheduledAt, input.pillar, user.name, user.name, now(), now()).first();
+      `INSERT INTO posts (body, media, status, scheduled_at, pillar, stage, slot, next_step, memo, created_by, updated_by, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id`,
+    ).bind(input.text, JSON.stringify(input.media), status, input.scheduledAt, input.pillar, c.stage, c.slot, c.next_step, c.memo, user.name, user.name, now(), now()).first();
     await writeTargets(env, post.id, input.rows);
     if (input.mode === 'now') return json(await publishPost(env, post.id, url.origin));
     return json(await getPost(env, post.id));
@@ -514,8 +578,9 @@ async function api(req, env, url) {
       if (!['draft', 'scheduled'].includes(post.status)) return fail('公開後の投稿は編集できません', 409);
       const input = await readPostInput(env, body);
       const status = input.mode === 'schedule' ? 'scheduled' : 'draft';
-      await env.DB.prepare('UPDATE posts SET body = ?, media = ?, status = ?, scheduled_at = ?, pillar = ?, updated_by = ?, updated_at = ? WHERE id = ?')
-        .bind(input.text, JSON.stringify(input.media), status, input.scheduledAt, input.pillar, user.name, now(), id).run();
+      const c = input.card;
+      await env.DB.prepare('UPDATE posts SET body = ?, media = ?, status = ?, scheduled_at = ?, pillar = ?, stage = ?, slot = ?, next_step = ?, memo = ?, updated_by = ?, updated_at = ? WHERE id = ?')
+        .bind(input.text, JSON.stringify(input.media), status, input.scheduledAt, input.pillar, c.stage, c.slot, c.next_step, c.memo, user.name, now(), id).run();
       await writeTargets(env, id, input.rows);
       if (input.mode === 'now') return json(await publishPost(env, id, url.origin));
       return json(await getPost(env, id));
