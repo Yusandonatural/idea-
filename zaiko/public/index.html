@@ -1,0 +1,191 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>在庫帳</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='24' fill='%23725a2e'/><text x='50' y='70' font-size='60' text-anchor='middle' fill='white'>蔵</text></svg>">
+<meta name="theme-color" content="#725a2e">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="login" class="login" hidden>
+  <form id="login-form" class="card">
+    <h1>在庫帳</h1>
+    <button type="button" class="google-btn" id="google-login">
+      <svg viewBox="0 0 48 48" width="20" height="20" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9.1 3.6l6.8-6.8C35.8 2.4 30.3 0 24 0 14.6 0 6.6 5.4 2.7 13.2l7.9 6.2C12.5 13.6 17.8 9.5 24 9.5z"/><path fill="#4285F4" d="M46.5 24.5c0-1.6-.1-3.1-.4-4.5H24v9h12.7c-.6 3-2.3 5.5-4.8 7.2l7.7 6c4.5-4.2 6.9-10.3 6.9-17.7z"/><path fill="#FBBC05" d="M10.6 28.6c-.5-1.4-.8-3-.8-4.6s.3-3.2.8-4.6l-7.9-6.2C1 16.6 0 20.2 0 24s1 7.4 2.7 10.8l7.9-6.2z"/><path fill="#34A853" d="M24 48c6.5 0 11.9-2.1 15.9-5.8l-7.7-6c-2.2 1.5-5 2.3-8.2 2.3-6.2 0-11.5-4.1-13.4-9.9l-7.9 6.2C6.6 42.6 14.6 48 24 48z"/></svg>
+      Google でログイン
+    </button>
+    <p class="muted small login-note">メンバーに登録された Google アカウントでログインできます。</p>
+    <p class="error" id="login-error"></p>
+    <details class="pw-login" id="pw-login" hidden>
+      <summary>合言葉でログイン（オーナー用の予備）</summary>
+      <label>合言葉<input type="password" name="password" autocomplete="current-password"></label>
+      <button class="primary">ログイン</button>
+    </details>
+  </form>
+</div>
+
+<div id="app" hidden>
+  <header>
+    <h1><span class="mark" aria-hidden="true">蔵</span>在庫帳</h1>
+    <nav>
+      <button data-tab="stock" class="active">在庫</button>
+      <button data-tab="entry">入出庫</button>
+      <button data-tab="count">棚卸</button>
+      <button data-tab="value">在庫評価</button>
+      <button data-tab="history">履歴</button>
+      <button data-tab="shopify">Shopify</button>
+      <button data-tab="members" data-admin>メンバー</button>
+    </nav>
+    <span class="who"><span id="who"></span> <button class="ghost small" id="logout">ログアウト</button></span>
+  </header>
+
+  <main>
+    <!-- 在庫一覧 -->
+    <section id="tab-stock">
+      <div class="summary" id="summary"></div>
+      <div class="toolbar">
+        <div class="seg" id="kind-filter"></div>
+        <input type="search" id="search" placeholder="品目名・SKUでさがす">
+        <label class="row inline"><input type="checkbox" id="show-archived">使わない品目も表示</label>
+        <button class="primary" id="new-item">＋ 品目を追加</button>
+      </div>
+      <div class="table-wrap"><table class="stock" id="stock-table"></table></div>
+      <p class="muted small">「作れる数」は、作り置きしない製品（売れたら袋や中身から引く）を、いまの構成品の在庫で何個出せるかです。Shopify に反映する品目はこの数を送ります。</p>
+    </section>
+
+    <!-- 入出庫 -->
+    <section id="tab-entry" hidden>
+      <div class="seg big" id="entry-kind">
+        <button data-kind="receive" class="active">入荷・仕入</button>
+        <button data-kind="produce">製造・袋詰め</button>
+        <button data-kind="waste">廃棄</button>
+        <button data-kind="adjust">調整</button>
+      </div>
+      <form class="card entry" id="entry-form">
+        <p class="muted small" id="entry-hint"></p>
+        <div class="grid2">
+          <label>日付<input type="date" name="date" required></label>
+          <label>メモ（仕入先・ロット・理由など）<input name="note" maxlength="200"></label>
+        </div>
+        <div id="produce-out" class="produce-out" hidden>
+          <h2>できたもの</h2>
+          <div class="grid2">
+            <label>品目<select name="output_id" id="output-select"></select></label>
+            <label>できた量<span class="unit-input"><input name="output_qty" type="number" step="any" min="0" inputmode="decimal"><span id="output-unit"></span></span></label>
+          </div>
+          <p class="muted small" id="produce-note"></p>
+          <h2>使ったもの</h2>
+        </div>
+        <div id="entry-lines" class="lines"></div>
+        <button type="button" class="small" id="add-line">＋ 行を足す</button>
+        <div class="row end"><button class="primary" id="entry-submit">記録する</button></div>
+      </form>
+    </section>
+
+    <!-- 棚卸 -->
+    <section id="tab-count" hidden>
+      <div class="card">
+        <h2>棚卸（実地棚卸）</h2>
+        <p class="muted small">実際に数えた数を入れて「棚卸を記録」。帳簿との差だけが記録されます。空欄の品目は変えません。月末・決算日の棚卸は、日付をその日にしてください。</p>
+        <div class="toolbar">
+          <label>棚卸日<input type="date" id="count-date"></label>
+          <div class="seg" id="count-kind"></div>
+        </div>
+        <div class="table-wrap"><table class="stock" id="count-table"></table></div>
+        <div class="row end"><span class="muted small" id="count-status"></span><button class="primary" id="count-submit">棚卸を記録</button></div>
+      </div>
+    </section>
+
+    <!-- 在庫評価 -->
+    <section id="tab-value" hidden>
+      <div class="card">
+        <h2>在庫評価（決算の在庫計上）</h2>
+        <div class="toolbar">
+          <label>基準日<input type="date" id="value-date"></label>
+          <button class="small" id="value-fy">今期末（3月31日）</button>
+          <a class="button small" id="value-csv" href="#">CSV をダウンロード</a>
+        </div>
+        <div class="totals" id="value-totals"></div>
+        <div class="table-wrap"><table class="stock" id="value-table"></table></div>
+        <p class="muted small">数量は基準日の終わりまでの入出庫の合計、単価はいまの単価（入荷・製造のたびに移動平均で更新）です。マイナス在庫は金額に含めません。袋・缶・ラベルなどの資材は「貯蔵品」として計上します。</p>
+      </div>
+    </section>
+
+    <!-- 履歴 -->
+    <section id="tab-history" hidden>
+      <div class="list" id="history"></div>
+      <button class="small" id="history-more" hidden>もっと見る</button>
+    </section>
+
+    <!-- Shopify -->
+    <section id="tab-shopify" hidden>
+      <div id="shopify"></div>
+    </section>
+
+    <!-- メンバー -->
+    <section id="tab-members" hidden>
+      <div class="card">
+        <h2>メンバー</h2>
+        <p class="muted small">Google アカウントのメールを登録すると、その人がログインできます。「管理者」は Shopify の接続・メンバー・品目の削除もできます。</p>
+        <div id="members" class="members"></div>
+        <form id="member-form" class="grid3">
+          <label>名前<input name="name" required maxlength="40"></label>
+          <label>Google のメール<input name="email" type="email" required></label>
+          <label>役割<select name="role"><option value="staff">スタッフ</option><option value="admin">管理者</option></select></label>
+          <div class="row end span3"><button class="primary">追加する</button></div>
+        </form>
+      </div>
+    </section>
+  </main>
+</div>
+
+<dialog id="item-dialog">
+  <form id="item-form" method="dialog">
+    <div class="dialog-head"><h2 id="item-title">品目</h2><button type="button" class="ghost" data-close>✕</button></div>
+    <div class="grid2">
+      <label class="span2">品目名<input name="name" required maxlength="120"></label>
+      <label>種類<select name="kind" id="kind-select"></select></label>
+      <label>単位<input name="unit" list="units" required maxlength="10"></label>
+      <label>単価（円／単位）<input name="unit_cost" type="number" step="any" min="0" inputmode="decimal"></label>
+      <label>補充の目安（これを下回ったら知らせる）<input name="reorder_point" type="number" step="any" min="0" inputmode="decimal"></label>
+      <label>SKU<input name="sku" maxlength="60"></label>
+      <label>メモ<input name="note" maxlength="2000"></label>
+    </div>
+    <datalist id="units"><option>個</option><option>g</option><option>kg</option><option>枚</option><option>袋</option><option>缶</option><option>本</option><option>箱</option><option>巻</option></datalist>
+    <label class="row check"><input type="checkbox" name="make_on_order">作り置きしない（売れたら構成品＝中身・袋・ティーバッグなどから引く）</label>
+    <label class="row check" id="push-row"><input type="checkbox" name="push_to_shopify">この在庫数（作れる数）を Shopify に反映する</label>
+    <label class="row check"><input type="checkbox" name="archived">使わない（一覧に出さない）</label>
+    <p class="muted small" id="item-shopify"></p>
+
+    <div class="bom" id="bom-box">
+      <h2>構成（1<span class="bom-unit"></span>つくるのに使うもの）</h2>
+      <p class="muted small">例：ほうじ茶ティーバッグ 2g×10P ＝ ほうじ茶 20g・ティーバッグ 10枚・袋 1枚・ラベル 1枚</p>
+      <div id="bom-lines" class="lines"></div>
+      <div class="row wrap">
+        <button type="button" class="small" id="bom-add">＋ 構成品を足す</button>
+        <span class="muted small" id="bom-cost"></span>
+        <button type="button" class="small" id="bom-apply" hidden>この原価を単価にする</button>
+      </div>
+    </div>
+
+    <p class="error" id="item-error"></p>
+    <div class="row end">
+      <button type="button" class="ghost danger" id="item-delete">削除</button>
+      <span class="grow"></span>
+      <button type="button" data-close>閉じる</button>
+      <button class="primary" id="item-save">保存</button>
+    </div>
+    <div id="item-history" class="item-history"></div>
+  </form>
+</dialog>
+
+<div id="toast" class="toast" hidden></div>
+<script type="module" src="app.js"></script>
+</body>
+</html>

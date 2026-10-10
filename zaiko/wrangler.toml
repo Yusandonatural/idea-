@@ -1,0 +1,28 @@
+name = "zaiko"
+main = "src/index.js"
+compatibility_date = "2026-09-01"
+# Cloudflare の管理画面で足した変数（OWNER_EMAILS など）を、デプロイで消さない
+keep_vars = true
+
+# 画面（public/）は build で Worker に埋め込んで配る（src/static.gen.js）
+[build]
+command = "node scripts/build-static.mjs"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "zaiko"
+database_id = "REPLACE_WITH_D1_ID"
+
+[triggers]
+# 10分ごと：Shopify の注文を取り込んで在庫を引き、在庫数を Shopify に反映する
+crons = ["*/10 * * * *"]
+
+[vars]
+# Google ログイン（Firebase Authentication。sns-hub・90日外国語アプリと同じ french90days プロジェクト。Web 用の公開値）
+FIREBASE_PROJECT_ID = "french90days"
+FIREBASE_API_KEY = "AIzaSyALxNcusytqt--Rq8yznBWuIniQY2ZKFCo"
+FIREBASE_AUTH_DOMAIN = "french90days.firebaseapp.com"
+
+# 秘密情報は `wrangler secret put` で入れる：
+#   ADMIN_PASSWORD  合言葉（オーナー用の予備ログイン）
+#   APP_SECRET      ログインの署名と、Shopify の鍵の暗号化に使う（長いランダム文字列）
