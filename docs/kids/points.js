@@ -16,7 +16,8 @@
   "use strict";
   var KEY = "kids-points:v1";
   var DAILY_BONUS = 0; // その日はじめてポイントをもらった時のおまけ（0 = なし。「べんきょう 1ぷん = 10ポイント」をそろえるため）
-  var PER_MIN = 10;    // べんきょう 1ぷん = 10ポイント（30ぷん = 300ポイント）
+  var PER_CORRECT = 5; // せいかい 1もん = 5ポイント（じかんには かんけいなし。30ぷんで 60もん くらい = 300ポイント）
+  var PER_MIN = 10;    // （むかしの きまり：べんきょう 1ぷん = 10ポイント。studyTime だけが つかう）
   var GAME_PER_MIN = 10; // ゲーム 1ぷん = 10ポイント（300ポイント = 30ぷん）
   var ICONS = ["🦊", "🐻", "🐰", "🐼", "🐯", "🐸", "🐧", "🦄"];
 
@@ -69,6 +70,7 @@
   var KP = {
     KEY: KEY,
     DAILY_BONUS: DAILY_BONUS,
+    PER_CORRECT: PER_CORRECT,
     PER_MIN: PER_MIN,
     GAME_PER_MIN: GAME_PER_MIN,
 
@@ -109,7 +111,33 @@
     /** 今のポイントで ゲームが 何ぷん できるか */
     gameMinutes: function (kidId) { return Math.floor(Math.max(0, KP.balance(kidId)) / GAME_PER_MIN); },
 
-    /** べんきょうした じかんを はかって、1ぷん = 10ポイント あげる（各アプリで1回よぶ）。
+    /** せいかいの かずで ポイントを あげる（各アプリで1回よぶ）。
+     *  せいかいの たびに .correct() をよぶと 1もん 5ポイント。50ポイント（10もん）たまるか、
+     *  レッスンの おわりに .flush()、画面を とじる・かくすと まとめて つける（とちゅうの ぶんも きえない）。 */
+    answers: function (app, opts) {
+      opts = opts || {};
+      var carryKey = KEY + ":ans:" + app, pend = 0;
+      try { pend = Math.max(0, Number(localStorage.getItem(carryKey)) || 0); } catch (e) { /* なし */ }
+      function keep() { try { localStorage.setItem(carryKey, String(pend)); } catch (e) { /* なし */ } }
+      function flush(toast) {
+        if (pend > 0) {
+          var n = pend / PER_CORRECT;
+          try { KP.award({ app: app, points: pend, reason: (opts.label || "せいかい") + " " + n + "もん", toast: toast !== false && opts.toast !== false }); pend = 0; } catch (e) { console.warn("KidsPoints", e); }
+        }
+        keep();
+      }
+      if (root.document) {
+        document.addEventListener("visibilitychange", function () { if (document.visibilityState === "hidden") flush(false); });
+        root.addEventListener("pagehide", function () { flush(false); });
+      }
+      if (pend >= 50) flush(false);
+      return {
+        correct: function (n) { pend += PER_CORRECT * (n || 1); if (pend >= 50) flush(); else keep(); },
+        flush: flush,
+      };
+    },
+
+    /** （いまは つかっていない）べんきょうした じかんを はかって、1ぷん = 10ポイント あげる（各アプリで1回よぶ）。
      *  画面が見えていて、さいごに さわってから 90びょう いないの あいだだけ 数える。
      *  5ふん たまるか、画面を とじる・かくすと まとめて つける。1ぷんに みたない はんぱは つぎに もちこす。
      *  返り値：{ flush()（今 たまっている分を つける）, pause(), resume() } */

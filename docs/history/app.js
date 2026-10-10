@@ -491,7 +491,7 @@
       if (q.f) grade(q.f, ok);
       S.ans++; if (ok) S.ok++;
     }
-    if (ok) { P.combo++; P.maxCombo = Math.max(P.maxCombo, P.combo); beep("ok"); }
+    if (ok) { P.combo++; P.maxCombo = Math.max(P.maxCombo, P.combo); beep("ok"); if (window.__kpAnswers) window.__kpAnswers.correct(); }
     else { P.combo = 0; beep("ng"); }
     var praise = ["せいかい！", "すごい！", "その調子！", "いいね！", "ばっちり！"];
     var fb = document.getElementById("fb");
@@ -520,6 +520,7 @@
   }
 
   function finish() {
+    if (window.__kpAnswers) window.__kpAnswers.flush();
     var acc = P.first ? P.firstOk / P.first : 0, secs = Math.round((Date.now() - P.t0) / 1000);
     var xp = 0, title = "", note = "", mood = "happy", extra = "";
     var before = todayXP();
