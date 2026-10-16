@@ -15,6 +15,7 @@ import build as B  # noqa: E402
 
 META = {
     "ko": {
+        "jaReplace": [["中国語", "韓国語"], ["中国", "韓国"], ["WeChat", "カカオトーク"]],
         "code": "ko", "name": "韓国語", "native": "한국어", "tts": "ko-KR", "joiner": " ",
         "reading": "読み（カナ）",
         "goal": "日常会話（自分のことと身の回りの話）",
@@ -96,13 +97,23 @@ def main(code):
     missing = [i["no"] for i in items if i["no"] not in tr]
     if missing:
         print(f"訳がない項目 {len(missing)}: {missing[:8]}")
+    # 意味リストの日本語を、その言語の国に合わせて言い換える（中国語→韓国語など）。合わない項目は ja_override.json で個別に
+    jao = {}
+    over = json.loads((src / "ja_override.json").read_text(encoding="utf-8")) if (src / "ja_override.json").exists() else {}
+    for i in items:
+        ja = i["ja"]
+        for a, b in meta.get("jaReplace", []):
+            ja = ja.replace(a, b)
+        ja = over.get(i["no"], ja)
+        if ja != i["ja"]:
+            jao[i["no"]] = ja
     read = lambda n: json.loads((src / n).read_text(encoding="utf-8")) if (src / n).exists() else []
     words = B.load_words(src)
     sentences = B.load_sentences(words, src, meta["joiner"])
 
-    lang = dict(meta)
+    lang = {k: v for k, v in meta.items() if k != "jaReplace"}
     lang.update({
-        "items": tr, "slots": read("slots.json") or {}, "sounds": read("sounds.json"), "known": read("known.json"),
+        "items": tr, "ja": jao, "slots": read("slots.json") or {}, "sounds": read("sounds.json"), "known": read("known.json"),
         "words": {w["id"]: {k: w.get(k) for k in ("zh", "py", "ja", "pos", "group", "ex", "note", "rank", "order", "day", "hanja")} for w in words},
         "sentences": sentences,
     })
@@ -113,7 +124,7 @@ def main(code):
         w.writerow(["頻度順位", "No.", "カテゴリ", "言いたいこと", "優先度", "Day", meta["name"], meta["reading"]])
         for i in sorted(items, key=lambda i: (i.get("freq") or 0, i["no"])):
             t = tr.get(i["no"], ["", ""])
-            w.writerow([i.get("freq") or "", i["no"], B.CAT_NAME[i["cat"]], i["ja"], B.STARS[i["pri"]], i["day"], t[0], t[1]])
+            w.writerow([i.get("freq") or "", i["no"], B.CAT_NAME[i["cat"]], jao.get(i["no"], i["ja"]), B.STARS[i["pri"]], i["day"], t[0], t[1]])
     with (out_csv / "words.csv").open("w", encoding="utf-8-sig", newline="") as f:
         w = csv.writer(f)
         w.writerow(["学ぶ順", "品詞", "品詞内の頻度順位", meta["name"], meta["reading"], "漢字", "意味", "グループ", "Day", "例文", "例文の読み", "例文の意味", "メモ"])

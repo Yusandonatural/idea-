@@ -254,7 +254,7 @@ window.__copy = id => { const el = document.getElementById(id); copy(el.textCont
 function slotWords(slot) { return (LANG.slots && LANG.slots[slot]) || []; }
 function textOf(no) {
   const m = M[no], tr = LANG.items[no] || ["", ""];
-  let ja = m.ja, zh = tr[0], py = tr[1], mine = false;
+  let ja = (LANG.ja && LANG.ja[no]) || m.ja, zh = tr[0], py = tr[1], mine = false; // 日本語は言語ごとの言い換えがあればそれを使う
   const me = S.me[no];
   if (m.self && me && (me.zh || me.ja)) {
     ja = ja.replace("○○", me.ja || "○○"); zh = zh.replace("○○", me.zh || "○○"); py = py.replace("○○", me.py || "○○"); mine = true;
