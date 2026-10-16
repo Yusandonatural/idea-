@@ -11,7 +11,7 @@
   docs/data/days.csv      90日テーマ表
   docs/data/slots.csv     差し替え単語
 """
-import csv, json, math
+import csv, json, math, re
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -33,6 +33,7 @@ SLOT_NAME = {
 }
 STARS = {3: "★★★", 2: "★★", 1: "★"}
 MONTH = {3: 1, 2: 2, 1: 3}
+PUNCT = re.compile(r"^[，。！？、,.!?…：:；;“”\"'（）()]+$")
 N_PATTERNS = 50  # docs/data/patterns.js の文型数（Day15〜64 に1日1つ）
 
 
@@ -113,11 +114,11 @@ def build_days(items, sounds, words=()):
 WORD_DAYS = 84  # 動詞・副詞・形容詞は Day1〜84 に均等に配る（残りは総仕上げ）
 
 
-def load_words():
+def load_words(src=None):
     """動詞・副詞・形容詞を読み込み、頻度の割合で1本の順番に混ぜる（動詞6：形容詞3：副詞2 くらい）"""
     words = []
     for fname, pos, prefix in (("verbs.json", "動詞", "v"), ("adverbs.json", "副詞", "a"), ("adjectives.json", "形容詞", "j")):
-        f = SRC / fname
+        f = (src or SRC) / fname
         if not f.exists():
             continue
         rows = json.loads(f.read_text(encoding="utf-8"))
@@ -135,16 +136,26 @@ def load_words():
     return words
 
 
-def load_sentences(words):
+def join_tokens(tokens, joiner=""):
+    """語の区切りをつなげて文に戻す。句読点の前にはつなぎ文字を入れない（韓国語はスペース区切り）"""
+    out = ""
+    for t in tokens:
+        if out and joiner and not PUNCT.match(t):
+            out += joiner
+        out += t
+    return out
+
+
+def load_sentences(words, src=None, joiner=""):
     """例文バンク（sentences_*.json）を読み込み、検証して、各文が使う単語IDを語の区切りから求める"""
     by_zh = {}
     for w in words:
         by_zh.setdefault(w["zh"], []).append(w["id"])
     ids = {w["id"] for w in words}
     out, bad, seen = [], [], set()
-    for f in sorted(SRC.glob("sentences_*.json")):
+    for f in sorted((src or SRC).glob("sentences_*.json")):
         for x in json.loads(f.read_text(encoding="utf-8")):
-            if "".join(x["tokens"]) != x["zh"]:
+            if join_tokens(x["tokens"], joiner) != x["zh"]:
                 bad.append(f"{x['id']}: tokens と zh が不一致"); continue
             if x["focus"] not in ids:
                 bad.append(f"{x['id']}: focus {x['focus']} が単語リストにない"); continue
@@ -152,7 +163,10 @@ def load_sentences(words):
                 continue  # 重複文は1つだけ残す
             seen.add(x["zh"])
             uses = sorted({i for t in x["tokens"] for i in by_zh.get(t, [])})
-            out.append([x["id"], x["focus"], x["zh"], x["py"], x["ja"], x["tokens"], x.get("level", 2), uses])
+            row = [x["id"], x["focus"], x["zh"], x["py"], x["ja"], x["tokens"], x.get("level", 2), uses]
+            if x.get("blank"):
+                row.append(x["blank"])  # 穴埋め用の指定（活用する言語では誤答も文ごとに用意する）
+            out.append(row)
     if bad:
         print("例文の警告:", len(bad), bad[:5])
     return out
