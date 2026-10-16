@@ -361,3 +361,6 @@ button.stat-chip.lang{font:inherit;font-family:var(--font-han);font-weight:800;f
 
 .hanja{display:inline-block;font-family:"Noto Serif JP","Hiragino Mincho ProN",serif;font-weight:700;font-size:15px;color:var(--purple-d);background:var(--purple-soft);border-radius:6px;padding:0 6px;margin-left:6px}
 .hanja-line{margin-top:6px;font-size:13px;color:var(--ink2)}
+
+/* 韓国語：語の途中で改行しない */
+.lang-ko .zh,.lang-ko .bubble-big,.lang-ko .py{word-break:keep-all;overflow-wrap:break-word}
