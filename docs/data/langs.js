@@ -13,12 +13,27 @@
     while (days[ymd(d)]) { n++; d.setDate(d.getDate() - 1); }
     return n;
   }
+  // 言語ごとのアプリの場所。中国語はサイト直下、ほかの言語は /<言語>/ の下にあるので、
+  // いま開いているページの位置からサイト直下を求めてリンクを作る（どの言語のページから見ても正しく飛べる）
+  var SUBDIRS = ["ko"];
+  var here = location.pathname.replace(/[^/]*$/, "");
+  var root = here;
+  SUBDIRS.forEach(function (c) { if (here.slice(-(c.length + 2)) === "/" + c + "/") root = here.slice(0, -(c.length + 1)); });
   window.LANGS = [
     {
       code: "zh", name: "中国語", native: "中文", flag: "🇨🇳", color: "green",
-      url: "#/today",
+      url: root + "#/today",
       summary: function () {
         var S = read("lang90:zh");
+        if (!S) return null;
+        return { started: !!S.started, day: S.day || 1, done: Object.keys(S.finished || {}).length, xp: S.xp || 0, streak: streak(S.active) };
+      },
+    },
+    {
+      code: "ko", name: "韓国語", native: "한국어", flag: "🇰🇷", color: "purple",
+      url: root + "ko/#/today",
+      summary: function () {
+        var S = read("lang90:ko");
         if (!S) return null;
         return { started: !!S.started, day: S.day || 1, done: Object.keys(S.finished || {}).length, xp: S.xp || 0, streak: streak(S.active) };
       },

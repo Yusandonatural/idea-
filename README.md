@@ -59,6 +59,15 @@ google-ids.json                     GA4・広告・サイトURL
 - 手元で試す：Firebase エミュレーター（auth :9099・firestore :8085、`--project demo-french`）を起動し、`http://localhost:8000/?emulator#/more` を開く。
 - 詳しくは french-90days の `SYNC_HANDOFF.md`。
 
+## 韓国語版（`docs/ko/`）
+
+中国語版と同じアプリ本体（`docs/app.js`・`style.css`）と同じ意味リスト・90日の日割りで動く韓国語版。公開先は `/ko/`。
+
+- 教材の原本：`docs/data/src/ko/`（意味リストの訳 `items_*.json`、差し替え単語、音トップ10、知っている漢字語、動詞300・副詞100・形容詞150、例文1,198文、文型50・文法地図・会話12場面）。書き方は `docs/data/src/ko/KO_SCHEMA.md`
+- 直したら `python3 tools/build_lang.py ko`。`docs/data/lang/ko.js` と `docs/ko/data/*.csv`、`docs/ko/` のページ・manifest・オフライン設定を作り直す（`docs/ko/index.html` は中国語版の `docs/index.html` から毎回生成するので手で直さない）
+- 読みは発音どおりのカタカナ。漢字語には元の漢字を表示。意味リストの日本語の「中国語・中国・WeChat」などは韓国向けに言い換えて表示（`ja_override.json`）
+- 記録は `lang90:ko`、ログイン同期は Firestore の `progress-ko/{ユーザーID}`
+
 ## 百人一首まなび（`docs/hyakunin/`）
 
 小倉百人一首100首を、20首ずつ5つの巻に分けて覚えるアプリ。公開URLは `https://lang90.yusando.com/hyakunin/`（同じ GitHub Pages に同居、ビルド不要）。
