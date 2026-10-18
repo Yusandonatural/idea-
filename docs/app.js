@@ -132,8 +132,8 @@ function openLangSheet() {
       <div class="sheet-grip" aria-hidden="true"></div>
       <h2 id="langSheetTitle" class="sheet-title">学ぶ言語を選ぶ</h2>
       <div class="sheet-list">${langs.map(l => {
-        const cur = l.code === LANG.code, ext = /^https?:/.test(l.url);
-        return `<a class="sheet-lang ${cur ? "cur" : ""} c-${l.color}" href="${esc(cur ? "#/today" : l.url)}"${cur ? ' data-close aria-current="true"' : ""}${ext ? "" : ""}>
+        const cur = l.code === LANG.code;
+        return `<a class="sheet-lang ${cur ? "cur" : ""} c-${l.color}" href="${esc(cur ? "#/today" : langHref(l))}"${cur ? ' data-close aria-current="true"' : langSwitch(l)}>
           <span class="lc-flag" aria-hidden="true">${l.flag}</span>
           <span class="lc-text"><b>${esc(l.name)}</b><span class="lc-native">${esc(l.native)}</span><span class="lc-status">${esc(langStatus(l))}</span></span>
           ${cur ? `<span class="sheet-cur">${icon("check")}学習中</span>` : `<span class="chev">›</span>`}</a>`;
@@ -150,6 +150,17 @@ function openLangSheet() {
   if (first) first.focus();
 }
 document.addEventListener("click", e => { if (e.target.closest && e.target.closest("#langBtn")) openLangSheet(); });
+// 1ファイル版（claude.ai）は言語ごとのページがないので、同じページの中で言語を入れ替えて読み直す
+const EMBED_LANGS = window.__EMBED_LANGS__ || [];
+const langHref = l => EMBED_LANGS.includes(l.code) ? "#/today" : l.url;
+const langSwitch = l => EMBED_LANGS.includes(l.code) ? ` data-switch="${l.code}"` : "";
+document.addEventListener("click", e => {
+  const a = e.target.closest && e.target.closest("[data-switch]"); if (!a) return;
+  e.preventDefault();
+  window.__setEmbedLang__(a.dataset.switch);
+  location.hash = "#/today";
+  location.reload();
+});
 
 function ring(p, size) {
   const r = (size - 4) / 2, c = 2 * Math.PI * r;
@@ -569,7 +580,7 @@ views.start = function () {
     const status = !on ? "まだ始めていません"
       : `${s.started ? `${s.day}日目 ・ ` : ""}⚡ ${s.xp} XP${s.streak ? ` ・ 🔥 ${s.streak}日連続` : ""}`;
     const ext = /^https?:/.test(l.url);
-    return `<a class="lang-card c-${l.color}" href="${esc(l.url)}"${ext ? "" : ` data-lang="${l.code}"`}>
+    return `<a class="lang-card c-${l.color}" href="${esc(langHref(l))}"${ext ? "" : ` data-lang="${l.code}"`}${l.code === LANG.code ? "" : langSwitch(l)}>
       <span class="lc-flag" aria-hidden="true">${l.flag}</span>
       <span class="lc-text"><b>${esc(l.name)}</b><span class="lc-native">${esc(l.native)}</span>
         <span class="lc-status">${status}</span>
