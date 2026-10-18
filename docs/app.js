@@ -759,7 +759,7 @@ views.practice = function () {
   return `<h2 class="page-title">練習</h2>
   ${SENTS.length ? row("#/sdrill", "dumbbell", "orange", "例文ドリル", `並べ替え・穴埋め・聞き取り・言ってみる（${SENTS.length}文）`) : ""}
   ${row(`#/review/${S.day}`, "cards", "green", "復習カード", due ? `期限が来たカード ${due}枚` : "期限が来たカードはありません")}
-  ${row("#/quiz", "head", "blue", "聞き分けテスト", "声調と似た音を耳で聞き分ける")}
+  ${row("#/quiz", "head", "blue", "聞き分けテスト", LANG.code === "zh" ? "声調と似た音を耳で聞き分ける" : "似た音を耳で聞き分ける")}
   ${row("#/sounds", "head", "blue", "日本人がつまずく音 トップ10", "口の形と例の語")}
   ${row("#/patterns", "dumbbell", "orange", "文型の入れ替えドリル", `${(window.PATTERNS || []).length}の型`)}
   ${row("#/check", "trophy", "gold", "到達チェック", "1・30・60・90日目に録音して聞き比べ")}
@@ -867,13 +867,13 @@ views.list = function (arg, arg2) {
 // ---------- 画面：わたしの答え（自分専用スロット） ----------
 views.me = function () {
   const items = MEANINGS.filter(m => m.self);
-  const pr = `次の日本語の「○○」に入る私の答えを、${LANG.name}にしてください。ピンインも。\n` + items.map(m => `・${m.ja}（私の答え：${(S.me[m.no] || {}).ja || "＿＿"}）`).join("\n");
+  const pr = `次の日本語の「○○」に入る私の答えを、${LANG.name}にしてください。${LANG.reading || "ピンイン"}も。\n` + items.map(m => `・${m.ja}（私の答え：${(S.me[m.no] || {}).ja || "＿＿"}）`).join("\n");
   return `<h2>わたしの答え <span class="tag">${items.length}</span></h2>
   <p class="muted">自己紹介・仕事・家族・趣味などは、あなた自身の答えで練習します。日本語の答えを入れ、${esc(LANG.name)}がわかれば一緒に入れてください（例：奈良 → 奈良 Nàiliáng）。保存すると復習カードと AI 会話プロンプトに反映されます。</p>
   ${items.map(m => { const t = LANG.items[m.no] || ["", ""], me = S.me[m.no] || {}; const ex = m.slot ? slotWords(m.slot).slice(0, 6) : [];
     return `<div class="card" data-me="${m.no}"><div><strong>${esc(m.ja)}</strong> <span class="muted">${esc(t[0])}</span></div>
       ${ex.length ? `<div class="chips" style="margin:6px 0">${ex.map(e => `<button class="small" data-pick='${esc(JSON.stringify(e))}'>${esc(e[0])}</button>`).join("")}</div>` : ""}
-      <div class="row"><input type="text" class="meJa" placeholder="日本語の答え" value="${esc(me.ja || "")}" style="flex:1"><input type="text" class="meZh" placeholder="${esc(LANG.name)}" value="${esc(me.zh || "")}" style="flex:1"><input type="text" class="mePy" placeholder="ピンイン" value="${esc(me.py || "")}" style="flex:1"></div>
+      <div class="row"><input type="text" class="meJa" placeholder="日本語の答え" value="${esc(me.ja || "")}" style="flex:1"><input type="text" class="meZh" placeholder="${esc(LANG.name)}" value="${esc(me.zh || "")}" style="flex:1"><input type="text" class="mePy" placeholder="${esc(LANG.reading || "ピンイン")}" value="${esc(me.py || "")}" style="flex:1"></div>
       ${me.zh ? `<div class="zh" style="font-size:18px;margin-top:6px">${esc(textOf(m.no).zh)} ${spk(textOf(m.no).zh)}</div>` : ""}</div>`; }).join("")}
   <div class="row"><button class="primary" id="meSave">保存</button></div>
   <h3>訳がわからないとき</h3><pre class="prompt" id="mePrompt">${esc(pr)}</pre><button class="small" onclick="__copy('mePrompt')">AIに聞くプロンプトをコピー</button>`;
@@ -886,7 +886,7 @@ views.known = function () {
   const ng = k.filter(x => String(x[3] || "").startsWith("注意"));
   return `<h2>実はもう知っている語 <span class="tag">${ok.length}</span></h2>
   <p class="muted">漢字が読める日本人は、初日からこれだけの${esc(LANG.name)}の意味がわかります。発音だけ覚えれば使えます。🔊 を押して、まねして言ってみましょう。</p>
-  <div class="card" style="overflow-x:auto"><table><tr><th>日本語</th><th>${esc(LANG.name)}</th><th>ピンイン</th><th>メモ</th></tr>${ok.map(x => `<tr><td>${esc(x[0])}</td><td class="zh" style="font-size:19px">${esc(x[1])} ${spk(x[1])}</td><td class="py">${esc(x[2])}</td><td class="ja">${esc(x[3] || "")}</td></tr>`).join("")}</table></div>
+  <div class="card" style="overflow-x:auto"><table><tr><th>日本語</th><th>${esc(LANG.name)}</th><th>${esc(LANG.reading || "ピンイン")}</th><th>メモ</th></tr>${ok.map(x => `<tr><td>${esc(x[0])}</td><td class="zh" style="font-size:19px">${esc(x[1])} ${spk(x[1])}</td><td class="py">${esc(x[2])}</td><td class="ja">${esc(x[3] || "")}</td></tr>`).join("")}</table></div>
   ${ng.length ? `<h3>注意：形は同じでも意味が違う語</h3><div class="card"><table>${ng.map(x => `<tr><td>${esc(x[0])}</td><td class="zh" style="font-size:19px">${esc(x[1])}</td><td class="py">${esc(x[2])}</td><td class="ja">${esc(x[3])}</td></tr>`).join("")}</table></div>` : ""}`;
 };
 
