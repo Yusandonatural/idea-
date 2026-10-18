@@ -557,13 +557,14 @@ views.today = function (arg) {
       <div class="gc-text"><div class="gc-day">${cur}日目 ・ ${esc(d.theme)}</div>
         <div class="muted">${nb ? `次は「${esc(nb.name)}」${nb.min}分` : "今日の4レッスンが終わりました"}</div></div>
       <a class="btn primary" href="${nb ? `#/${nb.key}/${cur}` : `#/day/${cur}`}">${nb ? (min ? "つづける" : "はじめる") : "クリアへ"}</a>
-    </div>${units}`;
+    </div>${hgNext() ? `<a class="hg-banner" href="#/hangul/${hgNext().id}"><span class="hg-banner-ch">한</span><span><b>まずは文字（ハングル）から</b><span>${hgDone()}/${HANGUL.lessons.length}課 ・ 次は「${esc(hgNext().title)}」</span></span><span class="chev">›</span></a>` : ""}${units}`;
 };
 function welcome() {
   return `<section class="welcome">
     <div class="wl-mascot">${mascot(150, "happy")}</div>
     <h1 class="wl-title">1日60分 × 90日で、<br>${esc(LANG.name)}で自分のことを話そう</h1>
     <p class="muted wl-sub">3ヶ月後の約束：${esc(LANG.goalLong)}</p>
+    ${HANGUL ? `<p class="muted wl-sub">文字（ハングル）は1〜${HANGUL.lessons.length}日目に1課ずつ覚えます。<a href="#/hangul">先に見てみる</a></p>` : ""}
     <div class="wl-stats"><div><b>${MEANINGS.length}</b><span>言いたいこと</span></div><div><b>90</b><span>日</span></div><div><b>${(LANG.known || []).filter(x => !String(x[3] || "").startsWith("注意")).length}</b><span>もう読める語</span></div></div>
     <div class="wl-actions">
       <button class="btn primary big" id="startBtn">はじめる</button>
@@ -603,6 +604,7 @@ views.day = function (arg) {
   const day = Math.max(1, Math.min(90, parseInt(arg || S.day, 10))), d = DAYS[day - 1], b = S.blocks[day] || {};
   const isCur = day === S.day, all = BLOCKS.every(x => b[x.key]);
   const extra = [];
+  if (HANGUL && HANGUL.lessons.some(l => l.id === day)) extra.push(`<a href="#/hangul/${day}">${icon("pencil")}文字 ${day}/${HANGUL.lessons.length}</a>`);
   if (d.known) extra.push(`<a href="#/known">${icon("star")}もう知っている語</a>`);
   if (d.sound) extra.push(`<a href="#/sounds/${d.sound}">${icon("head")}音 ${d.sound}/10</a>`);
   if (d.soundReview) extra.push(`<a href="#/quiz">${icon("head")}聞き分けテスト</a>`);
@@ -684,6 +686,7 @@ views.listen = function (arg) {
   const day = parseInt(arg || S.day, 10), d = DAYS[day - 1];
   const sc = (window.SCENES || {})[d.scene];
   let body = `<div class="ltitle">聞いて、まねして言おう</div>`;
+  if (hgCard(day)) body += `<h3>今日の文字</h3>` + hgCard(day);
   if (d.sound) body += `<h3>今日の音（${d.sound}/10）</h3>` + soundCard(LANG.sounds[d.sound - 1]);
   if (d.soundReview) body += `<a class="hub-row" href="#/quiz"><span class="lr-ic c-blue">${icon("head")}</span><span class="lr-text"><b>聞き分けテスト（5分）</b><span class="muted">音トップ10の総ざらい</span></span></a>`;
   body += `<h3>今日のフレーズ</h3><div class="card"><button class="btn primary small" id="playAll">${icon("play")}全部を順に再生</button>
@@ -757,6 +760,7 @@ views.practice = function () {
   const due = S.started ? dueCards().length : 0;
   const row = (href, ic, color, title, sub) => `<a class="hub-row" href="${href}"><span class="lr-ic c-${color}">${icon(ic)}</span><span class="lr-text"><b>${title}</b><span class="muted">${sub}</span></span><span class="chev">›</span></a>`;
   return `<h2 class="page-title">練習</h2>
+  ${HANGUL ? row("#/hangul", "pencil", "purple", "ハングル（文字）", `${hgDone()}/${HANGUL.lessons.length}課 ・ ハングル表で読み上げ`) : ""}
   ${SENTS.length ? row("#/sdrill", "dumbbell", "orange", "例文ドリル", `並べ替え・穴埋め・聞き取り・言ってみる（${SENTS.length}文）`) : ""}
   ${row(`#/review/${S.day}`, "cards", "green", "復習カード", due ? `期限が来たカード ${due}枚` : "期限が来たカードはありません")}
   ${row("#/quiz", "head", "blue", "聞き分けテスト", LANG.code === "zh" ? "声調と似た音を耳で聞き分ける" : "似た音を耳で聞き分ける")}
@@ -815,6 +819,120 @@ views.quiz = function () {
   return lessonShell({ exit: "#/practice", p: quiz.n / 10, right: `<span class="lcount">${quiz.n}/10</span>`, body, foot, footClass: picked ? (right ? "fb-ok" : "fb-ng") : "" });
 };
 
+// ---------- 文字（ハングル）：1〜9日目に1課ずつ ----------
+const HANGUL = LANG.hangul || null;
+const HG_L = "ㄱㄲㄴㄷㄸㄹㅁㅂㅃㅅㅆㅇㅈㅉㅊㅋㅌㅍㅎ", HG_V = "ㅏㅐㅑㅒㅓㅔㅕㅖㅗㅘㅙㅚㅛㅜㅝㅞㅟㅠㅡㅢㅣ";
+const HG_T = ["", "ㄱ", "ㄲ", "ㄳ", "ㄴ", "ㄵ", "ㄶ", "ㄷ", "ㄹ", "ㄺ", "ㄻ", "ㄼ", "ㄽ", "ㄾ", "ㄿ", "ㅀ", "ㅁ", "ㅂ", "ㅄ", "ㅅ", "ㅆ", "ㅇ", "ㅈ", "ㅊ", "ㅋ", "ㅌ", "ㅍ", "ㅎ"];
+/** 1文字（音節）を 子音・母音・パッチム に分ける */
+function hgSplit(ch) {
+  const c = ch.charCodeAt(0) - 0xac00;
+  if (c < 0 || c > 11171) return null;
+  return [HG_L[Math.floor(c / 588)], HG_V[Math.floor(c % 588 / 28)], HG_T[c % 28]];
+}
+const hgJoin = (l, v) => String.fromCharCode(0xac00 + (HG_L.indexOf(l) * 21 + HG_V.indexOf(v)) * 28);
+const hgParts = w => [...w].map(ch => { const p = hgSplit(ch); return p ? `<span class="hg-part"><b>${esc(ch)}</b><small>${p.filter(Boolean).map(esc).join("＋")}</small></span>` : ""; }).join("");
+const hgDone = () => HANGUL ? HANGUL.lessons.filter(l => (S.hangul || {})[l.id]).length : 0;
+const hgNext = () => HANGUL && HANGUL.lessons.find(l => !(S.hangul || {})[l.id]);
+function hgCard(n) {
+  if (!HANGUL) return "";
+  const l = HANGUL.lessons.find(x => x.id === n);
+  if (!l) return "";
+  const done = (S.hangul || {})[n];
+  return `<a class="hub-row" href="#/hangul/${n}"><span class="lr-ic c-purple">${icon(done ? "check" : "pencil")}</span><span class="lr-text"><b>文字 ${n}/${HANGUL.lessons.length}：${esc(l.title)}</b><span class="muted">${done ? "済み（もう一度できます）" : "カードで覚えて、10問のクイズ（約10分）"}</span></span><span class="chev">›</span></a>`;
+}
+let hg = null;
+function hgQuiz(l) {
+  const others = HANGUL.lessons.filter(x => x.id !== l.id && x.kind === l.kind).sort((a, b) => Math.abs(a.id - l.id) - Math.abs(b.id - l.id)).flatMap(x => x.letters);
+  const letterOpts = ans => {
+    const pool = l.letters.filter(x => x !== ans).concat(others);
+    const out = [ans];
+    for (const x of shuffle(pool.slice(0, Math.max(3, l.letters.length - 1))).concat(pool)) if (out.length < 4 && !out.some(o => o[1] === x[1] || o[3] === x[3])) out.push(x); // 同じ読み（ㅐとㅔ など）は並べない
+    return shuffle(out);
+  };
+  const allWords = HANGUL.lessons.filter(x => x.id <= l.id).flatMap(x => x.words);
+  const wordOpts = (ans, key) => {
+    const pool = shuffle(l.words.filter(x => x !== ans)).concat(shuffle(allWords));
+    const out = [ans];
+    for (const x of pool) if (out.length < 4 && !out.some(o => o[key] === x[key] || o[0] === x[0])) out.push(x);
+    return shuffle(out);
+  };
+  const types = l.letters.length ? ["read", "listen", "word", "read", "listen", "word", "read", "listen", "word", "read"] : ["meaning", "wlisten", "meaning", "wlisten", "meaning", "wlisten", "meaning", "wlisten", "meaning", "wlisten"];
+  const L = shuffle(l.letters), Wd = shuffle(l.words);
+  let li = 0, wi = 0;
+  return types.map(t => {
+    if (t === "read" || t === "listen") { const a = L[li++ % L.length]; return { t, a, opts: letterOpts(a) }; }
+    const a = Wd[wi++ % Wd.length];
+    return { t, a, opts: wordOpts(a, t === "meaning" ? 2 : 1) };
+  });
+}
+function hgOpt(q, o) {
+  if (q.t === "read") return `<span class="py">${esc(o[3])}</span><span class="muted">${esc(o[2])}</span>`;
+  if (q.t === "listen") return `<span class="zh">${esc(o[1])}</span>`;
+  if (q.t === "word") return `<span class="py">${esc(o[1])}</span>`;
+  if (q.t === "meaning") return `<span class="ja">${esc(o[2])}</span>`;
+  return `<span class="zh">${esc(o[0])}</span>`;
+}
+const hgSay = q => q.t === "read" || q.t === "listen" ? q.a[1] : q.a[0];
+views.hangul = function (arg) {
+  if (!HANGUL) return `<p class="muted">この言語には文字のレッスンはありません。</p>`;
+  const n = parseInt(arg, 10), l = HANGUL.lessons.find(x => x.id === n);
+  if (!l) {
+    const cons = "ㄱㄴㄷㄹㅁㅂㅅㅇㅈㅊㅋㅌㅍㅎㄲㄸㅃㅆㅉ", vows = "ㅏㅑㅓㅕㅗㅛㅜㅠㅡㅣ";
+    return `<h2 class="page-title">ハングル（文字）</h2>
+    <p class="muted">${esc(HANGUL.intro)}</p>
+    <div class="hg-progress"><b>${hgDone()}</b> / ${HANGUL.lessons.length} 課</div>
+    ${HANGUL.lessons.map(x => hgCard(x.id)).join("")}
+    <h3>ハングル表（押すと読み上げ）</h3>
+    <div class="card hg-chart-wrap"><table class="hg-chart"><tr><th></th>${[...vows].map(v => `<th>${v}</th>`).join("")}</tr>
+      ${[...cons].map(c => `<tr><th>${c}</th>${[...vows].map(v => { const ch = hgJoin(c, v); return `<td><button type="button" onclick="__speak('${ch}')">${ch}</button></td>`; }).join("")}</tr>`).join("")}</table></div>`;
+  }
+  if (!hg || hg.id !== n) hg = { id: n, phase: l.letters.length ? "learn" : "quiz", qs: null, i: 0, ok: 0 };
+  const exit = "#/hangul";
+  if (hg.phase === "learn") {
+    const body = `<div class="ltitle">${esc(l.title)}</div><p class="muted">${esc(l.intro)}</p>
+      <div class="hg-letters">${l.letters.map(x => `<div class="hg-letter"><button type="button" class="hg-big" onclick="__speak('${x[1]}')" aria-label="${esc(x[1])}を読み上げ">${esc(x[0])}</button>
+        <div class="hg-read"><b>${esc(x[3])}</b> <span class="muted">${esc(x[2])}</span>${x[1] !== x[0] ? `<span class="hg-say">${esc(x[1])}</span>` : ""}</div><div class="hg-hint">${esc(x[4])}</div></div>`).join("")}</div>
+      <h3>例の語</h3><div class="card">${l.words.map(w => `<div class="hg-word"><div><span class="zh">${esc(w[0])}</span> ${spk(w[0])}<div class="py">${esc(w[1])}</div><div class="ja">${esc(w[2])}</div></div><div class="hg-parts">${hgParts(w[0])}</div></div>`).join("")}</div>`;
+    return lessonShell({ exit, p: 0.15, body, foot: `<button class="btn big primary wide" id="hgQuiz">覚えた！クイズへ（10問）</button>` });
+  }
+  if (!hg.qs) hg.qs = hgQuiz(l);
+  if (hg.i >= hg.qs.length) {
+    const r = hg, first = !(S.hangul || {})[n]; hg = null;
+    S.hangul = S.hangul || {}; if (first) { S.hangul[n] = today(); gainXP(10); } save();
+    const next = HANGUL.lessons.find(x => x.id === n + 1);
+    return doneScreen({ title: `文字 ${n}課クリア！`, sub: next ? `次は「${next.title}」` : "これでハングルはひと通り読めます",
+      tiles: [["正解", `${r.ok}/${r.qs.length}`, "green"], ["獲得XP", "+" + (r.ok * 2 + (first ? 10 : 0)), "gold"], ["文字", `${hgDone()}/${HANGUL.lessons.length}`, "purple"]],
+      actions: `<a class="btn primary big" href="#/today">道にもどる</a>${next ? `<a class="btn" href="#/hangul/${next.id}">次の課へ</a>` : ""}<a class="btn" href="#/hangul">文字の一覧</a>` });
+  }
+  const q = hg.qs[hg.i], picked = q.picked != null, right = picked && q.opts[q.picked] === q.a;
+  const ask = { read: ["この文字の読みは？", true], listen: ["聞こえたのはどれ？", false], word: ["この語の読みは？", true], meaning: ["声に出して読んでみよう。意味は？", true], wlisten: ["聞こえた語はどれ？", false] }[q.t];
+  const body = `<div class="ltitle">${ask[0]}</div>
+    ${ask[1] ? `<div class="hg-q"><span class="zh">${esc(hgSay(q))}</span>${picked ? ` ${spk(hgSay(q))}` : ""}</div>`
+             : `<div class="row center"><button class="play-big" id="hgPlay" aria-label="再生">${icon("play")}</button><button class="btn small" id="hgSlow">ゆっくり</button></div>`}
+    <div class="quiz-opts">${q.opts.map((o, i) => `<button class="opt ${picked && o === q.a ? "right" : ""} ${picked && i === q.picked && o !== q.a ? "wrong" : ""}" data-hgo="${i}" ${picked ? "disabled" : ""}>${hgOpt(q, o)}</button>`).join("")}</div>
+    ${picked && q.t !== "read" && q.t !== "listen" ? `<div class="hg-parts center">${hgParts(q.a[0])}</div>` : ""}`;
+  const ansText = q.t === "read" ? `${q.a[3]}（${q.a[2]}）` : q.t === "listen" ? q.a[1] : q.t === "word" ? q.a[1] : q.t === "meaning" ? q.a[2] : q.a[0];
+  const foot = picked ? `<div class="fb-msg">${icon(right ? "check" : "x", "fb-ic")}<div><b>${right ? "正解！ +2 XP" : "おしい！"}</b>${right ? "" : `<div>正解は ${esc(ansText)}</div>`}</div></div><button class="btn big ${right ? "primary" : "orange"}" id="hgNext">つづける</button>`
+    : `<button class="btn big wide" disabled>選んでください</button>`;
+  return lessonShell({ exit, p: 0.2 + 0.8 * hg.i / hg.qs.length, right: `<span class="lcount">${hg.i + 1}/${hg.qs.length}</span>`, body, foot, footClass: picked ? (right ? "fb-ok" : "fb-ng") : "" });
+};
+function bindHangul() {
+  if (!hg) return;
+  const on = (sel, fn) => { const el = $(sel); if (el) el.onclick = fn; };
+  on("#hgQuiz", () => { hg.phase = "quiz"; route(); });
+  const q = hg.qs && hg.qs[hg.i];
+  if (!q) return;
+  const play = r => speak(hgSay(q), r);
+  on("#hgPlay", () => play()); on("#hgSlow", () => play(0.6));
+  if (q.picked == null && (q.t === "listen" || q.t === "wlisten")) setTimeout(() => play(), 300);
+  $$("[data-hgo]").forEach(b => b.onclick = () => {
+    if (q.picked != null) return; q.picked = parseInt(b.dataset.hgo, 10);
+    if (q.opts[q.picked] === q.a) { hg.ok++; gainXP(2); } else { S.active[today()] = 1; save(); }
+    speak(hgSay(q)); route();
+  });
+  on("#hgNext", () => { hg.i++; route(); });
+}
+
 // ---------- 文型ドリル ----------
 let drill = null;
 views.drill = function (arg) {
@@ -839,7 +957,7 @@ views.drill = function (arg) {
 // ---------- 画面：90日表 ----------
 views.plan = function () {
   const rows = m => DAYS.filter(d => d.month === m).map(d => `<tr class="${d.day === S.day ? "cur" : ""} ${S.finished[d.day] ? "fin" : ""}"><td><a href="#/today/${d.day}">Day ${d.day}</a></td><td>${esc(d.theme)}</td><td>${d.items.length}</td>
-    <td>${[d.known ? "知っている語" : "", d.sound ? "音" + d.sound : "", d.soundReview ? "聞き分け" : "", d.pattern != null ? "文型" + (d.pattern + 1) : "", d.session ? "会話セッション" : "", d.check ? "到達チェック" : ""].filter(Boolean).map(x => `<span class="tag grey">${x}</span>`).join("")}</td></tr>`).join("");
+    <td>${[HANGUL && HANGUL.lessons.some(l => l.id === d.day) ? "文字" + d.day : "", d.known ? "知っている語" : "", d.sound ? "音" + d.sound : "", d.soundReview ? "聞き分け" : "", d.pattern != null ? "文型" + (d.pattern + 1) : "", d.session ? "会話セッション" : "", d.check ? "到達チェック" : ""].filter(Boolean).map(x => `<span class="tag grey">${x}</span>`).join("")}</td></tr>`).join("");
   return `<h2>90日のテーマ表</h2><p class="muted">優先度★★★を1ヶ月目、★★を2ヶ月目、★を3ヶ月目に配置。各月の中は「つなぐ技術 → 自分のこと → 質問 → 旅先 → 気持ち → 予定と過去 → 困ったとき」の順です。${EMBED ? "" : '<a href="data/days.csv" download>CSVで保存</a>'}</p>
   ${[1, 2, 3].map(m => `<h3>${m}ヶ月目：${esc(monthGoal(m))}</h3><div class="card" style="overflow-x:auto"><table class="daytable"><tr><th>Day</th><th>テーマ</th><th>新規</th><th>その日の追加メニュー</th></tr>${rows(m)}</table></div>`).join("")}`;
 };
@@ -984,7 +1102,7 @@ function paintTones(root) {
 const toneLegend = `<div class="tone-legend"><span class="t1">1声 ā</span><span class="t2">2声 á</span><span class="t3">3声 ǎ</span><span class="t4">4声 à</span><span class="t5">軽声 a</span></div>`;
 
 // ---------- ルーティング ----------
-const TAB = { today: "today", day: "today", clear: "today", practice: "practice", quiz: "practice", sounds: "practice", patterns: "practice", drill: "practice", check: "practice", known: "practice", list: "list", me: "me", more: "more", plan: "more", grammar: "more", vocab: "practice", sdrill: "practice", about: "more" };
+const TAB = { hangul: "practice", today: "today", day: "today", clear: "today", practice: "practice", quiz: "practice", sounds: "practice", patterns: "practice", drill: "practice", check: "practice", known: "practice", list: "list", me: "me", more: "more", plan: "more", grammar: "more", vocab: "practice", sdrill: "practice", about: "more" };
 function route() {
   const h = location.hash.replace(/^#\/?/, "") || "start";
   const [name, arg, arg2] = h.split("/");
@@ -1056,6 +1174,7 @@ function bind(name, arg) {
   // わたしの答え
   $$("[data-pick]").forEach(b => b.onclick = () => { const e = JSON.parse(b.dataset.pick), card = b.closest("[data-me]"); card.querySelector(".meJa").value = e[0]; card.querySelector(".meZh").value = e[1]; card.querySelector(".mePy").value = e[2]; });
   on("#meSave", () => { $$("[data-me]").forEach(c => { const no = c.dataset.me, ja = c.querySelector(".meJa").value.trim(), zh = c.querySelector(".meZh").value.trim(), py = c.querySelector(".mePy").value.trim(); if (ja || zh) S.me[no] = { ja, zh, py }; else delete S.me[no]; }); save(); toast("保存しました"); route(); });
+  if (name === "hangul") bindHangul();
   // 聞き分け
   if (name === "quiz" && quiz) {
     const qq = quiz.q, play = r => speak(qq.ans[0], r);

@@ -65,6 +65,7 @@ google-ids.json                     GA4・広告・サイトURL
 
 - 教材の原本：`docs/data/src/ko/`（意味リストの訳 `items_*.json`、差し替え単語、音トップ10、知っている漢字語、動詞300・副詞100・形容詞150、例文1,198文、文型50・文法地図・会話12場面）。書き方は `docs/data/src/ko/KO_SCHEMA.md`
 - 直したら `python3 tools/build_lang.py ko`。`docs/data/lang/ko.js` と `docs/ko/data/*.csv`、`docs/ko/` のページ・manifest・オフライン設定を作り直す（`docs/ko/index.html` は中国語版の `docs/index.html` から毎回生成するので手で直さない）
+- 文字（ハングル）は1〜9日目に1課ずつ：基本の母音①②・基本の子音①②・激音・濃音・組み合わせの母音・パッチム・知っている語を読む。各課はカードで覚えて10問のクイズ。ハングル表（押すと読み上げ）つき。原本は `docs/data/src/ko/hangul.json`
 - 読みは発音どおりのカタカナ。漢字語には元の漢字を表示。意味リストの日本語の「中国語・中国・WeChat」などは韓国向けに言い換えて表示（`ja_override.json`）
 - 記録は `lang90:ko`、ログイン同期は Firestore の `progress-ko/{ユーザーID}`
 
