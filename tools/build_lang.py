@@ -117,6 +117,8 @@ def main(code):
         "words": {w["id"]: {k: w.get(k) for k in ("zh", "py", "ja", "pos", "group", "ex", "note", "rank", "order", "day", "hanja")} for w in words},
         "sentences": sentences,
     })
+    if (src / "hangul.json").exists():  # 文字のレッスン（韓国語のハングルなど）
+        lang["hangul"] = read("hangul.json")
     (B.OUT / "lang" / f"{code}.js").write_text(f"// 自動生成（tools/build_lang.py {code}）\n" + B.js("LANG", lang), encoding="utf-8")
 
     with (out_csv / "meanings.csv").open("w", encoding="utf-8-sig", newline="") as f:
