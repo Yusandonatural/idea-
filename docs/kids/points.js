@@ -16,7 +16,7 @@
   "use strict";
   var KEY = "kids-points:v1";
   var DAILY_BONUS = 0; // その日はじめてポイントをもらった時のおまけ（0 = なし。「べんきょう 1ぷん = 10ポイント」をそろえるため）
-  var PER_CORRECT = 5; // せいかい 1もん = 5ポイント（じかんには かんけいなし。30ぷんで 60もん くらい = 300ポイント）
+  var PER_CORRECT = 3; // せいかい 1もん = 3ポイント（じかんには かんけいなし）
   var PER_MIN = 10;    // （むかしの きまり：べんきょう 1ぷん = 10ポイント。studyTime だけが つかう）
   var GAME_PER_MIN = 10; // ゲーム 1ぷん = 10ポイント（300ポイント = 30ぷん）
   var ICONS = ["🦊", "🐻", "🐰", "🐼", "🐯", "🐸", "🐧", "🦄"];
@@ -112,7 +112,7 @@
     gameMinutes: function (kidId) { return Math.floor(Math.max(0, KP.balance(kidId)) / GAME_PER_MIN); },
 
     /** せいかいの かずで ポイントを あげる（各アプリで1回よぶ）。
-     *  せいかいの たびに .correct() をよぶと 1もん 5ポイント。50ポイント（10もん）たまるか、
+     *  せいかいの たびに .correct() をよぶと 1もん 3ポイント。10もん ぶん たまるか、
      *  レッスンの おわりに .flush()、画面を とじる・かくすと まとめて つける（とちゅうの ぶんも きえない）。 */
     answers: function (app, opts) {
       opts = opts || {};
@@ -121,7 +121,7 @@
       function keep() { try { localStorage.setItem(carryKey, String(pend)); } catch (e) { /* なし */ } }
       function flush(toast) {
         if (pend > 0) {
-          var n = pend / PER_CORRECT;
+          var n = Math.round(pend / PER_CORRECT);
           try { KP.award({ app: app, points: pend, reason: (opts.label || "せいかい") + " " + n + "もん", toast: toast !== false && opts.toast !== false }); pend = 0; } catch (e) { console.warn("KidsPoints", e); }
         }
         keep();
@@ -130,9 +130,9 @@
         document.addEventListener("visibilitychange", function () { if (document.visibilityState === "hidden") flush(false); });
         root.addEventListener("pagehide", function () { flush(false); });
       }
-      if (pend >= 50) flush(false);
+      if (pend >= PER_CORRECT * 10) flush(false);
       return {
-        correct: function (n) { pend += PER_CORRECT * (n || 1); if (pend >= 50) flush(); else keep(); },
+        correct: function (n) { pend += PER_CORRECT * (n || 1); if (pend >= PER_CORRECT * 10) flush(); else keep(); },
         flush: flush,
       };
     },
