@@ -84,7 +84,7 @@ test('商品の取り込み：新しいバリエーションは製品として�
   const { env } = await setup();
   const v = (n, title, product, status = 'ACTIVE') => ({ id: V(n), title, sku: `S${n}`, price: '600', product: { title: product, status }, inventoryItem: { id: `gid://shopify/InventoryItem/${n}`, tracked: false, unitCost: { amount: '120' } } });
   const f = stubFetch([['graphql.json', { data: { productVariants: { pageInfo: { hasNextPage: false }, nodes: [
-    v(1, 'Default Title', 'ほうじ茶TB 10P'), v(2, '袋入り　30g', '宇治抹茶'), v(3, 'Default Title', '昔の商品', 'ARCHIVED'),
+    v(1, 'Default Title', 'ほうじ茶TB 10P'), { ...v(2, '袋入り　30g', '宇治抹茶'), product: { title: '宇治抹茶', status: 'ACTIVE', featuredMedia: { preview: { image: { url: 'https://cdn.shopify.com/m.jpg' } } } } }, v(3, 'Default Title', '昔の商品', 'ARCHIVED'),
   ] } } }]]);
   try {
     assert.deepEqual(await importProducts(env), { added: 1, updated: 1, total: 3 });
@@ -93,6 +93,8 @@ test('商品の取り込み：新しいバリエーションは製品として�
     assert.equal(row.kind, 'product');
     assert.equal(row.unit_cost, 120);
     assert.equal(row.make_on_order, 1);
+    assert.equal(row.price, 600);
+    assert.equal(row.image_url, 'https://cdn.shopify.com/m.jpg');
   } finally {
     f.restore();
   }

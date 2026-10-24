@@ -4,7 +4,49 @@ const $ = (s, el = document) => el.querySelector(s);
 const $$ = (s, el = document) => [...el.querySelectorAll(s)];
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 
-const state = { user: null, items: [], bom: [], byId: new Map(), kind: 'all', countKind: 'all', entryKind: 'receive', costKind: 'sell', costOpen: new Set(), history: [], editing: null };
+// 線のアイコン（インスタグラム風の細い線）
+const ICONS = {
+  home: '<path d="M3 10.5 12 3l9 7.5V21h-6v-6H9v6H3z"/>',
+  grid: '<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>',
+  list: '<path d="M4 6h16M4 12h16M4 18h16"/>',
+  plus: '<rect x="3" y="3" width="18" height="18" rx="5"/><path d="M12 8v8M8 12h8"/>',
+  check: '<path d="M9 11l3 3 8-8"/><path d="M20 12v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h9"/>',
+  yen: '<path d="M6 3l6 8 6-8M12 11v10M7 13h10M7 17h10"/>',
+  chart: '<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>',
+  bag: '<path d="M5 8h14l-1 13H6z"/><path d="M9 8V6a3 3 0 0 1 6 0v2"/>',
+  users: '<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><path d="M16 4.5a3.5 3.5 0 0 1 0 7M18 14a6 6 0 0 1 3.5 6"/>',
+  menu: '<path d="M3 6h18M3 12h18M3 18h18"/>',
+  heart: '<path d="M12 20s-7.5-4.6-9.2-9.4C1.6 7 4 4 7.2 4c2 0 3.6 1.2 4.8 2.8C13.2 5.2 14.8 4 16.8 4 20 4 22.4 7 21.2 10.6 19.5 15.4 12 20 12 20z"/>',
+  out: '<path d="M15 4h4a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1h-4M10 17l5-5-5-5M15 12H3"/>',
+  truck: '<path d="M2 6h11v10H2zM13 9h4l4 4v3h-8z"/><circle cx="6" cy="18" r="2"/><circle cx="17" cy="18" r="2"/>',
+  leaf: '<path d="M5 19c0-8 5-14 15-14 0 10-6 15-14 15"/><path d="M5 19c3-4 6-6 9-8"/>',
+  undo: '<path d="M9 14 4 9l5-5"/><path d="M4 9h11a5 5 0 0 1 0 10h-3"/>',
+  comment: '<path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1.1-4.6A8 8 0 1 1 21 12z"/>',
+};
+const icon = (name) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[name] || ''}</svg>`;
+function paintIcons(root = document) {
+  for (const el of $$('i[data-icon]', root)) if (!el.firstChild) el.innerHTML = icon(el.dataset.icon);
+}
+
+// 品目の写真（なければ頭文字の色つきの四角）。写真が読めないときは頭文字に戻る
+const hue = (id) => (Number(id) * 47) % 360;
+function thumb(it, { label = false } = {}) {
+  const ch = esc((it?.name || '?').replace(/^【[^】]*】/, '').trim().slice(0, 1));
+  const ph = label ? `<span class="ph">${ch}<small>${esc((it?.name || '').replace(/^【[^】]*】/, ''))}</small></span>` : ch;
+  const img = it?.image_url ? `<img src="${esc(it.image_url)}" alt="" loading="lazy" onerror="this.remove()">` : '';
+  return `<span class="thumb" style="--h:${hue(it?.id ?? 0)}">${ph}${img}</span>`;
+}
+const initial = (name) => esc(String(name || '?').trim().slice(0, 1));
+const ago = (ms) => {
+  const m = Math.round((Date.now() - ms) / 60000);
+  if (m < 1) return 'いま';
+  if (m < 60) return `${m}分前`;
+  if (m < 60 * 24) return `${Math.round(m / 60)}時間前`;
+  if (m < 60 * 24 * 7) return `${Math.round(m / 1440)}日前`;
+  return fmtDate(ms);
+};
+
+const state = { user: null, items: [], bom: [], byId: new Map(), kind: 'all', countKind: 'all', entryKind: 'receive', costKind: 'sell', costOpen: new Set(), history: [], editing: null, stockView: 'grid' };
 
 async function api(path, opts = {}) {
   const init = { ...opts, headers: { ...(opts.headers || {}) } };
@@ -122,22 +164,38 @@ $('#google-login').addEventListener('click', async (e) => {
   }
 });
 
-$('#logout').addEventListener('click', async () => {
+for (const id of ['#logout', '#logout2']) $(id).addEventListener('click', async () => {
   await api('/logout', { method: 'POST' });
+  $('#more-sheet').hidden = true;
   showLogin();
 });
 
 // ── タブ ──
-const TABS = { stock: renderStock, entry: renderEntry, count: renderCount, cost: renderCost, value: loadValue, history: () => loadHistory(true), shopify: loadShopify, members: loadMembers };
-let tab = 'stock';
+const TABS = { home: () => loadHistory(true), stock: renderStock, entry: renderEntry, count: renderCount, cost: renderCost, value: loadValue, shopify: loadShopify, members: loadMembers };
+let tab = 'home';
 function show(name) {
+  if (name === 'history') name = 'home';
   tab = name;
-  for (const b of $$('nav button')) b.classList.toggle('active', b.dataset.tab === name);
+  for (const b of $$('.side [data-tab], .tabbar [data-tab]')) b.classList.toggle('active', b.dataset.tab === name);
   for (const s of $$('main > section')) s.hidden = s.id !== `tab-${name}`;
+  $('#more-sheet').hidden = true;
   TABS[name]?.();
-  history.replaceState(null, '', `#${name}`);
+  window.scrollTo(0, 0);
+  try { history.replaceState(null, '', `#${name}`); } catch {}
 }
-for (const b of $$('nav button')) b.addEventListener('click', () => show(b.dataset.tab));
+document.addEventListener('click', (e) => {
+  const b = e.target.closest('[data-tab]');
+  if (b && !b.closest('main section:not(#tab-home)')) show(b.dataset.tab);
+});
+$('#more-open').addEventListener('click', () => ($('#more-sheet').hidden = false));
+$('#more-sheet').addEventListener('click', (e) => { if (e.target.id === 'more-sheet') e.currentTarget.hidden = true; });
+// ホームの「入荷」「製造・袋詰め」から、その記録の画面へ
+for (const b of $$('[data-entry]')) b.addEventListener('click', () => {
+  state.entryKind = b.dataset.entry;
+  for (const x of $$('#entry-kind button')) x.classList.toggle('active', x.dataset.kind === state.entryKind);
+  show('entry');
+});
+paintIcons();
 
 async function loadItems() {
   const d = await api('/items');
@@ -164,7 +222,7 @@ function itemOptions(selected, { exclude } = {}) {
   }).join('');
 }
 
-// ── 在庫一覧 ──
+// ── 在庫一覧（プロフィール風：写真のグリッドか表） ──
 function renderStock() {
   const all = active();
   const counts = { all: all.length };
@@ -174,17 +232,33 @@ function renderStock() {
   const negative = all.filter((i) => i.qty < 0);
   const value = all.reduce((s, i) => s + Math.max(0, i.qty) * i.unit_cost, 0);
   $('#summary').innerHTML = `
-    <div class="stat"><span>在庫金額（いま）</span><b>${yen(value)}</b></div>
-    <div class="stat ${low.length ? 'warn' : ''}"><span>補充が必要</span><b>${low.length}<small>品目</small></b>${low.slice(0, 4).map((i) => `<em>${esc(i.name)}</em>`).join('')}</div>
-    <div class="stat ${negative.length ? 'bad' : ''}"><span>マイナス在庫</span><b>${negative.length}<small>品目</small></b>${negative.length ? '<em>棚卸か入荷の記録もれ</em>' : ''}</div>`;
+    <li><b>${all.length}</b>品目</li>
+    <li><b>${yen(value)}</b>在庫金額</li>
+    <li class="${low.length ? 'warn' : ''}"><b>${low.length}</b>補充</li>
+    ${negative.length ? `<li class="bad"><b>${negative.length}</b>マイナス</li>` : ''}`;
+  for (const b of $$('.view-tabs button')) b.classList.toggle('active', b.dataset.view === state.stockView);
+  $('#stock-grid').hidden = state.stockView !== 'grid';
+  $('#stock-list').hidden = state.stockView !== 'list';
   const q = $('#search').value.trim().toLowerCase();
   const rows = state.items.filter((i) => ($('#show-archived').checked || !i.archived)
     && (state.kind === 'all' || i.kind === state.kind)
     && (!q || i.name.toLowerCase().includes(q) || (i.sku || '').toLowerCase().includes(q)));
   if (!state.items.length) {
-    $('#stock-table').innerHTML = `<tbody><tr><td class="empty">まだ品目がありません。「Shopify」タブで商品を取り込むか、「＋ 品目を追加」で袋・荒茶などを登録してください。</td></tr></tbody>`;
+    $('#stock-table').innerHTML = `<tbody><tr><td class="empty">まだ品目がありません。「Shopify」タブで商品を取り込むか、「品目を追加」で袋・荒茶などを登録してください。</td></tr></tbody>`;
+    $('#stock-grid').innerHTML = '<p class="grid-empty">まだ品目がありません。「Shopify」タブで商品を取り込むか、「品目を追加」で袋・荒茶などを登録してください。</p>';
     return;
   }
+  $('#stock-grid').innerHTML = rows.length ? rows.map((i) => {
+    const parts = state.bom.some((b) => b.parent_id === i.id);
+    const onOrder = i.make_on_order && parts;
+    const num = onOrder ? `${n(i.available)}<small>${esc(i.unit)} 作れる</small>` : `${n(i.qty)}<small>${esc(i.unit)}</small>`;
+    return `<button class="tile ${i.archived ? 'archived' : ''}" data-open="${i.id}" aria-label="${esc(i.name)}">
+      ${thumb(i)}
+      <span class="badges">${i.qty < 0 ? '<span class="neg">マイナス</span>' : i.low ? '<span class="low">補充</span>' : ''}</span>
+      <span class="over"><b>${num}</b><span>${esc(i.name.replace(/^【[^】]*】/, ''))}</span></span>
+    </button>`;
+  }).join('') : '<p class="grid-empty">当てはまる品目がありません。</p>';
+  for (const b of $$('[data-open]', $('#stock-grid'))) b.addEventListener('click', () => openItem(Number(b.dataset.open)));
   $('#stock-table').innerHTML = `<thead><tr><th>品目</th><th>種類</th><th class="num">在庫</th><th class="num">作れる数</th><th class="num">単価</th><th class="num">金額</th></tr></thead>
     <tbody>${rows.map((i) => {
       const parts = state.bom.filter((b) => b.parent_id === i.id).length;
@@ -206,6 +280,7 @@ function renderStock() {
   for (const b of $$('[data-open]', $('#stock-table'))) b.addEventListener('click', () => openItem(Number(b.dataset.open)));
 }
 $('#search').addEventListener('input', renderStock);
+for (const b of $$('.view-tabs button')) b.addEventListener('click', () => { state.stockView = b.dataset.view; renderStock(); });
 $('#show-archived').addEventListener('change', renderStock);
 $('#new-item').addEventListener('click', () => openItem(null));
 
@@ -290,6 +365,7 @@ async function openItem(id) {
   state.editing = id ? it : null;
   const f = $('#item-form');
   $('#item-title').textContent = id ? it.name : '品目を追加';
+  $('#item-hero').innerHTML = id ? thumb(it) : '';
   for (const k of ['name', 'kind', 'unit', 'unit_cost', 'price', 'reorder_point', 'sku', 'note']) f[k].value = it[k] ?? '';
   f.make_on_order.checked = !!it.make_on_order;
   f.push_to_shopify.checked = !!it.push_to_shopify;
@@ -581,20 +657,60 @@ $('#value-date').addEventListener('change', loadValue);
 $('#value-fy').addEventListener('click', () => { $('#value-date').value = fiscalEnd(); loadValue(); });
 
 // ── 履歴 ──
+// ── ホーム：補充のお知らせ（ストーリー）と在庫の動き（フィード） ──
+function renderStories() {
+  const all = active();
+  const urgent = [...all.filter((i) => i.qty < 0), ...all.filter((i) => i.low && i.qty >= 0)];
+  $('#alert-dot').hidden = !urgent.length;
+  const me = state.user?.name || '';
+  $('#composer-avatar').textContent = initial(me);
+  $('#stories').innerHTML = `
+    <button class="story" data-tab="entry"><span class="ring"><span class="plus">＋</span></span><small>記録する</small></button>
+    ${urgent.map((i) => `<button class="story ${i.qty < 0 ? 'bad' : 'alert'}" data-open="${i.id}" title="${esc(i.name)}">
+      <span class="ring">${thumb(i)}</span><small>${esc(i.name.replace(/^【[^】]*】/, ''))}</small></button>`).join('')}
+    ${urgent.length ? '' : '<span class="stories-empty">補充が必要な品目はありません</span>'}`;
+  for (const b of $$('[data-open]', $('#stories'))) b.addEventListener('click', () => openItem(Number(b.dataset.open)));
+}
+
+const POST_TEXT = {
+  sale: (b) => `<b>${esc(b.ref || '')}</b> の注文で出荷しました`,
+  cancel: (b) => `<b>${esc(b.ref || '')}</b> のキャンセルで在庫を戻しました`,
+  receive: () => '入荷しました',
+  produce: (b) => { const out = b.moves.find((m) => m.qty > 0); return out ? `<b>${esc(out.name)}</b> を ${n(out.qty)}${esc(out.unit)} 作りました` : '製造しました'; },
+  count: () => '棚卸をしました',
+  waste: () => '廃棄しました',
+  adjust: () => '在庫を調整しました',
+};
+
+function postHtml(b) {
+  const who = b.created_by || '';
+  const avatar = who === 'Shopify' ? `<span class="avatar shopify">${icon('bag')}</span>` : `<span class="avatar">${initial(who)}</span>`;
+  const voided = b.note?.startsWith('取消済');
+  const note = (b.note || '').replace(/^取消済（#\d+）\s*/, '');
+  const slides = b.moves.slice(0, 12).map((m) => {
+    const it = state.byId.get(m.item_id) || { id: m.item_id, name: m.name };
+    return `<span class="slide" data-open="${m.item_id}">${thumb(it).replace('</span>', `<span class="qty ${m.qty < 0 ? 'minus' : 'plus'}">${m.qty > 0 ? '+' : ''}${n(m.qty)}${esc(m.unit)}</span></span>`)}<span class="name">${esc(m.name.replace(/^【[^】]*】/, ''))}</span></span>`;
+  }).join('');
+  return `<article class="post">
+    <div class="post-head">${avatar}<div class="post-who"><b>${esc(who || '記録')}</b> <span class="kind k-${b.kind === 'sale' ? 'product' : b.kind === 'receive' ? 'goods' : b.kind === 'produce' ? 'wip' : 'supply'}">${b.label}</span><div class="muted">${ago(b.created_at || b.at)}${Math.abs((b.created_at || b.at) - b.at) > 86400000 ? `・${fmtDate(b.at)}付け` : ''}</div></div></div>
+    <p class="post-text ${voided ? 'voided' : ''}">${(POST_TEXT[b.kind] || (() => b.label))(b)}${note && b.kind !== 'sale' ? `　<span class="muted">${esc(note)}</span>` : ''}</p>
+    <div class="carousel">${slides}</div>
+    <div class="post-actions">
+      ${voided ? '<span class="muted small">取り消し済み</span>' : `<button class="icon-btn" data-reverse="${b.id}" aria-label="この記録を取り消す" title="取り消す">${icon('undo')}</button>`}
+      <span class="count">${b.moves.length}品目${b.moves.length > 12 ? `（${b.moves.length - 12}品目は省略）` : ''}</span>
+    </div>
+  </article>`;
+}
+
 async function loadHistory(reset) {
-  if (reset) state.history = [];
+  if (reset) { state.history = []; renderStories(); }
   const before = state.history.at(-1)?.id;
   const list = await api(`/batches${before ? `?before=${before}` : ''}`);
   state.history.push(...list);
   $('#history-more').hidden = list.length < 50;
-  $('#history').innerHTML = state.history.length ? state.history.map((b) => `
-    <div class="batch k-${b.kind}">
-      <div class="batch-head"><span class="badge">${b.label}</span><b>${fmtDate(b.at)}</b><span class="muted">${esc(b.ref || '')}</span>
-        <span class="muted small grow">${esc(b.note || '')}</span><span class="muted small">${esc(b.created_by || '')}</span>
-        ${b.note?.startsWith('取消済') ? '' : `<button class="ghost small" data-reverse="${b.id}">取り消す</button>`}</div>
-      <div class="moves">${b.moves.map((m) => `<span class="${m.qty < 0 ? 'minus' : 'plus'}">${esc(m.name)} ${m.qty > 0 ? '+' : ''}${n(m.qty)}${esc(m.unit)}</span>`).join('')}</div>
-    </div>`).join('') : '<p class="empty">まだ記録がありません。</p>';
-  for (const b of $$('[data-reverse]')) b.addEventListener('click', async () => {
+  $('#history').innerHTML = state.history.length ? state.history.map(postHtml).join('') : '<p class="empty">まだ記録がありません。入荷・製造・棚卸を記録すると、ここに流れます。</p>';
+  for (const el of $$('[data-open]', $('#history'))) el.addEventListener('click', () => openItem(Number(el.dataset.open)));
+  for (const b of $$('[data-reverse]', $('#history'))) b.addEventListener('click', async () => {
     if (!confirm('この伝票を取り消しますか？（逆向きの伝票を足して、在庫を元に戻します）')) return;
     await busy(b, async () => {
       await api(`/batches/${b.dataset.reverse}/reverse`, { method: 'POST' });
@@ -739,12 +855,13 @@ async function start() {
   const { user } = await api('/me');
   state.user = user;
   $('#who').textContent = user.name;
+  $('#who-avatar').textContent = initial(user.name);
   for (const b of $$('[data-admin]')) b.hidden = user.role !== 'admin';
   await loadItems();
   $('#login').hidden = true;
   $('#app').hidden = false;
   const want = location.hash.slice(1);
-  show(TABS[want] && (want !== 'members' || user.role === 'admin') ? want : 'stock');
+  show(TABS[want] && (want !== 'members' || user.role === 'admin') ? want : 'home');
 }
 
 start().catch(showLogin);

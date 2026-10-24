@@ -64,7 +64,12 @@ async function requireCreds(env) {
 
 const VARIANTS = `query Variants($first: Int!, $after: String) { productVariants(first: $first, after: $after) {
   pageInfo { hasNextPage endCursor }
-  nodes { id title sku price product { title status } inventoryItem { id tracked unitCost { amount } } } } }`;
+  nodes { id title sku price image { url(transform: { maxWidth: 480, maxHeight: 480 }) }
+    product { title status featuredMedia { preview { image { url(transform: { maxWidth: 480, maxHeight: 480 }) } } } }
+    inventoryItem { id tracked unitCost { amount } } } } }`;
+
+// バリエーションの写真、なければ商品の写真
+export const variantImage = (v) => v.image?.url || v.product?.featuredMedia?.preview?.image?.url || null;
 
 export const variantName = (v) => (v.title && v.title !== 'Default Title' ? `${v.product.title}／${v.title}` : v.product.title);
 
@@ -89,13 +94,14 @@ export async function importProducts(env) {
     if (v.product.status === 'ARCHIVED') continue;
     const name = variantName(v).slice(0, 120);
     if (linked.has(v.id)) {
-      stmts.push(env.DB.prepare('UPDATE items SET shopify_inventory_item_id = ?, sku = COALESCE(sku, ?) WHERE id = ?').bind(v.inventoryItem?.id ?? null, v.sku || null, linked.get(v.id)));
+      stmts.push(env.DB.prepare('UPDATE items SET shopify_inventory_item_id = ?, sku = COALESCE(sku, ?), image_url = COALESCE(?, image_url) WHERE id = ?')
+        .bind(v.inventoryItem?.id ?? null, v.sku || null, variantImage(v), linked.get(v.id)));
       updated++;
       continue;
     }
     // 作り置きしない（売れたら構成品から引く）を初期値にする。構成を入れるまでは製品そのものから引く
-    stmts.push(env.DB.prepare(`INSERT INTO items (name, kind, unit, unit_cost, make_on_order, sku, shopify_variant_id, shopify_inventory_item_id, created_at, updated_at)
-      VALUES (?, 'product', '個', ?, 1, ?, ?, ?, ?, ?)`).bind(name, Number(v.inventoryItem?.unitCost?.amount) || 0, v.sku || null, v.id, v.inventoryItem?.id ?? null, t, t));
+    stmts.push(env.DB.prepare(`INSERT INTO items (name, kind, unit, unit_cost, price, make_on_order, sku, shopify_variant_id, shopify_inventory_item_id, image_url, created_at, updated_at)
+      VALUES (?, 'product', '個', ?, ?, 1, ?, ?, ?, ?, ?, ?)`).bind(name, Number(v.inventoryItem?.unitCost?.amount) || 0, Number(v.price) || null, v.sku || null, v.id, v.inventoryItem?.id ?? null, variantImage(v), t, t));
     added++;
   }
   if (stmts.length) await env.DB.batch(stmts);

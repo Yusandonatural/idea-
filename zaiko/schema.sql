@@ -18,6 +18,7 @@ CREATE TABLE IF NOT EXISTS items (
   push_to_shopify INTEGER NOT NULL DEFAULT 0, -- 1：この在庫数（作れる数）を Shopify に反映する
   pushed_qty INTEGER,                 -- 最後に Shopify へ送った数
   note TEXT,
+  image_url TEXT,                     -- 商品写真（Shopify の商品画像）
   archived INTEGER NOT NULL DEFAULT 0,
   created_at INTEGER NOT NULL,
   updated_at INTEGER NOT NULL
