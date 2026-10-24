@@ -150,8 +150,19 @@ $('#logout').addEventListener('click', async () => {
 });
 
 // ── タブ ──
+const TAB_TITLES = Object.fromEntries([...document.querySelectorAll('.side-nav button')].map((b) => [b.dataset.tab, b.textContent.trim()]));
+function setSheet(open) {
+  document.body.classList.toggle('sheet-open', open);
+  $('#sheet-backdrop').hidden = !open;
+  $('.tabbar [data-more]').setAttribute('aria-expanded', String(open));
+}
 function showTab(name) {
-  for (const b of document.querySelectorAll('nav button')) b.classList.toggle('active', b.dataset.tab === name);
+  setSheet(false);
+  $('#topbar-title').textContent = TAB_TITLES[name] ?? '';
+  // 下のタブにない画面を開いているときは「その他」を光らせる
+  const inBar = !!$(`.tabbar [data-tab="${name}"]`);
+  for (const b of document.querySelectorAll('nav button')) b.classList.toggle('active', b.dataset.tab === name || (b.hasAttribute('data-more') && !inBar));
+  window.scrollTo(0, 0);
   for (const s of document.querySelectorAll('main > section')) s.hidden = s.id !== `tab-${name}`;
   if (name === 'queue') loadPosts('queue');
   if (name === 'history') loadPosts('history');
@@ -169,7 +180,10 @@ function showTab(name) {
 }
 
 const isAdmin = () => state.user?.role === 'admin';
-for (const b of document.querySelectorAll('nav button')) b.addEventListener('click', () => showTab(b.dataset.tab));
+for (const b of document.querySelectorAll('nav button[data-tab]')) b.addEventListener('click', () => showTab(b.dataset.tab));
+$('.tabbar [data-more]').addEventListener('click', () => setSheet(!document.body.classList.contains('sheet-open')));
+$('#sheet-backdrop').addEventListener('click', () => setSheet(false));
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape') setSheet(false); });
 
 // ── 投稿画面 ──
 const bodyEl = $('#body');
@@ -232,6 +246,51 @@ function finalText(platformId, text) {
   return withAutoTags(platformId, base, state.hashtags, state.platforms[platformId].limits.text);
 }
 
+// ── 見え方（Instagram・Facebook・X・Threads 風のプレビュー） ──
+const PREVIEWABLE = ['instagram', 'facebook', 'x', 'threads'];
+let previewPid = null;
+const richText = (t) => esc(t)
+  .replace(/https?:\/\/[^\s<]+/g, (u) => `<span class="pv-link">${u}</span>`)
+  .replace(/(^|[\s　])([#＃][^\s　#＃.,!?、。！？]+)/g, '$1<span class="pv-tag">$2</span>');
+function renderPreview() {
+  const chosen = state.accounts.filter((a) => a.enabled && state.targets.get(a.id)?.on && PREVIEWABLE.includes(a.platform));
+  const pids = [...new Set(chosen.map((a) => a.platform))];
+  const list = pids.length ? pids : ['instagram'];
+  if (!list.includes(previewPid)) previewPid = list[0];
+  $('#pv-tabs').innerHTML = list.map((pid) => `<button type="button" role="tab" aria-selected="${pid === previewPid}" data-pv="${pid}">${dot(pid)}${esc(state.platforms[pid]?.label ?? pid)}</button>`).join('');
+  const acc = chosen.find((a) => a.platform === previewPid);
+  const t = acc ? state.targets.get(acc.id) : null;
+  const name = acc?.name?.replace(/^@/, '') || '悠三堂';
+  const text = state.platforms[previewPid] ? finalText(previewPid, t?.custom ? t.body : state.body) : state.body;
+  const media = acc ? mediaFor(previewPid) : state.media.filter((m) => m.key);
+  const m = media[0];
+  const mediaHtml = m ? `<div class="pv-media ${previewPid}">${isVideo(m) ? `<video src="${esc(m.url)}" muted preload="metadata" playsinline></video>` : `<img src="${esc(m.url)}" alt="">`}${media.length > 1 ? `<span class="fp-count">1/${media.length}</span>` : ''}</div>` : '';
+  const empty = !text.trim() && !m;
+  const icon = (id) => `<svg class="ic" aria-hidden="true"><use href="#i-${id}"/></svg>`;
+  let html;
+  if (previewPid === 'instagram') {
+    html = `<div class="pv pv-ig"><div class="pv-top"><span class="avatar sm">茶</span><b>${esc(name)}</b></div>
+      ${mediaHtml || '<div class="pv-media instagram pv-empty">画像か動画を入れると、ここに表示されます</div>'}
+      <div class="pv-icons">${icon('heart')}${icon('comment')}${icon('share')}<span class="pv-grow"></span>${icon('save')}</div>
+      <div class="pv-text clamp"><b>${esc(name)}</b> ${richText(text)}</div></div>`;
+  } else if (previewPid === 'facebook') {
+    html = `<div class="pv pv-fb"><div class="pv-top"><span class="avatar">茶</span><div><b>${esc(name)}</b><small>たった今</small></div></div>
+      <div class="pv-text">${richText(text)}</div>${mediaHtml}
+      <div class="pv-bar"><span>${icon('heart')}いいね！</span><span>${icon('comment')}コメントする</span><span>${icon('share')}シェア</span></div></div>`;
+  } else {
+    html = `<div class="pv pv-x"><span class="avatar">茶</span><div class="pv-main"><div><b>${esc(name)}</b> <small>· たった今</small></div>
+      <div class="pv-text">${richText(text)}</div>${mediaHtml}
+      <div class="pv-icons">${icon('comment')}${icon('share')}${icon('heart')}</div></div></div>`;
+  }
+  $('#preview').innerHTML = empty ? '<p class="muted small">本文を書くと、ここに投稿の見え方が出ます。</p>' : html;
+}
+$('#pv-tabs').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-pv]');
+  if (!b) return;
+  previewPid = b.dataset.pv;
+  renderPreview();
+});
+
 function renderTargets() {
   const el = $('#targets');
   $('#no-accounts').hidden = state.accounts.length > 0;
@@ -262,6 +321,7 @@ function renderTargets() {
         ${t.on && p.note ? `<div class="muted small">${esc(p.note)}</div>` : ''}
       </div>`;
   }).join('');
+  renderPreview();
 }
 
 $('#targets').addEventListener('change', (e) => {
@@ -449,13 +509,33 @@ async function loadPosts(kind) {
   el.innerHTML = posts.map((p) => {
     const errors = p.targets.filter((t) => t.status === 'error');
     const when = p.status === 'scheduled' ? `🕒 ${fmt(p.scheduled_at)}` : p.published_at ? fmt(p.published_at) : `更新 ${fmt(p.updated_at)}`;
+    const done = p.targets.filter((t) => t.metrics);
+    const sum = (k) => (done.some((t) => t.metrics[k] != null) ? done.reduce((n, t) => n + (t.metrics[k] || 0), 0) : null);
+    const likes = sum('likes'), comments = sum('comments'), views = sum('views');
+    const best = Math.max(0, ...p.targets.map((t) => t.ratio ?? 0));
+    const who = p.targets.length === 1 ? p.targets[0].account_name : '悠三堂';
+    const long = p.body.length > 140 || p.body.split('\n').length > 4;
+    const first = p.media[0];
     return `
-      <article class="post" data-id="${p.id}">
-        <div class="post-meta"><span class="status ${p.status}">${p.status === 'draft' ? cardState(p).label : STATUS[p.status]}</span>${p.format ? `<span class="pill">${esc(p.format)}</span>` : ''}${pillarBadge(p.pillar)}${p.next_step ? `<span class="pill" title="次の一歩">→ ${esc(nextStepOf(p.next_step)?.label ?? '')}</span>` : kind === 'queue' ? '<span class="pill warn" title="投稿ごとに次の一歩を1つ置きます">⚠ 次の一歩なし</span>' : ''}<span>${when}</span>${p.updated_by ? `<span class="by">${p.created_by && p.created_by !== p.updated_by ? `作成 ${esc(p.created_by)}・` : ''}${p.created_by === p.updated_by ? '作成' : '更新'} ${esc(p.updated_by)}</span>` : ''}</div>
-        <div class="post-body">${esc(p.body) || '<span class="muted">（本文なし）</span>'}</div>
+      <article class="post feed-post" data-id="${p.id}">
+        <header class="fp-head">
+          <span class="avatar" aria-hidden="true">茶</span>
+          <div class="fp-who"><b>${esc(who)}</b><small>${when}${p.targets.length > 1 ? `<span class="dots">${[...new Set(p.targets.map((t) => t.platform))].map(dot).join('')}</span>` : ''}</small></div>
+          <span class="status ${p.status}">${p.status === 'draft' ? cardState(p).label : STATUS[p.status]}</span>
+        </header>
+        ${first ? `<div class="fp-media">${isVideo(first) ? `<video src="/m/${esc(first.key)}" muted preload="metadata" playsinline></video><svg class="ic fp-play" aria-hidden="true"><use href="#i-play"/></svg>` : `<img src="/m/${esc(first.key)}" alt="${esc(first.alt)}" loading="lazy">`}${p.media.length > 1 ? `<span class="fp-count">1/${p.media.length}</span>` : ''}</div>` : ''}
+        ${likes != null || views != null ? `<div class="fp-actions">
+          <span title="いいね"><svg class="ic" aria-hidden="true"><use href="#i-heart"/></svg>${compact(likes ?? 0)}</span>
+          <span title="コメント"><svg class="ic" aria-hidden="true"><use href="#i-comment"/></svg>${compact(comments ?? 0)}</span>
+          ${views != null ? `<span title="再生・表示"><svg class="ic" aria-hidden="true"><use href="#i-play"/></svg>${compact(views)}</span>` : ''}
+          ${best ? `<span class="fp-ratio ${best >= 1.5 ? 'up' : best < 0.67 ? 'down' : ''}">いつもの${best.toFixed(1)}倍</span>` : ''}</div>` : ''}
+        <div class="fp-body">
+          <div class="post-meta">${p.format ? `<span class="pill">${esc(p.format)}</span>` : ''}${pillarBadge(p.pillar)}${p.next_step ? `<span class="pill" title="次の一歩">→ ${esc(nextStepOf(p.next_step)?.label ?? '')}</span>` : kind === 'queue' ? '<span class="pill warn" title="投稿ごとに次の一歩を1つ置きます">⚠ 次の一歩なし</span>' : ''}${p.updated_by ? `<span class="by">${p.created_by && p.created_by !== p.updated_by ? `作成 ${esc(p.created_by)}・` : ''}${p.created_by === p.updated_by ? '作成' : '更新'} ${esc(p.updated_by)}</span>` : ''}</div>
+          <div class="post-body ${long ? 'clamp' : ''}">${esc(p.body) || '<span class="muted">（本文なし）</span>'}</div>
+          ${long ? '<button class="more-link" data-act="more">続きを読む</button>' : ''}
+        </div>
         ${p.memo ? `<details class="post-memo"><summary>素材メモ・台本</summary><div>${esc(p.memo)}</div></details>` : ''}
-        ${!p.targets.length ? '<p class="muted small">投稿先はまだありません（編集で選びます）</p>' : ''}
-        ${p.media.length ? `<div class="media">${p.media.map((m) => `<div class="thumb">${isVideo(m) ? `<video src="/m/${esc(m.key)}" muted preload="metadata"></video><span class="badge-video">動画</span>` : `<img src="/m/${esc(m.key)}" alt="${esc(m.alt)}" loading="lazy">`}</div>`).join('')}</div>` : ''}
+        ${!p.targets.length ? '<p class="muted small fp-pad">投稿先はまだありません（編集で選びます）</p>' : ''}
         <div class="post-targets">${p.targets.map((t) => {
           const icon = t.status === 'ok' ? '✓' : t.status === 'error' ? '✕' : '';
           const inner = `${dot(t.platform)}${esc(t.account_name)} ${icon}`;
@@ -482,6 +562,10 @@ for (const kind of ['queue', 'history']) {
     const id = Number(btn.closest('.post').dataset.id);
     const post = $(`#${kind}-list`)._posts[id];
     const act = btn.dataset.act;
+    if (act === 'more') {
+      btn.previousElementSibling.classList.remove('clamp');
+      return btn.remove();
+    }
     if (act === 'copy-text') return copyText(manualText(post, post.targets.find((t) => String(t.id) === btn.dataset.target)));
     if (act === 'metrics') return openMetrics(post.targets.find((t) => String(t.id) === btn.dataset.target), () => loadPosts(kind));
     if (act === 'idea') return useIdea(post.review.idea);
@@ -1137,6 +1221,14 @@ async function renderBoard() {
   // 今日の枠
   const todays = slots.filter((s) => s.date === today);
   $('#today-slots').innerHTML = todays.length ? todays.map(slotRow).join('') : '<p class="muted small">今日の枠はありません</p>';
+  $('#stories').innerHTML = `<button class="story story-new" data-new><span class="ring"><span class="face"><svg class="ic" aria-hidden="true"><use href="#i-plus"/></svg></span></span><span class="story-label">新しく投稿</span></button>` +
+    todays.map((x) => {
+      const st = cardState(x.post);
+      const pid = ruleOf(x.rule)?.platforms[0];
+      return `<button class="story st-${st.key}" data-slot="${esc(x.id)}" ${x.post ? `data-post="${x.post.id}"` : ''} title="${esc(`${x.label}（${st.label}）`)}">
+        <span class="ring"><span class="face" style="--pc:${state.platforms[pid]?.color ?? 'var(--accent)'}">${esc(STORY_GLYPH[x.rule] ?? '茶')}</span></span>
+        <span class="story-label">${esc(x.label.replace(/^(リール|カルーセル)：/, ''))}</span><span class="story-state">${st.label}</span></button>`;
+    }).join('');
   // 今週の工程
   const wd = new Date().getDay();
   $('#week-tasks').innerHTML = tasks.map((t) => `<label class="task ${t.weekday === wd ? 'today' : ''} ${t.done_at ? 'done' : ''}">
@@ -1192,14 +1284,17 @@ async function renderBoard() {
   }).join('');
 }
 
+// ストーリーの丸に入れる一文字（媒体別ルールごと）
+const STORY_GLYPH = { ig_reel: 'リ', ig_carousel: 'カ', ig_story: 'ス', facebook: 'f', yt_long: '長', yt_short: 'シ', podcast: '声', blog: '記', threads: '@', tiktok: '♪', pinterest: 'P', line: 'L', newsletter: '便', red: '紅' };
 $('#tab-board').addEventListener('click', async (e) => {
+  if (e.target.closest('[data-new]')) { resetCompose(); return showTab('compose'); }
   const go = e.target.closest('[data-goto]');
   if (go) return showTab(go.dataset.goto);
   const el = e.target.closest('[data-slot]');
   if (!el || e.target.closest('summary')) return;
   const postId = e.target.closest('[data-post]')?.dataset.post;
   if (postId) return openSlotPost(postId);
-  if (e.target.closest('[data-act="make"]') || el.classList.contains('nw-slot')) startFromSlot(slotsCache.get(el.dataset.slot));
+  if (e.target.closest('[data-act="make"]') || el.classList.contains('nw-slot') || el.classList.contains('story')) startFromSlot(slotsCache.get(el.dataset.slot));
 });
 $('#week-tasks').addEventListener('change', async (e) => {
   const cb = e.target.closest('[data-step]');
