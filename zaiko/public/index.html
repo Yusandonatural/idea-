@@ -6,11 +6,10 @@
 <meta name="robots" content="noindex,nofollow">
 <title>在庫帳</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='24' fill='%23725a2e'/><text x='50' y='70' font-size='60' text-anchor='middle' fill='white'>蔵</text></svg>">
-<meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
-<meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#725a2e">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;500;700&family=Yuji+Syuku&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -32,92 +31,37 @@
 </div>
 
 <div id="app" hidden>
-  <!-- スマホ：上の帯 -->
-  <header class="topbar">
-    <span class="logo">在庫帳</span>
-    <div class="top-actions">
-      <button class="icon-btn" data-tab="home" aria-label="ホーム（補充のお知らせ）"><i data-icon="heart"></i><span class="alert-dot" id="alert-dot" hidden></span></button>
-      <button class="icon-btn" data-tab="shopify" aria-label="Shopify"><i data-icon="bag"></i></button>
-    </div>
+  <header>
+    <h1><span class="mark" aria-hidden="true">蔵</span>在庫帳</h1>
+    <nav>
+      <button data-tab="stock" class="active">在庫</button>
+      <button data-tab="entry">入出庫</button>
+      <button data-tab="count">棚卸</button>
+      <button data-tab="cost">原価計算</button>
+      <button data-tab="value">在庫評価</button>
+      <button data-tab="history">履歴</button>
+      <button data-tab="shopify">Shopify</button>
+      <button data-tab="members" data-admin>メンバー</button>
+    </nav>
+    <span class="who"><span id="who"></span> <button class="ghost small" id="logout">ログアウト</button></span>
   </header>
 
-  <!-- パソコン：左のメニュー -->
-  <nav class="side" aria-label="メニュー">
-    <span class="logo">在庫帳</span>
-    <button data-tab="home"><i data-icon="home"></i><span>ホーム</span></button>
-    <button data-tab="stock"><i data-icon="grid"></i><span>在庫</span></button>
-    <button data-tab="entry"><i data-icon="plus"></i><span>記録する</span></button>
-    <button data-tab="count"><i data-icon="check"></i><span>棚卸</span></button>
-    <button data-tab="cost"><i data-icon="yen"></i><span>原価計算</span></button>
-    <button data-tab="value"><i data-icon="chart"></i><span>在庫評価</span></button>
-    <button data-tab="shopify"><i data-icon="bag"></i><span>Shopify</span></button>
-    <button data-tab="members" data-admin><i data-icon="users"></i><span>メンバー</span></button>
-    <div class="side-foot">
-      <span class="who"><span class="avatar me" id="who-avatar"></span><span id="who"></span></span>
-      <button class="ghost small" id="logout">ログアウト</button>
-    </div>
-  </nav>
-
-  <!-- スマホ：下のタブ -->
-  <nav class="tabbar" aria-label="タブ">
-    <button data-tab="home" aria-label="ホーム"><i data-icon="home"></i></button>
-    <button data-tab="stock" aria-label="在庫"><i data-icon="grid"></i></button>
-    <button data-tab="entry" aria-label="記録する" class="create"><i data-icon="plus"></i></button>
-    <button data-tab="cost" aria-label="原価計算"><i data-icon="yen"></i></button>
-    <button id="more-open" aria-label="その他"><i data-icon="menu"></i></button>
-  </nav>
-  <div class="sheet-backdrop" id="more-sheet" hidden>
-    <div class="sheet" role="dialog" aria-label="その他">
-      <span class="grabber"></span>
-      <button data-tab="count"><i data-icon="check"></i>棚卸</button>
-      <button data-tab="value"><i data-icon="chart"></i>在庫評価（決算）</button>
-      <button data-tab="shopify"><i data-icon="bag"></i>Shopify</button>
-      <button data-tab="members" data-admin><i data-icon="users"></i>メンバー</button>
-      <button id="logout2" class="danger"><i data-icon="out"></i>ログアウト</button>
-    </div>
-  </div>
-
   <main>
-    <!-- ホーム：補充のお知らせ（ストーリー）と、在庫の動き（フィード） -->
-    <section id="tab-home" class="narrow">
-      <div class="stories" id="stories"></div>
-      <div class="composer card">
-        <div class="composer-row"><span class="avatar me" id="composer-avatar"></span><button class="composer-input" data-tab="entry">在庫の動きを記録する…</button></div>
-        <div class="composer-actions">
-          <button data-entry="receive"><i data-icon="truck" class="c-green"></i>入荷</button>
-          <button data-entry="produce"><i data-icon="leaf" class="c-orange"></i>製造・袋詰め</button>
-          <button data-tab="count"><i data-icon="check" class="c-blue"></i>棚卸</button>
-        </div>
-      </div>
-      <div class="feed" id="history"></div>
-      <button class="ghost more-btn" id="history-more" hidden>もっと見る</button>
-    </section>
-
-    <!-- 在庫：プロフィール風の一覧（写真のグリッド／表） -->
-    <section id="tab-stock" hidden>
-      <div class="profile">
-        <div class="profile-avatar"><span>蔵</span></div>
-        <div class="profile-main">
-          <div class="profile-name"><h2>悠三堂の在庫</h2><button class="primary small" id="new-item">品目を追加</button></div>
-          <ul class="profile-stats" id="summary"></ul>
-        </div>
-      </div>
+    <!-- 在庫一覧 -->
+    <section id="tab-stock">
+      <div class="summary" id="summary"></div>
       <div class="toolbar">
+        <div class="seg" id="kind-filter"></div>
         <input type="search" id="search" placeholder="品目名・SKUでさがす">
-        <label class="row inline"><input type="checkbox" id="show-archived">使わない品目も</label>
+        <label class="row inline"><input type="checkbox" id="show-archived">使わない品目も表示</label>
+        <button class="primary" id="new-item">＋ 品目を追加</button>
       </div>
-      <div class="chips" id="kind-filter"></div>
-      <div class="view-tabs">
-        <button data-view="grid" class="active" aria-label="写真で並べる"><i data-icon="grid"></i></button>
-        <button data-view="list" aria-label="表で並べる"><i data-icon="list"></i></button>
-      </div>
-      <div class="photo-grid" id="stock-grid"></div>
-      <div class="table-wrap" id="stock-list" hidden><table class="stock" id="stock-table"></table></div>
+      <div class="table-wrap"><table class="stock" id="stock-table"></table></div>
       <p class="muted small">「作れる数」は、作り置きしない製品（売れたら袋や中身から引く）を、いまの構成品の在庫で何個出せるかです。Shopify に反映する品目はこの数を送ります。</p>
     </section>
 
     <!-- 入出庫 -->
-    <section id="tab-entry" class="narrow" hidden>
+    <section id="tab-entry" hidden>
       <div class="seg big" id="entry-kind">
         <button data-kind="receive" class="active">入荷・仕入</button>
         <button data-kind="produce">製造・袋詰め</button>
@@ -190,6 +134,12 @@
       </div>
     </section>
 
+    <!-- 履歴 -->
+    <section id="tab-history" hidden>
+      <div class="list" id="history"></div>
+      <button class="small" id="history-more" hidden>もっと見る</button>
+    </section>
+
     <!-- Shopify -->
     <section id="tab-shopify" hidden>
       <div id="shopify"></div>
@@ -214,8 +164,7 @@
 
 <dialog id="item-dialog">
   <form id="item-form" method="dialog">
-    <span class="grabber"></span>
-    <div class="dialog-head"><span class="item-hero" id="item-hero"></span><h2 id="item-title">品目</h2><button type="button" class="ghost" data-close aria-label="閉じる">✕</button></div>
+    <div class="dialog-head"><h2 id="item-title">品目</h2><button type="button" class="ghost" data-close>✕</button></div>
     <div class="grid2">
       <label class="span2">品目名<input name="name" required maxlength="120"></label>
       <label>種類<select name="kind" id="kind-select"></select></label>
