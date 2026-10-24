@@ -69,27 +69,51 @@ label input, label select { margin-top: 4px; }
 .error:empty { display: none; }
 .card { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 18px; box-shadow: var(--shadow); }
 
-/* ── 見出し帯 ── */
-header {
-  position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: color-mix(in srgb, var(--card) 92%, transparent);
-  backdrop-filter: blur(8px); border-bottom: 1px solid var(--line);
-  display: flex; align-items: center; gap: 20px; padding: 0 20px; min-height: 56px; flex-wrap: wrap;
+/* ── 枠組み：パソコンは左のメニュー、スマホは上の帯と下のタブ（SNSアプリと同じ置き方） ── */
+.ic { width: 24px; height: 24px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.75; stroke-linecap: round; stroke-linejoin: round; }
+.mark { width: 30px; height: 30px; border-radius: 9px; display: grid; place-items: center; font-size: 15px; background: var(--accent); color: var(--accent-ink); font-weight: 700; flex: none; }
+.side { position: fixed; inset: 0 auto 0 0; width: 244px; z-index: 6; background: var(--card); border-right: 1px solid var(--line); display: flex; flex-direction: column; padding: 20px 12px 16px; }
+.brand { display: flex; align-items: center; gap: 10px; padding: 4px 12px 22px; font-weight: 700; font-size: 17px; letter-spacing: .02em; }
+.side-nav { display: flex; flex-direction: column; gap: 2px; flex: 1; overflow-y: auto; }
+.side-nav button, .side-foot button { border: none; background: none; width: 100%; justify-content: flex-start; gap: 14px; padding: 11px 12px; border-radius: var(--radius-sm); font-size: 15px; color: var(--ink); }
+.side-nav button:hover, .side-foot button:hover { background: var(--sunk); }
+.side-nav button.active { font-weight: 700; background: var(--accent-soft); color: var(--accent); }
+.side-nav button.active .ic { stroke-width: 2.25; }
+.side-foot { border-top: 1px solid var(--line); padding-top: 10px; display: grid; gap: 2px; }
+.side-foot .who { font-size: 12px; color: var(--muted); padding: 2px 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.side-foot button { font-size: 13.5px; color: var(--muted); }
+.topbar, .tabbar { display: none; }
+.sheet-backdrop { position: fixed; inset: 0; background: rgba(10, 16, 12, .4); z-index: 7; }
+main { margin-left: 244px; max-width: 1000px; padding: 32px 32px 64px; }
+@media (min-width: 1300px) { main { margin-left: max(244px, calc((100vw - 1000px) / 2)); } }
+/* 中くらいの幅：アイコンだけの細いメニュー */
+@media (max-width: 1099px) and (min-width: 701px) {
+  .side { width: 76px; padding: 20px 10px 16px; align-items: center; }
+  .brand { padding: 4px 0 22px; }
+  .brand-name, .side-nav button span, .side-foot span, .side-foot button span { display: none; }
+  .side-nav button, .side-foot button { width: 52px; justify-content: center; padding: 12px; }
+  .side-foot { width: 100%; justify-items: center; }
+  main { margin-left: 76px; padding: 28px 24px 64px; }
 }
-header h1 { display: flex; align-items: center; gap: 10px; white-space: nowrap; }
-header h1 .mark {
-  width: 28px; height: 28px; border-radius: 8px; display: grid; place-items: center; font-size: 15px;
-  background: var(--accent); color: var(--accent-ink); font-weight: 700;
+/* スマホ：上の帯・下のタブ。「その他」で下からメニューが出る */
+@media (max-width: 700px) {
+  .topbar { display: flex; align-items: center; gap: 10px; position: sticky; top: 0; z-index: 5; padding: calc(10px + env(safe-area-inset-top, 0px)) 16px 10px; background: color-mix(in srgb, var(--card) 94%, transparent); backdrop-filter: blur(8px); border-bottom: 1px solid var(--line); }
+  .topbar .mark { width: 28px; height: 28px; font-size: 14px; }
+  .topbar h1 { font-size: 17px; }
+  .tabbar { display: grid; grid-template-columns: repeat(5, 1fr); position: fixed; inset: auto 0 0 0; z-index: 5; background: var(--card); border-top: 1px solid var(--line); padding: 4px 4px calc(4px + env(safe-area-inset-bottom, 0px)); }
+  .tabbar button { border: none; background: none; flex-direction: column; gap: 2px; padding: 6px 0 4px; font-size: 10.5px; color: var(--muted); border-radius: var(--radius-sm); }
+  .tabbar button.active { color: var(--accent); font-weight: 700; }
+  .tabbar button.active .ic { stroke-width: 2.25; }
+  .tabbar .tab-new .ic { width: 30px; height: 30px; padding: 4px; border-radius: 9px; background: var(--accent); color: var(--accent-ink); stroke-width: 2.25; }
+  .tabbar .tab-new.active { color: var(--accent); }
+  .side { inset: auto 0 0 0; width: auto; max-height: 82vh; border-right: none; border-radius: 18px 18px 0 0; padding: 10px 12px calc(16px + env(safe-area-inset-bottom, 0px)); transform: translateY(105%); transition: transform .22s ease; box-shadow: var(--shadow-pop); z-index: 8; }
+  .side::before { content: ""; width: 40px; height: 4px; border-radius: 99px; background: var(--line-strong); margin: 0 auto 8px; }
+  body.sheet-open .side { transform: none; }
+  .brand { display: none; }
+  .side-nav { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; }
+  .side-nav button { padding: 12px; font-size: 14px; }
+  main { margin-left: 0; padding: 16px 16px calc(84px + env(safe-area-inset-bottom, 0px)); }
 }
-nav { display: flex; gap: 2px; flex: 1; overflow-x: auto; align-self: stretch; scrollbar-width: none; }
-nav button {
-  border: none; background: none; color: var(--muted); white-space: nowrap; border-radius: 0; padding: 0 14px;
-  border-bottom: 2px solid transparent; font-weight: 500;
-}
-nav button:hover { color: var(--ink); background: none; }
-nav button.active { color: var(--ink); border-bottom-color: var(--accent); font-weight: 700; }
-.who { font-size: 12px; color: var(--muted); white-space: nowrap; }
-
-main { max-width: 1120px; margin: 0 auto; padding: 24px 20px 64px; }
 main > section { display: grid; gap: 16px; }
 
 /* ── ログイン ── */
@@ -111,8 +135,8 @@ main > section { display: grid; gap: 16px; }
 @media (min-width: 960px) {
   .compose { grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr); grid-template-areas: "editor targets" "actions targets"; grid-template-rows: auto 1fr; align-items: start; }
   .compose .editor { grid-area: editor; }
-  .compose .actions { grid-area: actions; position: sticky; top: 72px; }
-  .compose > .card:not(.editor):not(.actions) { grid-area: targets; }
+  .compose .actions { grid-area: actions; position: sticky; top: 24px; }
+  .compose-side { grid-area: targets; }
 }
 .card.editor { padding: 0; overflow: hidden; }
 .editor #body { border: none; border-radius: 0; background: transparent; min-height: 260px; padding: 18px 20px; font-size: 16px; resize: vertical; }
@@ -441,6 +465,89 @@ table.grid tr.now td { background: var(--accent-soft); }
 .chart .hair { stroke: var(--muted); stroke-width: 1; }
 .chart .tip { position: absolute; top: 0; transform: translateX(-50%); background: var(--card); border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 4px 10px; font-size: 12.5px; white-space: nowrap; box-shadow: var(--shadow-pop); pointer-events: none; font-variant-numeric: tabular-nums; }
 
+/* ── SNS風：ストーリーの丸・フィードの投稿・見え方 ── */
+.compose-side { display: grid; gap: 16px; align-content: start; min-width: 0; }
+.avatar { width: 36px; height: 36px; border-radius: 50%; display: grid; place-items: center; flex: none; background: var(--accent); color: var(--accent-ink); font-weight: 700; font-size: 15px; box-shadow: 0 0 0 2px var(--card), 0 0 0 3.5px var(--sprout); }
+.avatar.sm { width: 28px; height: 28px; font-size: 12.5px; }
+.stories { display: flex; gap: 16px; overflow-x: auto; padding: 4px 2px 10px; scrollbar-width: none; scroll-snap-type: x proximity; }
+.stories::-webkit-scrollbar { display: none; }
+.story { border: none; background: none; padding: 0; flex-direction: column; gap: 4px; width: 76px; flex: none; scroll-snap-align: start; color: var(--ink); }
+.story:hover { background: none; }
+.story .ring { width: 68px; height: 68px; border-radius: 50%; padding: 3px; display: grid; background: var(--line-strong); }
+.story .face { border-radius: 50%; display: grid; place-items: center; background: var(--card); border: 2.5px solid var(--card); font-size: 22px; font-weight: 700; color: var(--pc, var(--accent)); }
+.story .face .ic { width: 28px; height: 28px; color: var(--accent); }
+.story-label { font-size: 11.5px; max-width: 76px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.story-state { font-size: 10.5px; color: var(--muted); margin-top: -4px; }
+/* 未着手は茶の芽の色の輪（まだ見ていないストーリーと同じ合図）、進むほど落ち着いた色に */
+.story.st-empty .ring { background: conic-gradient(from 210deg, var(--sprout), var(--accent), var(--sprout)); }
+.story.st-idea .ring { background: var(--ai-ink); }
+.story.st-making .ring { background: var(--warn); }
+.story.st-scheduled .ring { background: var(--accent); }
+.story.st-done .ring { background: var(--line-strong); }
+.story.st-done .face { opacity: .65; }
+.story-new .ring { background: none; border: 1.5px dashed var(--line-strong); padding: 2px; }
+
+#queue-list, #history-list { max-width: 620px; margin: 0 auto; width: 100%; }
+.feed-post { padding: 0; overflow: hidden; }
+.fp-head { display: flex; align-items: center; gap: 10px; padding: 12px 14px; }
+.fp-who { flex: 1; min-width: 0; line-height: 1.35; }
+.fp-who b { display: block; font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fp-who small { display: flex; align-items: center; gap: 6px; color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }
+.fp-who .dots { display: inline-flex; gap: 3px; }
+.fp-who .dot { width: 8px; height: 8px; }
+.fp-media { position: relative; background: var(--sunk); border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+.fp-media img, .fp-media video { display: block; width: 100%; aspect-ratio: 4 / 5; object-fit: cover; }
+.fp-play { position: absolute; top: 12px; right: 12px; color: #fff; fill: #fff; filter: drop-shadow(0 1px 3px rgba(0, 0, 0, .5)); }
+.fp-count { position: absolute; top: 12px; right: 12px; background: rgba(0, 0, 0, .6); color: #fff; font-size: 12px; padding: 2px 9px; border-radius: 99px; font-variant-numeric: tabular-nums; }
+.fp-actions { display: flex; align-items: center; gap: 16px; padding: 10px 14px 0; font-size: 14px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.fp-actions span { display: inline-flex; align-items: center; gap: 5px; }
+.fp-actions .fp-ratio { margin-left: auto; font-size: 12.5px; }
+.fp-body { padding: 10px 14px 0; }
+.fp-body .post-meta { margin-bottom: 4px; }
+.feed-post .post-body { margin: 4px 0 0; max-height: none; }
+.post-body.clamp { display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
+.more-link { border: none; background: none; padding: 2px 0; color: var(--muted); font-size: 13px; }
+.more-link:hover { background: none; color: var(--ink); }
+.feed-post .post-memo, .feed-post .post-targets, .feed-post .post-errors, .feed-post .review, .fp-pad { margin-left: 14px; margin-right: 14px; }
+.feed-post .post-targets { margin-top: 10px; }
+.feed-post .post-actions { margin: 8px 0 0; padding: 10px 14px 12px; }
+
+.preview-card .pv-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
+.preview-card h2 { margin: 0; }
+.pv-tabs { display: flex; gap: 4px; flex-wrap: wrap; margin-left: auto; }
+.pv-tabs button { font-size: 12.5px; padding: 3px 10px; border-radius: 99px; }
+.pv-tabs button[aria-selected="true"] { border-color: var(--accent); background: var(--accent-soft); font-weight: 700; }
+.preview { display: flex; justify-content: center; }
+.pv { width: 100%; max-width: 380px; border: 1px solid var(--line); border-radius: 12px; background: var(--card); overflow: hidden; font-size: 14px; line-height: 1.55; }
+.pv-top { display: flex; align-items: center; gap: 10px; padding: 10px 12px; }
+.pv-top small { display: block; color: var(--muted); font-size: 12px; }
+.pv .avatar { box-shadow: none; }
+.pv-media { position: relative; background: var(--sunk); }
+.pv-media img, .pv-media video { display: block; width: 100%; object-fit: cover; }
+.pv-media.instagram img, .pv-media.instagram video { aspect-ratio: 4 / 5; }
+.pv-empty { aspect-ratio: 4 / 5; display: grid; place-items: center; color: var(--muted); font-size: 13px; padding: 24px; text-align: center; }
+.pv-icons { display: flex; gap: 14px; padding: 10px 12px 4px; }
+.pv-grow { flex: 1; }
+.pv-text { padding: 2px 12px 12px; white-space: pre-wrap; word-break: break-word; }
+.pv-text.clamp { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.pv-tag, .pv-link { color: var(--sat); }
+.pv-fb .pv-text { padding-top: 0; }
+.pv-bar { display: flex; justify-content: space-around; border-top: 1px solid var(--line); margin: 0 12px; padding: 8px 0; color: var(--muted); font-size: 13px; }
+.pv-bar span { display: inline-flex; align-items: center; gap: 4px; }
+.pv-bar .ic { width: 18px; height: 18px; }
+.pv-x { display: flex; gap: 10px; padding: 12px; }
+.pv-x .pv-main { flex: 1; min-width: 0; }
+.pv-x small { color: var(--muted); }
+.pv-x .pv-text { padding: 2px 0 8px; }
+.pv-x .pv-media { border-radius: 12px; overflow: hidden; border: 1px solid var(--line); }
+.pv-x .pv-icons { justify-content: space-between; padding: 8px 0 0; color: var(--muted); }
+.pv-x .pv-icons .ic { width: 18px; height: 18px; }
+@media (max-width: 700px) {
+  body .toast { bottom: calc(84px + env(safe-area-inset-bottom, 0px)); }
+  .feed-post { border-radius: 0; border-left: none; border-right: none; margin: 0 -16px; }
+  .stories { margin: 0 -16px; padding-left: 16px; padding-right: 16px; }
+}
+
 /* ── ダイアログ・通知 ── */
 dialog { border: 1px solid var(--line); border-radius: 14px; background: var(--card); color: var(--ink); max-width: min(520px, 92vw); width: 100%; padding: 22px; box-shadow: var(--shadow-pop); }
 dialog::backdrop { background: rgba(10, 16, 12, .45); }
@@ -451,11 +558,6 @@ dialog form { text-align: right; margin-top: 14px; }
 .toast { position: fixed; bottom: calc(24px + env(safe-area-inset-bottom, 0px)); left: 50%; transform: translateX(-50%); background: var(--ink); color: var(--bg); padding: 10px 20px; border-radius: 99px; font-size: 14px; z-index: 20; box-shadow: var(--shadow-pop); max-width: calc(100vw - 32px); }
 
 @media (max-width: 600px) {
-  header { gap: 4px 10px; padding: 8px 16px 0; }
-  header h1 { font-size: 15px; flex: 1; }
-  nav { order: 3; flex-basis: 100%; min-height: 40px; margin: 0 -8px; }
-  nav button { padding: 0 10px; }
-  main { padding: 16px 16px 48px; }
   .card { padding: 16px; }
   .editor #body { min-height: 200px; padding: 16px; }
   .editor .media, .editor > .row, .editor #ai-hint { padding-left: 16px; padding-right: 16px; }
