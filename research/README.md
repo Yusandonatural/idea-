@@ -17,7 +17,7 @@
 - 3つまとめて：`/content-research`（テーマを絞るなら `/content-research 茶の残留農薬`）
   → 3つが同時に調べて、最後に `research/YYYY-MM-DD-netachou.md`（ネタ帳）にまとめます。
 - 1つだけ：「pesticide-researcher でネオニコチノイドの最新データを調べて」のように頼みます。
-- 定期的に回す：`/loop` や毎週のスケジュールで `/content-research` を実行すると、前回の調査との差分を中心に集めます。
+- 毎朝のレポート：`/content-research daily`。新しく出た情報と、曜日ごとの深掘り1つ（月木＝農薬、火金＝肥料、水土＝お茶、日＝週のまとめ）を `research/daily/YYYY-MM-DD.md` に書きます。毎朝6時の定期実行はこれを動かします。
 
 ## 調査ファイルの約束
 
