@@ -97,3 +97,17 @@ google-ids.json                     GA4・広告・サイトURL
 - 地理：地図・地形・気候・産業・地誌・日本の16単元 × 小学・中学・高校・難関大・早慶の5周。並べかえは「北にあるじゅん」「人口が多いじゅん」のように `events` の `k` ごとに出し、年表タブは「データ帳」になる（形式は `docs/geo/data/SCHEMA.md`）。
 - 形式チェック：`node tools/check_history.js --dir docs/world/data`／`--dir docs/geo/data`
 - 早慶ステージ（lv5）は1単元20問以上で、2文の正誤問題・史料（地理は統計）問題を含む（書き方は各 `SCHEMA.md` の末尾）。
+
+## 文字起こし・字幕（`tools/jimaku/`）
+
+音声・動画を Whisper（whisper.cpp、手元で処理）で文字起こしし、字幕（SRT / VTT）・テキスト・字幕焼き込み動画を作る道具。
+[HyperFrames](https://hyperframes.heygen.com) で字幕アニメーションつきの動画も作れる。
+Claude Code に「この動画を文字起こしして」「字幕動画にして」と頼むと、`.claude/skills/jimaku/SKILL.md` の手順で動く。
+
+```bash
+bash tools/jimaku/setup.sh                       # 準備（HyperFrames・Whisperモデル）
+tools/jimaku/transcribe.sh 動画.mp4 ja           # → 動画_jimaku/ に .srt .vtt .txt .json
+tools/jimaku/burn.sh 動画.mp4 動画_jimaku/動画.srt  # 字幕を焼き込んだ動画
+```
+
+日本語は1行18字・2行までで、句読点・間・文節の切れ目で区切る（`cues.py`）。
