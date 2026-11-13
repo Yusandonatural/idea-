@@ -1,0 +1,43 @@
+date,item,value,unit,source
+2020FY(R2 2020-07..2021-06),urea_import_total,340,thousand_t(approx),MAFF 肥料をめぐる情勢 R4-04
+2020FY(R2 2020-07..2021-06),urea_share_malaysia,47,percent,MAFF 肥料をめぐる情勢 R4-04
+2020FY(R2 2020-07..2021-06),urea_share_china,37,percent,MAFF 肥料をめぐる情勢 R4-04
+2021FY(R3 2021-07..2022-06),urea_import_total,300,thousand_t(approx),MAFF 肥料をめぐる情勢 R5-05
+2021FY(R3 2021-07..2022-06),urea_share_malaysia,60,percent,MAFF 肥料をめぐる情勢 R5-05
+2021FY(R3 2021-07..2022-06),urea_share_china,25,percent,MAFF 肥料をめぐる情勢 R5-05
+2024FY(R6 2024-07..2025-06),urea_import_total,256,thousand_t,MAFF 肥料をめぐる情勢 R8-06 / smartagri
+2024FY(R6 2024-07..2025-06),urea_share_malaysia,74,percent,MAFF 肥料をめぐる情勢 R8-06
+2024FY(R6 2024-07..2025-06),urea_share_vietnam,10,percent,MAFF 肥料をめぐる情勢 R8-06
+2024FY(R6 2024-07..2025-06),urea_share_saudi,5,percent,smartagri (MAFF data; unverified)
+2024FY(R6 2024-07..2025-06),urea_share_china,3,percent,smartagri (MAFF data; unverified)
+2020FY(R2 2020-07..2021-06),dap_map_import_total,510,thousand_t(approx),MAFF 肥料をめぐる情勢 R4-04
+2020FY(R2 2020-07..2021-06),dap_map_share_china,90,percent,MAFF 肥料をめぐる情勢 R4-04
+2020FY(R2 2020-07..2021-06),dap_map_share_usa,10,percent,MAFF 肥料をめぐる情勢 R4-04
+2020FY(R2 2020-07..2021-06),dap_map_share_morocco,0,percent,smartagri (MAFF data; unverified)
+2021FY(R3 2021-07..2022-06),dap_map_import_total,470,thousand_t(approx),MAFF 肥料をめぐる情勢 R5-05
+2021FY(R3 2021-07..2022-06),dap_map_share_china,76,percent,MAFF 肥料をめぐる情勢 R5-05
+2021FY(R3 2021-07..2022-06),dap_map_share_morocco,18,percent,MAFF 肥料をめぐる情勢 R5-05
+2021FY(R3 2021-07..2022-06),dap_map_share_usa,3,percent,MAFF 肥料をめぐる情勢 R5-05
+2024FY(R6 2024-07..2025-06),dap_map_import_total,370,thousand_t,MAFF 肥料をめぐる情勢 R8-06 / smartagri
+2024FY(R6 2024-07..2025-06),dap_map_share_china,72,percent,MAFF 肥料をめぐる情勢 R8-06
+2024FY(R6 2024-07..2025-06),dap_map_share_morocco,21,percent,MAFF 肥料をめぐる情勢 R8-06
+2020FY(R2 2020-07..2021-06),kcl_import_total,410,thousand_t(approx),MAFF 肥料をめぐる情勢 R4-04
+2020FY(R2 2020-07..2021-06),kcl_share_canada,59,percent,MAFF 肥料をめぐる情勢 R4-04
+2020FY(R2 2020-07..2021-06),kcl_share_russia,16,percent,MAFF 肥料をめぐる情勢 R4-04
+2020FY(R2 2020-07..2021-06),kcl_share_belarus,10,percent,MAFF 肥料をめぐる情勢 R4-04
+2021FY(R3 2021-07..2022-06),kcl_import_total,490,thousand_t(approx),MAFF 肥料をめぐる情勢 R5-05
+2021FY(R3 2021-07..2022-06),kcl_share_canada,80,percent,MAFF 肥料をめぐる情勢 R5-05
+2021FY(R3 2021-07..2022-06),kcl_share_israel,9,percent,MAFF 肥料をめぐる情勢 R5-05
+2021FY(R3 2021-07..2022-06),kcl_share_russia,3,percent,MAFF 肥料をめぐる情勢 R5-05
+2021FY(R3 2021-07..2022-06),kcl_share_belarus,3,percent,MAFF 肥料をめぐる情勢 R5-05
+2024FY(R6 2024-07..2025-06),kcl_import_total,228,thousand_t,PPPT (MAFF data) / MAFF R8-06
+2024FY(R6 2024-07..2025-06),kcl_share_canada,78,percent,MAFF 肥料をめぐる情勢 R8-06
+2024FY(R6 2024-07..2025-06),kcl_share_israel,7,percent,MAFF 肥料をめぐる情勢 R8-06
+2024FY(R6 2024-07..2025-06),kcl_share_jordan,4,percent,MAFF 肥料をめぐる情勢 R8-06
+2024FY(R6 2024-07..2025-06),kcl_share_laos,3,percent,smartagri (MAFF data; unverified)
+2026-03-31,stockpile_dap_map,2.4,months_of_annual_demand,MAFF 令和7年度白書
+2026-03-31,stockpile_kcl,3.0,months_of_annual_demand,MAFF 令和7年度白書
+2023FY,sewage_sludge_fertilizer_use_rate,15,percent,MLIT 九州地方整備局資料
+2023FY,sewage_sludge_fertilizer_use,341,thousand_t,MLIT 九州地方整備局資料
+2024FY,sewage_sludge_fertilizer_use_rate,15,percent,MLIT 2026-01 資料3
+2030FY(target),sewage_sludge_fertilizer_use_rate,30,percent,MLIT 第6次社会資本整備重点計画
