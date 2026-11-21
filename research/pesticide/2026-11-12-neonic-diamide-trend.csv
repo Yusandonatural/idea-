@@ -1,0 +1,33 @@
+year,item,component,value,unit,basis,source,source_url,confirmation,note
+1999,ネオニコ系 国内出荷量 合計,ネオニコ系合計,172,t,有効成分（と推定）,川崎医療福祉大 紀要掲載論文（2012頃）,https://i.kawasaki-m.ac.jp/jsce/jjce21_1_24.pdf,未確認,2026-11-06 overview と同じ値。原表未確認
+2009,ネオニコ系 国内出荷量 合計,ネオニコ系合計,407,t,有効成分（と推定）,川崎医療福祉大 紀要掲載論文（2012頃）／旭川医大 jjce23_1_14 でも「2009年407t」と引用,https://i.kawasaki-m.ac.jp/jsce/jjce21_1_24.pdf,未確認,原典は農薬要覧とみられる
+2012,成分別の順位,ジノテフラン>イミダクロプリド>クロチアニジン>アセタミプリド,,順位のみ,,旭川医大 日本臨床環境医学会誌 jjce23_1_14（総説）,https://www.asahikawa-med.ac.jp/dept/mc/healthy/jsce/jjce23_1_14.pdf,抜粋確認,トン数（ジノテフラン152.0tとする記述）は未確認
+2013,国内出荷量,ジノテフラン,157,t,不明,埼玉県環境科学国際センター 要旨集,https://www.pref.saitama.lg.jp/documents/82798/youshisyuu-ootuka.pdf,未確認,元データの出典の記載なし
+2013,国内出荷量,クロチアニジン,70,t,不明,同上,https://www.pref.saitama.lg.jp/documents/82798/youshisyuu-ootuka.pdf,未確認,
+2013,国内出荷量,イミダクロプリド,66,t,不明,同上,https://www.pref.saitama.lg.jp/documents/82798/youshisyuu-ootuka.pdf,未確認,
+2013,国内出荷量,アセタミプリド,52,t,不明,同上,https://www.pref.saitama.lg.jp/documents/82798/youshisyuu-ootuka.pdf,未確認,
+2015,国内出荷量,ジノテフラン,167,t,不明,Ikenaka グループの茶の論文（Toxicology Reports 2018）の序論での引用,https://doaj.org/article/dc49e6ac3c02435f8cbfa1dd60501e68,未確認,検索結果の要約経由
+2015,殺虫剤製剤の出荷量に占めるネオニコ系製剤,ネオニコ系製剤,約11000（殺虫剤製剤 約76000 のうち約14%）,t(kl),製剤,環境省の報告書（出典：農薬要覧2016）,https://www.env.go.jp/content/900540388.pdf,未確認,製剤の量で有効成分ではない。URLは 900540388 か 900540393 のどちらかで特定できていない（env.go.jp に接続できず）
+2018,国内出荷量,ジノテフラン,167.0,t,有効成分（と推定）,"Biology (MDPI) 12(12):1460 (2023) メダカ胚の論文",https://mdpi.com/2079-7737/12/12/1460,抜粋確認,論文内の表。原典は国立環境研究所DBとみられる
+2018,国内出荷量,クロチアニジン,74.8,t,同上,同上,https://mdpi.com/2079-7737/12/12/1460,抜粋確認,
+2018,国内出荷量,イミダクロプリド,67.5,t,同上,同上,https://mdpi.com/2079-7737/12/12/1460,抜粋確認,
+2018,国内出荷量,アセタミプリド,50.2,t,同上,同上,https://mdpi.com/2079-7737/12/12/1460,抜粋確認,
+2018,国内出荷量,チアメトキサム,46.1,t,同上,同上,https://mdpi.com/2079-7737/12/12/1460,抜粋確認,
+2018,国内出荷量,チアクロプリド,14.2,t,同上,同上,https://mdpi.com/2079-7737/12/12/1460,抜粋確認,
+2018,国内出荷量,ニテンピラム,5.6,t,同上,同上,https://mdpi.com/2079-7737/12/12/1460,抜粋確認,
+2018,国内出荷量 合計（7成分の和）,ネオニコ系合計,425.4,t,上の7値の和（当方で計算）,同上,https://mdpi.com/2079-7737/12/12/1460,考察（計算値）,
+2018,原体 国内生産量／輸入量,クロチアニジン,455.2／20.0,t,原体（生産は輸出向けを含む）,日本産業衛生学会 許容濃度提案理由書（出典：農薬要覧）,https://www.sanei.or.jp/files/topics/oels/documentations/Clothianidin.pdf,抜粋確認,出荷量ではない
+2019,原体 国内生産量／輸入量,クロチアニジン,162.9／48.5,t,同上,同上,https://www.sanei.or.jp/files/topics/oels/documentations/Clothianidin.pdf,抜粋確認,出荷量ではない
+2020,原体 国内生産量／輸入量,クロチアニジン,91.3／57.3,t,同上,同上,https://www.sanei.or.jp/files/topics/oels/documentations/Clothianidin.pdf,抜粋確認,出荷量ではない
+2020,国内出荷量,クロチアニジン,70.5,t,不明,PARC「静かな汚染、ネオニコチノイド」解説資料集（2022年10月、出典：国立環境研究所DB）,https://parc-jp.org/parccms/wp-content/uploads/2023/08/neonic.pdf,未確認,検索の要約で一度だけ出た値。別の検索では確認できず
+2020,国内出荷量,イミダクロプリド,59.6,t,不明,同上,https://parc-jp.org/parccms/wp-content/uploads/2023/08/neonic.pdf,未確認,同上
+2020,国内出荷量,アセタミプリド,47.6,t,不明,同上,https://parc-jp.org/parccms/wp-content/uploads/2023/08/neonic.pdf,未確認,同上
+2016-2020,成分別の順位,ジノテフランが最多。次いでクロチアニジン、イミダクロプリド,,順位のみ,,"Environmental Monitoring and Contaminants Research 3:69-91 (2023) 総説",https://www.jstage.jst.go.jp/article/emcr/3/0/3_20230004/_article,抜粋確認,
+2019-2021,全国のネオニコ系出荷量（3年平均）,ネオニコ系合計,420.18,t または kL,論文の表記のまま,"Putri et al. Environmental Monitoring and Contaminants Research 5 (2025)（出典：国立環境研究所 2024）",https://www.jstage.jst.go.jp/article/emcr/5/0/5_20240042/_html/-char/en,抜粋確認,単位が t と kL 混在。殺虫剤の中で第2位とされる
+2021,国内出荷量,ジノテフラン,158.7,t,不明,organic-newsclip（国立環境研究所DBの転載とされる）,http://organic-newsclip.info/nouyaku/neonico-data.html,未確認,
+2021,国内出荷量,クロチアニジン,72.5,t,不明,同上,http://organic-newsclip.info/nouyaku/neonico-data.html,未確認,
+2021,国内出荷量,イミダクロプリド,60.6,t,不明,同上,http://organic-newsclip.info/nouyaku/neonico-data.html,未確認,
+2022,ネオニコ系7成分 国内出荷量（推定）,ネオニコ系合計,337.9,t,論文の表記は推定値,"Environmental Monitoring and Contaminants Research 3:69-91 (2023) 総説",https://www.jstage.jst.go.jp/article/emcr/3/0/3_20230004/_article,抜粋確認,算出方法は未確認
+2009-2024,ジアミド系（フルベンジアミド・クロラントラニリプロール・シアントラニリプロール・テトラニリプロール）の国内出荷量,ジアミド系,,,,見つからず,,未確認,公開資料で成分別の値を確認できなかった。農薬要覧の原本が必要
+2013→2018,チャノホソガへの効果（卵期処理の死亡率）,クロラントラニリプロール（サムコルFL10）,100→64,%,鹿児島県南九州市の同じ地点の個体群,鹿児島県農業開発総合センター茶業部の資料,https://www.pref.kagoshima.jp/ag11/pop-tech/nenndo/documents/70049_20201106160313-1.pdf,抜粋確認,出荷量ではなく抵抗性の指標
+2013→2018,チャノホソガへの効果（幼虫潜葉期処理の死亡率）,クロラントラニリプロール（サムコルFL10）,88→40,%,同上,同上,https://www.pref.kagoshima.jp/ag11/pop-tech/nenndo/documents/70049_20201106160313-1.pdf,抜粋確認,同上

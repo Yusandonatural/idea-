@@ -1,0 +1,14 @@
+date,item,value,unit,source
+2023FY,sewage_sludge_fertilizer_use,32.0,10k_t-DS,MLIT資料（検索抜粋・未確認）
+2023FY,sewage_sludge_fertilizer_use_rate,13.8,percent,MLIT資料（検索抜粋・未確認）
+2023FY,sewage_sludge_fertilizer_use_rate_alt,15,percent,MLIT九州地方整備局資料（既出）
+2024FY,sewage_sludge_fertilizer_use,34.4,10k_t-DS,MLIT資料（検索抜粋・未確認）
+2024FY,sewage_sludge_fertilizer_use_rate,15,percent,MLIT資料（検索抜粋・未確認）
+2030FY(target),sewage_sludge_fertilizer_use_rate,30,percent,MLIT（既出）
+2026-07-10,kintai_rinsan_minister_confirmed,46,count,FAMIC sub11.pdf（検索抜粋・未確認）
+2026-07-10,kintai_rinsan_registered,42,count,FAMIC sub11.pdf（検索抜粋・未確認）
+2024FY,kobe_recycled_phosphorus_supply,83,t,神戸市資料（検索抜粋・未確認）
+2022-10,saga_city_sludge_fertilizer_price,40,JPY_per_20kg,サガテレビ 2022-10-13（検索抜粋・未確認）
+current,kagoshima_satsuma_soil_price,220,JPY_per_20kg_incl_tax,鹿児島市（検索抜粋・未確認）
+current,shimoda_eco_compost_price,450,JPY_per_20kg_incl_tax,下田市（検索抜粋・未確認）
+2026-11,zennoh_high_analysis_compound_spring_revision,15.3,percent_vs_previous_term,NHK 2026-11-03ほか（検索抜粋・未確認）

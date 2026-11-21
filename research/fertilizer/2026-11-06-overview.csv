@@ -1,0 +1,43 @@
+date,item,value,unit,source
+2022,urea_worldbank_annual,700.0,USD/t nominal,World Bank Pink Sheet (via search excerpt; unverified)
+2023,urea_worldbank_annual,358.0,USD/t nominal,World Bank Pink Sheet (via search excerpt; unverified)
+2024,urea_worldbank_annual,338.3,USD/t nominal,World Bank Pink Sheet (via search excerpt; unverified)
+2025,urea_worldbank_annual,422.7,USD/t nominal,World Bank Pink Sheet (via search excerpt; unverified)
+2026-Q1,urea_worldbank_quarterly,537.7,USD/t nominal,World Bank Pink Sheet Oct 2026 (secondary; unverified)
+2026-04,urea_worldbank_monthly,856.9,USD/t nominal,news citing World Bank (unverified)
+2026-Q2,urea_worldbank_quarterly,693.5,USD/t nominal,World Bank Pink Sheet Oct 2026 (secondary; unverified)
+2026-06,urea_worldbank_monthly,453.1,USD/t nominal,news citing World Bank (unverified)
+2026-08,urea_worldbank_monthly,390.0,USD/t nominal,news citing World Bank (unverified)
+2026-Q3,urea_worldbank_quarterly,399.2,USD/t nominal,World Bank Pink Sheet Oct 2026 (secondary; unverified)
+2022,dap_worldbank_annual,772.2,USD/t nominal,World Bank Pink Sheet (via search excerpt; unverified)
+2023,dap_worldbank_annual,550.0,USD/t nominal,World Bank Pink Sheet (via search excerpt; unverified)
+2024,dap_worldbank_annual,563.7,USD/t nominal,World Bank Pink Sheet (via search excerpt; unverified)
+2025,dap_worldbank_annual,685.2,USD/t nominal,World Bank Pink Sheet (via search excerpt; unverified)
+2026-10,dap_tracker_monthly,803,USD/t nominal,agromer.org tracker (unverified)
+2022,kcl_worldbank_annual,863.4,USD/t nominal,World Bank Pink Sheet (via search excerpt; unverified)
+2023,kcl_worldbank_annual,383.2,USD/t nominal,World Bank Pink Sheet (via search excerpt; unverified)
+2024,kcl_worldbank_annual,295.1,USD/t nominal,World Bank Pink Sheet (via search excerpt; unverified)
+2025,kcl_worldbank_annual,347.5,USD/t nominal,World Bank Pink Sheet (via search excerpt; unverified)
+2026-Q2,kcl_worldbank_quarterly,402.9,USD/t nominal,World Bank Pink Sheet (secondary; unverified)
+2026-Q3,kcl_worldbank_quarterly,383.6,USD/t nominal,World Bank Pink Sheet (secondary; unverified)
+2022-06,zennoh_imported_urea_change,94,% vs previous period,JA Zen-Noh 2022 autumn (news)
+2022-06,zennoh_high_analysis_compound_change,55,% vs previous period,JA Zen-Noh 2022 autumn (news)
+2022-11,zennoh_high_analysis_compound_change,10,% vs previous period,JAcom 2022-10-31
+2023-06,zennoh_high_analysis_compound_change,-28,% vs previous period,JAcom 2023-05-26
+2025-06,zennoh_imported_urea_change,8.0,% vs previous period,JA Zen-Noh / JAcom 2025-05-30
+2025-06,zennoh_high_analysis_compound_change,3.3,% vs previous period,JA Zen-Noh / JAcom 2025-05-30
+2026-06,zennoh_imported_urea_change,14.5,% vs previous period,JA Zen-Noh 2026-05-15
+2026-06,zennoh_kcl_change,7.3,% vs previous period,JA Zen-Noh 2026-05-15
+2026-06,zennoh_high_analysis_compound_change,5.0,% vs previous period,JA Zen-Noh 2026-05-15
+2026-11,zennoh_high_analysis_compound_change,15.3,% vs previous period,JAcom 2026-10-30
+2026-03,japan_import_urea_unit_value,93070,JPY/t,news citing trade statistics (unverified)
+2022,maff_agri_price_index_fertilizer,130.8,2020=100,MAFF agricultural price index (via ALIC; unverified)
+2023,maff_agri_price_index_fertilizer,147.0,2020=100,MAFF agricultural price index (via ALIC; unverified)
+2016,japan_chemical_fertilizer_use_npk,90,10k t nutrient,MAFF Midori strategy progress (baseline)
+2021,japan_chemical_fertilizer_use_npk,85,10k t nutrient,MAFF Midori strategy progress Dec 2024
+2022,japan_chemical_fertilizer_use_npk,81,10k t nutrient,MAFF Midori strategy progress Dec 2024
+2030,japan_chemical_fertilizer_use_npk_target,72,10k t nutrient,MAFF Midori strategy target
+2050,japan_chemical_fertilizer_use_npk_target,63,10k t nutrient,MAFF Midori strategy target
+1994,shizuoka_tea_n_guideline,110,kgN/10a/year,Ministry of Environment nitrate case study (JA guidance)
+1999,shizuoka_tea_n_guideline,66,kgN/10a/year,Ministry of Environment nitrate case study
+2010,shizuoka_tea_n_guideline,40,kgN/10a/year (max 54),Shizuoka Pref. document (via search; unverified)
