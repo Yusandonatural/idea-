@@ -119,6 +119,45 @@ eq(messy.generals[0].tou, 100, "能力値は100まで");
 eq(messy.generals[0].castle, "", "存在しない城の担当は外す");
 eq(messy.measures[0].status, "todo", "不明な状態は未着手");
 
+// --- 石高（圃場面積） ---
+const F = K.normalize(SAMPLE.build());
+eq(K.kokuOf(F, 10), 10000, "1反（10a）＝1万石");
+eq(K.kokuOf(F, 100), 100000, "1町＝10万石");
+eq(K.fmtArea(120), "1町2反", "面積の表示 1町2反");
+eq(K.fmtArea(45), "4反5a", "面積の表示 4反5a");
+eq(K.fmtArea(0), "0a", "面積の表示 0");
+eq(K.fmtKoku(120000), "12万石", "石高の表示");
+eq(K.parseArea("1町2反"), 120, "面積の読み取り 町・反");
+eq(K.parseArea("3反5a"), 35, "面積の読み取り 反・a");
+eq(K.parseArea("45"), 45, "面積の読み取り 数字");
+ok(isNaN(K.parseArea("広い")), "読めない面積は NaN");
+eq(K.areaToA(2, "tan"), 20, "反→a");
+eq(K.areaToA(1.5, "cho"), 150, "町→a");
+eq(K.totalArea(F), F.fields.reduce((a, f) => a + f.area, 0), "総面積");
+const tk = K.totalKoku(F);
+eq(tk, K.totalArea(F) * 1000, "総石高＝総面積×換算率");
+const per = K.incomePerManKoku(F, F.current);
+eq(Math.round(per), Math.round(K.companyPL(F, F.current).sales / (tk / 10000)), "1万石あたりの収入");
+const F2 = K.clone(F); F2.kokuPerA = 500;
+eq(K.totalKoku(F2), K.totalArea(F) * 500, "換算率を変えると石高が変わる");
+eq(K.incomePerManKoku(K.emptyState("2026-01"), "2026-01"), null, "総石高0なら1万石あたりは null");
+const g3 = F.fields.filter(f => f.general === "g3").reduce((a, f) => a + f.area, 0) * 1000;
+eq(K.generalKoku(F, "g3"), g3, "武将の知行（担当圃場の石高合計）");
+ok(K.advise(F).some(a => a.code === "vacant-field"), "担当のいない圃場は進言に出る");
+const noG = K.removeGeneral(F, "g3");
+ok(noG.fields.every(f => f.general !== "g3"), "武将を外すと圃場の担当も空になる");
+eq(K.normalize({ castles: [], months: {}, kokuPerA: -3 }).kokuPerA, 1000, "不正な換算率は既定に戻す");
+const fcsv = K.fieldsToCSV(F);
+const fback = K.importAnyCSV(K.removeField(F, "f1"), fcsv);
+eq(fback.kind, "fields", "圃場CSVを見分ける");
+eq(fback.errors.length, 0, "圃場CSVの往復でエラーなし");
+eq(K.totalArea(fback.state), K.totalArea(F), "圃場CSVの往復で面積が一致");
+eq(fback.state.fields.find(f => f.name === "東の茶畑").general, "g3", "圃場CSVの担当を名前で戻す");
+const fbad = K.importAnyCSV(F, "圃場,面積(a),担当\n新畑,2反,誰か\n悪い畑,広い,\n,10,\n");
+eq(fbad.imported, 1, "圃場CSVの不正な行は飛ばす");
+eq(fbad.state.fields.find(f => f.name === "新畑").area, 20, "圃場CSVで「2反」を読む");
+eq(K.importAnyCSV(F, csv).kind, "months", "数字のCSVを見分ける");
+
 // --- サンプルデータ ---
 eq(S.name, "悠三堂", "サンプルの会社名");
 ok(S.castles.length >= 5 && S.castles.length <= 6, "サンプルの城は5〜6");
@@ -126,6 +165,7 @@ ok(K.monthsSorted(S).length >= 12, "サンプルは12か月以上");
 ok(S.generals.length >= 4, "サンプルの武将");
 ok(S.measures.length >= 5, "サンプルの施策");
 ok(S.chronicle.length >= 6, "サンプルの年表");
+ok(S.fields.length >= 5 && S.fields.length <= 6, "サンプルの圃場は5〜6");
 const sa = K.advise(S);
 ok(new Set(sa.map(x => x.code)).size >= 5, "サンプルで進言が5種類以上出る");
 // 実在の戦国武将名を使っていないか（代表的な名前だけ確認）

@@ -8,6 +8,13 @@
   "use strict";
 
   var MAX_CASTLES = 12;
+  var MAX_FIELDS = 12;
+  var DEFAULT_KOKU_PER_A = 1000; // 既定の換算：1a＝1,000石（1反＝1万石、1町＝10万石）
+  var AREA_UNITS = [
+    { key: "a", name: "a（アール）", factor: 1 },
+    { key: "tan", name: "反（10a）", factor: 10 },
+    { key: "cho", name: "町（100a）", factor: 100 }
+  ];
 
   // 進言のしきい値（ここを変えると判定が変わる）
   var TH = {
@@ -114,7 +121,7 @@
   // ---------- 状態 ----------
   function emptyState(ym) {
     var cur = isYM(ym) ? ym : ymOf();
-    var s = { v: 1, name: "", current: cur, seq: 1, castles: [], months: {}, generals: [], measures: [], chronicle: [] };
+    var s = { v: 2, name: "", current: cur, seq: 1, kokuPerA: DEFAULT_KOKU_PER_A, castles: [], fields: [], months: {}, generals: [], measures: [], chronicle: [] };
     s.months[cur] = { c: {}, sga: 0, cash: 0 };
     return s;
   }
@@ -122,14 +129,14 @@
   function newId(state, prefix) {
     state.seq = (state.seq || 1) + 1;
     var id = prefix + state.seq;
-    var all = [].concat(state.castles, state.generals, state.measures).map(function (x) { return x.id; });
+    var all = [].concat(state.castles, state.generals, state.measures, state.fields || []).map(function (x) { return x.id; });
     while (all.indexOf(id) >= 0) { state.seq++; id = prefix + state.seq; }
     return id;
   }
 
-  function freeSlot(state) {
-    var used = state.castles.map(function (c) { return c.slot; });
-    for (var i = 0; i < MAX_CASTLES; i++) if (used.indexOf(i) < 0) return i;
+  function freeSlot(state, list, max) {
+    var used = (list || state.castles).map(function (c) { return c.slot; });
+    for (var i = 0; i < (max || MAX_CASTLES); i++) if (used.indexOf(i) < 0) return i;
     return -1;
   }
 
@@ -143,6 +150,7 @@
     var s = emptyState(isYM(obj.current) ? obj.current : undefined);
     s.name = str(obj.name, 40);
     s.seq = Math.max(1, Math.floor(num(obj.seq)));
+    s.kokuPerA = num(obj.kokuPerA) > 0 ? num(obj.kokuPerA) : DEFAULT_KOKU_PER_A;
     var ids = {};
     obj.castles.forEach(function (c) {
       if (!c || typeof c !== "object" || s.castles.length >= MAX_CASTLES) return;
@@ -178,6 +186,19 @@
         castle: castleExists(s, g.castle) ? g.castle : ""
       });
     });
+    (Array.isArray(obj.fields) ? obj.fields : []).forEach(function (f) {
+      if (!f || typeof f !== "object" || s.fields.length >= MAX_FIELDS) return;
+      var id = str(f.id, 40);
+      if (!id || ids[id]) return;
+      ids[id] = 1;
+      var slot = Math.floor(num(f.slot));
+      if (slot < 0 || slot >= MAX_FIELDS || s.fields.some(function (x) { return x.slot === slot; })) slot = freeSlot(s, s.fields, MAX_FIELDS);
+      s.fields.push({
+        id: id, name: str(f.name, 40).trim() || "名無しの圃場", area: Math.max(0, num(f.area)),
+        crop: str(f.crop, 60), memo: str(f.memo, 300), slot: slot,
+        general: s.generals.some(function (g) { return g.id === f.general; }) ? f.general : ""
+      });
+    });
     (Array.isArray(obj.measures) ? obj.measures : []).forEach(function (m) {
       if (!m || typeof m !== "object") return;
       var id = str(m.id, 40);
@@ -200,6 +221,42 @@
     s.chronicle.sort(function (a, b) { return a.ym < b.ym ? -1 : a.ym > b.ym ? 1 : 0; });
     return s;
   }
+  // ---------- 石高（圃場面積） ----------
+  function kokuOf(state, areaA) { return num(areaA) * (num(state.kokuPerA) > 0 ? num(state.kokuPerA) : DEFAULT_KOKU_PER_A); }
+  function totalArea(state) { return (state.fields || []).reduce(function (a, f) { return a + num(f.area); }, 0); }
+  function totalKoku(state) { return kokuOf(state, totalArea(state)); }
+  function generalFields(state, gid) { return (state.fields || []).filter(function (f) { return gid && f.general === gid; }); }
+  function generalKoku(state, gid) { return kokuOf(state, generalFields(state, gid).reduce(function (a, f) { return a + num(f.area); }, 0)); }
+  function areaToA(value, unit) {
+    var u = AREA_UNITS.filter(function (x) { return x.key === unit; })[0] || AREA_UNITS[0];
+    return num(value) * u.factor;
+  }
+  function fmtKoku(k) {
+    if (k === null || k === undefined || !isFinite(k)) return "—";
+    return fmtMan(k) + "石";
+  }
+  function fmtArea(a) {
+    a = Math.round(num(a) * 10) / 10;
+    if (a <= 0) return "0a";
+    var cho = Math.floor(a / 100), tan = Math.floor((a - cho * 100) / 10), rest = Math.round((a - cho * 100 - tan * 10) * 10) / 10;
+    return (cho ? cho + "町" : "") + (tan ? tan + "反" : "") + (rest ? rest + "a" : "");
+  }
+  // 「120」「1町2反」「3反5a」「45a」などを a に直す。読めなければ NaN
+  function parseArea(t) {
+    if (typeof t === "number") return isFinite(t) && t >= 0 ? t : NaN;
+    var s = String(t || "").trim().replace(/[０-９．]/g, function (c) { return String.fromCharCode(c.charCodeAt(0) - 0xfee0); }).replace(/[,，\s]/g, "").replace(/アール/g, "a");
+    if (s === "") return NaN;
+    if (/^\d+(\.\d+)?a?$/.test(s)) return parseFloat(s);
+    var m = s.match(/^(?:(\d+(?:\.\d+)?)町)?(?:(\d+(?:\.\d+)?)反)?(?:(\d+(?:\.\d+)?)a)?$/);
+    if (!m || (!m[1] && !m[2] && !m[3])) return NaN;
+    return num(m[1]) * 100 + num(m[2]) * 10 + num(m[3]);
+  }
+  // 1万石あたりの収入（総石高が0なら null）
+  function incomePerManKoku(state, ym) {
+    var k = totalKoku(state);
+    return k > 0 ? companyPL(state, ym).sales / (k / 10000) : null;
+  }
+
   function castleExists(s, id) { return !!id && s.castles.some(function (c) { return c.id === id; }); }
 
   function monthsSorted(state) { return Object.keys(state.months).filter(isYM).sort(); }
@@ -321,6 +378,9 @@
     var co = companyPL(state, ym);
 
     if (!state.castles.length) {
+      (state.fields || []).forEach(function (f) {
+        if (!f.general) add(2, "vacant-field", f.name + "（圃場）に担当の武将がおりませぬ", "「武将」か「帳簿」で担当を決めてくだされ。");
+      });
       add(2, "nocastle", "城（事業）がまだありませぬ", "殿、まずは「帳簿」で城（事業・販路）を加え、数字を記してくだされ。");
       return finish(out);
     }
@@ -328,11 +388,11 @@
     var vacant = state.castles.filter(function (c) { return !state.generals.some(function (g) { return g.castle === c.id; }); });
 
     if (!co.hasData) {
-      add(2, "nodata", "今月の帳簿が未記入です", "殿、" + monthLabel(ym).seireki + "の石高（売上）・原価・販管費がまだ空でございます。「帳簿」から記してくだされ。");
+      add(2, "nodata", "今月の帳簿が未記入です", "殿、" + monthLabel(ym).seireki + "の収入（売上）・原価・販管費がまだ空でございます。「帳簿」から記してくだされ。");
     } else {
       // 全社の目標
       if (co.target > 0 && co.rate < 1) {
-        add(co.rate < TH.totalRateDanger ? 3 : 2, "total-target", "全軍の石高（売上）が目標の" + fmtPct(co.rate) + "",
+        add(co.rate < TH.totalRateDanger ? 3 : 2, "total-target", "全軍の収入（売上）が目標の" + fmtPct(co.rate) + "",
           "目標 " + fmtYen(co.target) + " に対し、実績 " + fmtYen(co.sales) + "。あと " + fmtYen(co.target - co.sales) + " 足りませぬ。");
       }
       // 城ごとの目標
@@ -415,6 +475,11 @@
       add(2, "vacant", c.name + "の城に城主（担当）がおりませぬ", "「武将」から担当を決めてくだされ。", c.id);
     });
 
+    // 担当のいない圃場
+    (state.fields || []).forEach(function (f) {
+      if (!f.general) add(2, "vacant-field", f.name + "（圃場）に担当の武将がおりませぬ", "石高 " + fmtKoku(kokuOf(state, f.area)) + "（" + fmtArea(f.area) + "）の領地です。「武将」か「帳簿」で担当を決めてくだされ。");
+    });
+
     // 施策の期限
     state.measures.forEach(function (m) {
       if (m.status === "done" || !m.due) return;
@@ -425,7 +490,7 @@
 
     // 吉報
     if (co.hasData && co.target > 0 && co.rate >= 1) {
-      add(0, "win", "全軍、目標を攻略いたしました", "石高（売上） " + fmtYen(co.sales) + "、達成率 " + fmtPct(co.rate) + "。祝着至極にございます。");
+      add(0, "win", "全軍、目標を攻略いたしました", "収入（売上） " + fmtYen(co.sales) + "、達成率 " + fmtPct(co.rate) + "。祝着至極にございます。");
     }
     if (!out.length) add(0, "calm", "万事、順調にございます", "目立った懸念はございませぬ。");
     return finish(out);
@@ -468,6 +533,18 @@
     var c = { id: newId(s, "c"), name: name, slot: freeSlot(s) };
     s.castles.push(c);
     return { state: s, castle: c };
+  }
+  function removeField(state, id) {
+    var s = clone(state);
+    s.fields = s.fields.filter(function (f) { return f.id !== id; });
+    return s;
+  }
+  function removeGeneral(state, id) {
+    var s = clone(state);
+    s.generals = s.generals.filter(function (g) { return g.id !== id; });
+    s.measures.forEach(function (m) { if (m.general === id) m.general = ""; });
+    s.fields.forEach(function (f) { if (f.general === id) f.general = ""; });
+    return s;
   }
   function removeCastle(state, id) {
     var s = clone(state);
@@ -575,7 +652,68 @@
     return res;
   }
 
+  // 圃場の CSV（数字の CSV とは別の表）
+  var FIELD_COLS = ["圃場", "面積(a)", "作物・品種", "担当", "メモ"];
+  function fieldsToCSV(state) {
+    var lines = [FIELD_COLS.join(",")];
+    state.fields.forEach(function (f) {
+      var g = state.generals.filter(function (x) { return x.id === f.general; })[0];
+      lines.push([f.name, f.area, f.crop, g ? g.name : "", f.memo].map(csvCell).join(","));
+    });
+    return lines.join("\r\n") + "\r\n";
+  }
+  function importFieldsCSV(state, text) {
+    var s = clone(state);
+    var rows = parseCSV(text);
+    var res = { state: s, imported: 0, skipped: 0, created: [], errors: [], kind: "fields" };
+    if (!rows.length) { res.errors.push("中身が空です"); return res; }
+    var head = rows[0].map(function (h) { return h.trim(); });
+    var ci = function (names) { for (var i = 0; i < names.length; i++) { var k = head.indexOf(names[i]); if (k >= 0) return k; } return -1; };
+    var cName = ci(["圃場"]), cArea = ci(["面積(a)", "面積（a）", "面積"]), cCrop = ci(["作物・品種", "作物"]), cGen = ci(["担当"]), cMemo = ci(["メモ"]);
+    if (cName < 0) { res.errors.push("1行目に「圃場」の見出しがありません"); return res; }
+    for (var r = 1; r < rows.length; r++) {
+      var line = rows[r], ln = r + 1;
+      var name = String(line[cName] || "").trim().slice(0, 40);
+      if (!name) { res.skipped++; res.errors.push(ln + "行目：圃場の名前がありません"); continue; }
+      var area;
+      if (cArea >= 0 && String(line[cArea] || "").trim() !== "") {
+        area = parseArea(line[cArea]);
+        if (isNaN(area)) { res.skipped++; res.errors.push(ln + "行目：面積が読めません"); continue; }
+      }
+      var f = s.fields.filter(function (x) { return x.name === name; })[0];
+      if (!f) {
+        if (s.fields.length >= MAX_FIELDS) { res.skipped++; res.errors.push(ln + "行目：圃場が" + MAX_FIELDS + "を超えます"); continue; }
+        f = { id: newId(s, "f"), name: name, area: 0, crop: "", memo: "", general: "", slot: freeSlot(s, s.fields, MAX_FIELDS) };
+        s.fields.push(f);
+        res.created.push(name);
+      }
+      if (area !== undefined) f.area = area;
+      if (cCrop >= 0 && line[cCrop] !== undefined) f.crop = String(line[cCrop]).trim().slice(0, 60);
+      if (cMemo >= 0 && line[cMemo] !== undefined) f.memo = String(line[cMemo]).trim().slice(0, 300);
+      if (cGen >= 0 && line[cGen] !== undefined) {
+        var gn = String(line[cGen]).trim();
+        var g = s.generals.filter(function (x) { return x.name === gn; })[0];
+        if (gn && !g) res.errors.push(ln + "行目：武将「" + gn + "」がいないため担当は空にしました");
+        f.general = g ? g.id : "";
+      }
+      res.imported++;
+    }
+    return res;
+  }
+  // 見出しを見て、数字の CSV か圃場の CSV かを選ぶ
+  function importAnyCSV(state, text) {
+    var rows = parseCSV(text);
+    var head = rows.length ? rows[0].map(function (h) { return h.trim(); }) : [];
+    if (head.indexOf("圃場") >= 0 && head.indexOf("城") < 0) return importFieldsCSV(state, text);
+    var r = importCSV(state, text); r.kind = "months"; return r;
+  }
+
   return {
+    MAX_FIELDS: MAX_FIELDS, DEFAULT_KOKU_PER_A: DEFAULT_KOKU_PER_A, AREA_UNITS: AREA_UNITS,
+    kokuOf: kokuOf, totalArea: totalArea, totalKoku: totalKoku, generalFields: generalFields, generalKoku: generalKoku,
+    areaToA: areaToA, fmtKoku: fmtKoku, fmtArea: fmtArea, parseArea: parseArea, incomePerManKoku: incomePerManKoku,
+    removeField: removeField, removeGeneral: removeGeneral, freeSlot: freeSlot,
+    fieldsToCSV: fieldsToCSV, importFieldsCSV: importFieldsCSV, importAnyCSV: importAnyCSV, FIELD_COLS: FIELD_COLS,
     MAX_CASTLES: MAX_CASTLES, TH: TH, KINDS: KINDS, STATUSES: STATUSES, WAFU: WAFU, LV_NAMES: LV_NAMES,
     num: num, numOrNull: numOrNull, clone: clone,
     isYM: isYM, ymOf: ymOf, monthAdd: monthAdd, monthsBack: monthsBack, monthLabel: monthLabel, parseYM: parseYM,

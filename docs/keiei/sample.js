@@ -38,7 +38,7 @@
     var notes = {
       "2025-10": "秋の茶会の注文が戻り、まずまずの滑り出し。",
       "2025-11": "年末ギフトの仕込みで在庫を厚くした。",
-      "2025-12": "ギフト商戦で石高（売上）が山。法人の注文が好調。",
+      "2025-12": "ギフト商戦で収入（売上）が山。法人の注文が好調。",
       "2026-01": "年明けは静か。定期便の申込が少しずつ増える。",
       "2026-02": "一年で一番の谷。経費を見直した。",
       "2026-03": "卒業・送別の贈答で持ち直す。",
@@ -84,7 +84,7 @@
     }
 
     return {
-      v: 1,
+      v: 2,
       name: "悠三堂",
       current: current,
       seq: 100,
@@ -96,6 +96,15 @@
         { id: "g3", name: "白川 千代", role: "茶頭", tou: 70, bu: 60, chi: 66, sei: 74, castle: "c3" },
         { id: "g4", name: "村雨 新兵衛", role: "足軽大将", tou: 48, bu: 84, chi: 50, sei: 44, castle: "c6" },
         { id: "g5", name: "水沢 小夜", role: "勘定奉行", tou: 64, bu: 40, chi: 62, sei: 91, castle: "c5" }
+      ],
+      kokuPerA: 1000,
+      fields: [
+        { id: "f1", name: "東の茶畑", area: 120, crop: "茶・やぶきた", general: "g3", memo: "一番茶の主力。南向きで霜に強い。", slot: 0 },
+        { id: "f2", name: "川沿いの茶畑", area: 85, crop: "茶・さえみどり", general: "g2", memo: "被覆栽培で玉露風に仕上げる。", slot: 1 },
+        { id: "f3", name: "山の上の茶園", area: 60, crop: "茶・おくみどり", general: "g1", memo: "朝霧が出る。手摘みの限定品用。", slot: 2 },
+        { id: "f4", name: "南斜面の畑", area: 45, crop: "茶・べにふうき（紅茶用）", general: "", memo: "昨年借りた畑。担当を決めたい。", slot: 3 },
+        { id: "f5", name: "試験圃場", area: 12, crop: "在来種ほか", general: "g5", memo: "新しい品種を少しずつ試す。", slot: 4 },
+        { id: "f6", name: "裏の畑", area: 30, crop: "茶・やぶきた（ほうじ茶用）", general: "g4", memo: "番茶・ほうじ茶の原料。", slot: 5 }
       ],
       measures: [
         { id: "m1", title: "新茶ティーバッグの試作", kind: "kaikon", castle: "c1", general: "g2", cost: 180000, due: "2026-11-30", status: "doing" },
