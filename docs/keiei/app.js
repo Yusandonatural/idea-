@@ -121,12 +121,15 @@
   // ---------- 地図の形（抽象的な島をボロノイ風に区切る） ----------
   var SLOTS = [[-0.58, -0.32], [0.02, -0.52], [0.56, -0.28], [-0.48, 0.42], [0.08, 0.2], [0.62, 0.45],
     [-0.22, -0.02], [0.34, -0.04], [-0.12, 0.66], [0.38, 0.72], [-0.84, 0.04], [0.86, 0.06]];
+  // スマホ（縦長の地図）での城の位置：左右に互い違いに並べる（x は rx、y は ry に対する比）
+  var TSLOTS = [[-0.43, -0.66], [0.43, -0.38], [-0.43, -0.1], [0.43, 0.18], [-0.42, 0.46], [0.4, 0.7],
+    [0.02, -0.86], [0.0, 0.04], [0.0, 0.88], [-0.6, 0.86], [0.6, -0.86], [0.66, 0.46]];
   // 圃場（領地）の置き場所。城の名札とぶつからない位置を選んである
   var FSLOTS = [[-0.27, -0.44], [0.3, -0.5], [0.34, 0.08], [-0.84, -0.02], [-0.17, 0.58], [0.86, -0.1],
     [-0.24, 0.1], [0.36, 0.66], [-0.66, 0.78], [-0.78, -0.56], [0.74, -0.66], [0.9, 0.5]];
   function geometry(tall) {
-    var W = tall ? 640 : 1000, H = tall ? 780 : 620;
-    var cx = W / 2, cy = H / 2 + (tall ? 10 : 8), rx = tall ? 278 : 440, ry = tall ? 340 : 262;
+    var W = tall ? 500 : 1000, H = tall ? 1060 : 620;
+    var cx = W / 2, cy = H / 2 + (tall ? 18 : 8), rx = tall ? 206 : 440, ry = tall ? 462 : 262;
     var pts = [];
     for (var i = 0; i < 96; i++) {
       var t = i / 96 * Math.PI * 2;
@@ -134,12 +137,13 @@
       pts.push([cx + Math.cos(t) * rx * k, cy + Math.sin(t) * ry * k]);
     }
     var site = function (slot) {
+      if (tall) { var t = TSLOTS[slot] || [0, 0]; return [cx + t[0] * rx, cy + t[1] * ry]; }
       var s = SLOTS[slot] || [0, 0];
-      return tall ? [cx + s[1] * rx * 0.86, cy + s[0] * ry * 0.84] : [cx + s[0] * rx * 0.9, cy + s[1] * ry * 0.86];
+      return [cx + s[0] * rx * 0.9, cy + s[1] * ry * 0.86];
     };
     var fsite = function (slot) {
       var s = FSLOTS[slot] || [0, 0];
-      return tall ? [cx + s[1] * rx * 0.86, cy + s[0] * ry * 0.84] : [cx + s[0] * rx * 0.9, cy + s[1] * ry * 0.86];
+      return tall ? [cx + s[1] * rx * 0.72, cy + s[0] * ry * 0.86] : [cx + s[0] * rx * 0.9, cy + s[1] * ry * 0.86];
     };
     return { W: W, H: H, cx: cx, cy: cy, rx: rx, ry: ry, island: pts, site: site, fsite: fsite };
   }
@@ -161,6 +165,38 @@
     return poly.length ? [x / poly.length, y / poly.length] : [0, 0];
   }
 
+  function inPoly(pt, poly) {
+    var x = pt[0], y = pt[1], inside = false;
+    for (var i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+      var xi = poly[i][0], yi = poly[i][1], xj = poly[j][0], yj = poly[j][1];
+      if ((yi > y) !== (yj > y) && x < (xj - xi) * (y - yi) / (yj - yi) + xi) inside = !inside;
+    }
+    return inside;
+  }
+  function rectGap(a, b) { // 2つの矩形のすき間（重なっていれば負）
+    var dx = Math.max(b[0] - a[2], a[0] - b[2]), dy = Math.max(b[1] - a[3], a[1] - b[3]);
+    return dx > 0 && dy > 0 ? Math.sqrt(dx * dx + dy * dy) : Math.max(dx, dy);
+  }
+  // 島の中で、ほかの物とぶつからず、目標の位置に近い場所を探す（毎回同じ結果になる）
+  function placeFree(g, rel, inner, target, obstacles, step) {
+    var best = null, bestScore = -Infinity;
+    var minX = g.cx - g.rx * 1.2, maxX = g.cx + g.rx * 1.2, minY = g.cy - g.ry * 1.2, maxY = g.cy + g.ry * 1.2;
+    for (var y = minY; y <= maxY; y += step) {
+      for (var x = minX; x <= maxX; x += step) {
+        if (!inner.every(function (q) { return inPoly([x + q[0], y + q[1]], g.island); })) continue;
+        var r = [x + rel[0], y + rel[1], x + rel[2], y + rel[3]];
+        if (r[0] < 4 || r[2] > g.W - 4 || r[1] < 4 || r[3] > g.H - 4) continue;
+        var gap = Infinity;
+        for (var i = 0; i < obstacles.length; i++) gap = Math.min(gap, rectGap(r, obstacles[i]));
+        var d = Math.sqrt((x - target[0]) * (x - target[0]) + (y - target[1]) * (y - target[1]));
+        var score = (gap < 6 ? -10000 + gap * 10 : Math.min(gap, 28) * 3) - d * 0.12;
+        if (score > bestScore) { bestScore = score; best = [x, y]; }
+      }
+    }
+    return best || target;
+  }
+  function mapLabel(name, tall) { var n = tall ? 6 : 8; return name.length > n ? name.slice(0, n - 1) + "…" : name; }
+
   function mapSVG(tall) {
     var g = geometry(tall), ym = state.current;
     var sites = state.castles.map(function (c) { return { c: c, p: g.site(c.slot) }; });
@@ -170,7 +206,30 @@
       return poly;
     });
     var island = pathOf(g.island);
-    var svg = '<svg class="map" viewBox="0 0 ' + g.W + " " + g.H + '" role="group" aria-label="領国図。城（事業）を選ぶと詳しい数字が出ます">' +
+    // 配置：城（名札・旗まで）と題箋・方位をよけて、圃場と山を置く
+    var CW = tall ? 21 : 23;
+    var obstacles = sites.map(function (s) {
+      var hw = Math.max(52, (mapLabel(s.c.name, tall).length * CW + 20) / 2);
+      return [s.p[0] - hw, s.p[1] - 58, s.p[0] + hw, s.p[1] + 98];
+    });
+    obstacles.push([10, 10, 22 + (tall ? 186 : 196) + 8, 86], [g.W - 108, 14, g.W - 18, 104]);
+    var fields = state.fields || [];
+    var maxA = Math.max.apply(null, fields.map(function (f) { return f.area; }).concat([1]));
+    var fplace = fields.map(function (f) {
+      var k = 0.75 + 0.5 * Math.sqrt(f.area / maxA), w = (tall ? 54 : 62) * k, h = (tall ? 36 : 40) * k;
+      var nm = mapLabel(f.name, true), lw = Math.max(nm.length * 19 + 16, 70);
+      var hx = Math.max(w / 2 + 6, lw / 2);
+      var rel = [-hx, -h / 2 - 7, hx, h / 2 + 60];
+      var pos = placeFree(g, rel, [[0, 0], [-w / 2, 0], [w / 2, 0]], g.fsite(f.slot), obstacles, 8);
+      obstacles.push([pos[0] + rel[0], pos[1] + rel[1], pos[0] + rel[2], pos[1] + rel[3]]);
+      return { f: f, p: pos, w: w, h: h, nm: nm, lw: lw };
+    });
+    var mtns = sites.slice(0, 6).map(function (s, i) {
+      var pos = placeFree(g, [-18, -20, 34, 4], [[-14, 0], [30, 0]], [s.p[0] + (i % 2 ? 80 : -80), s.p[1] + (i % 3 ? -70 : 60)], obstacles, 14);
+      obstacles.push([pos[0] - 18, pos[1] - 20, pos[0] + 34, pos[1] + 4]);
+      return pos;
+    });
+    var svg = '<svg class="map' + (tall ? " tall" : "") + '" viewBox="0 0 ' + g.W + " " + g.H + '" role="group" aria-label="領国図。城（事業）を選ぶと詳しい数字が出ます">' +
       "<defs>" +
       '<pattern id="wave" width="44" height="22" patternUnits="userSpaceOnUse"><path d="M0 22 A22 22 0 0 1 44 22 M11 22 A11 11 0 0 1 33 22" class="wave"/></pattern>' +
       '<clipPath id="isl"><path d="' + island + '"/></clipPath>' +
@@ -190,24 +249,16 @@
     // 山と川（飾り）
     var mt = function (x, y, s) { return '<path class="mtn" d="M' + (x - 14 * s) + " " + y + " L" + x + " " + (y - 16 * s) + " L" + (x + 14 * s) + " " + y + " M" + (x + 6 * s) + " " + y + " L" + (x + 18 * s) + " " + (y - 10 * s) + " L" + (x + 30 * s) + " " + y + '"/>'; };
     svg += '<path class="river" d="M' + (g.cx - g.rx * 0.15) + " " + (g.cy - g.ry * 1.1) + " C" + (g.cx + g.rx * 0.05) + " " + (g.cy - g.ry * 0.4) + " " + (g.cx - g.rx * 0.32) + " " + (g.cy + g.ry * 0.1) + " " + (g.cx - g.rx * 0.05) + " " + (g.cy + g.ry * 1.2) + '"/>';
-    sites.forEach(function (s, i) {
-      var c = centroid(cells[i]);
-      var mx = (c[0] * 2 + s.p[0]) / 3 + (i % 2 ? 40 : -46), my = (c[1] * 2 + s.p[1]) / 3 + (i % 3 ? -30 : 44);
-      svg += mt(mx, my, 1);
-    });
+    mtns.forEach(function (m) { svg += mt(m[0], m[1], 1); });
     cells.forEach(function (poly) { svg += '<path d="' + pathOf(poly) + '" class="border"/>'; });
     svg += "</g>";
     svg += '<path d="' + island + '" class="coast"/>';
     // 圃場（領地）：茶畑の畝を描いた区画。城とは形も色も変える
-    var fields = state.fields || [];
-    var maxA = Math.max.apply(null, fields.map(function (f) { return f.area; }).concat([1]));
-    fields.forEach(function (f) {
-      var p = g.fsite(f.slot), k = 0.75 + 0.5 * Math.sqrt(f.area / maxA), w = 62 * k, h = 40 * k;
+    fplace.forEach(function (fp) {
+      var f = fp.f, p = fp.p, w = fp.w, h = fp.h, nm = fp.nm, lw = fp.lw;
       var sel = ui.sel === f.id;
-      var nm = f.name.length > 7 ? f.name.slice(0, 6) + "…" : f.name;
       var rows = "";
       for (var r = 1; r <= 4; r++) { var yy = -h / 2 + h * r / 5; rows += '<path d="M' + (-w / 2 + 6) + " " + yy.toFixed(1) + " Q0 " + (yy - 5).toFixed(1) + " " + (w / 2 - 6) + " " + yy.toFixed(1) + '" class="furrow"/>'; }
-      var lw = Math.max(nm.length * 19 + 16, 70);
       svg += '<g class="field' + (sel ? " is-sel" : "") + '" data-id="' + esc(f.id) + '" transform="translate(' + p[0].toFixed(1) + " " + p[1].toFixed(1) + ')" tabindex="0" role="button" aria-pressed="' + sel + '" aria-label="' + esc(f.name) + "（圃場・領地）。石高" + K.fmtKoku(K.kokuOf(state, f.area)) + "、" + K.fmtArea(f.area) + (f.crop ? "、" + esc(f.crop) : "") + (f.general ? "、担当 " + esc(generalName(f.general)) : "、担当なし") + '">' +
         '<rect x="' + (-w / 2 - 8) + '" y="' + (-h / 2 - 8) + '" width="' + (w + 16) + '" height="' + (h + 66) + '" class="hit"/>' +
         '<rect x="' + (-w / 2 - 5) + '" y="' + (-h / 2 - 5) + '" width="' + (w + 10) + '" height="' + (h + 10) + '" rx="8" class="ring"/>' +
@@ -219,8 +270,8 @@
     // 城
     sites.forEach(function (s) {
       var c = s.c, p = K.castlePL(state, ym, c.id), st = K.castleStatus(p.rate, p.target);
-      var nm = c.name.length > 8 ? c.name.slice(0, 7) + "…" : c.name;
-      var lw = Math.max(nm.length * 23 + 20, 84);
+      var nm = mapLabel(c.name, tall);
+      var lw = Math.max(nm.length * CW + 20, 84);
       var sel = ui.sel === c.id;
       svg += '<g class="castle' + (sel ? " is-sel" : "") + '" data-id="' + esc(c.id) + '" transform="translate(' + s.p[0].toFixed(1) + " " + s.p[1].toFixed(1) + ')" tabindex="0" role="button" aria-pressed="' + sel + '" aria-label="' + esc(c.name) + "の城。" + st.label + "。収入（売上）" + yen(p.sales) + "、目標達成率" + pct(p.rate) + '">' +
         '<circle r="50" class="hit"/><circle r="47" class="ring"/>' + castleIcon(st.key) +
@@ -232,7 +283,7 @@
     // 方位と題箋
     var cxp = g.W - 64, cyp = 64;
     svg += '<g class="compass" transform="translate(' + cxp + " " + cyp + ')"><circle r="34"/><path d="M0 -30 L7 0 L0 30 L-7 0 Z M-30 0 L0 6 L30 0 L0 -6 Z"/><text y="-40">北</text></g>';
-    svg += '<g class="cartouche" transform="translate(22 22)"><rect width="' + (tall ? 172 : 196) + '" height="54" rx="3"/><rect x="5" y="5" width="' + (tall ? 162 : 186) + '" height="44" class="inner"/><text x="' + (tall ? 86 : 98) + '" y="36">' + esc(state.name || "わが国") + " 領国之図</text></g>";
+    svg += '<g class="cartouche" transform="translate(22 22)"><rect width="' + (tall ? 186 : 196) + '" height="54" rx="3"/><rect x="5" y="5" width="' + (tall ? 176 : 186) + '" height="44" class="inner"/><text x="' + (tall ? 93 : 98) + '" y="36">' + esc(state.name || "わが国") + " 領国之図</text></g>";
     if (!state.castles.length && !fields.length) svg += '<text class="empty-t" x="' + g.cx + '" y="' + g.cy + '">「帳簿」で城（事業）や圃場を加えてください</text>';
     svg += "</svg>";
     return svg;
@@ -286,7 +337,7 @@
         "<div><dt>" + term("目標", "売上目標") + "</dt><dd>" + yen(co.target) + "</dd></div>" +
         "<div><dt>" + term("攻略ゲージ", "達成率") + "</dt><dd>" + gauge(co.rate) + "</dd></div>" +
         "<div><dt>" + term("営業利益", "粗利−販管費") + "</dt><dd>" + yen(co.op) + "</dd></div></dl>" +
-        '<p class="hint">地図の城を押すか、下の一覧から選んでください。</p>' +
+        '<p class="hint">地図の城（事業）や圃場（領地）を押すか、下の一覧から選んでください。</p>' +
         '<ul class="castle-list">' + state.castles.map(function (x) {
           var p = K.castlePL(state, ym, x.id), st = K.castleStatus(p.rate, p.target);
           return '<li><button type="button" class="castle-btn" data-pick="' + esc(x.id) + '"><i class="dot dot-' + st.key + '" aria-hidden="true"></i><span class="nm">' + esc(x.name) + '</span><span class="st">' + st.label + " " + (p.target ? pct(p.rate) : "") + "</span></button></li>";
@@ -373,7 +424,7 @@
     rows.forEach(function (r, i) {
       var x = L + i * bw, st = K.castleStatus(r.rate, r.target).key;
       var h = H - B - y(r.sales);
-      s += '<rect x="' + (x + bw * 0.18).toFixed(1) + '" y="' + y(r.sales).toFixed(1) + '" width="' + (bw * 0.64).toFixed(1) + '" height="' + Math.max(0, h).toFixed(1) + '" class="bar bar-' + st + '"/>';
+      s += '<rect x="' + (x + bw * 0.18).toFixed(1) + '" y="' + y(r.sales).toFixed(1) + '" width="' + (bw * 0.64).toFixed(1) + '" height="' + Math.max(0, h).toFixed(1) + '" class="cbar bar-' + st + '"/>';
       s += '<text x="' + (x + bw / 2).toFixed(1) + '" y="' + (H - 10) + '" class="ax">' + (+r.ym.slice(5)) + "</text>";
     });
     var pts = rows.map(function (r, i) { return (L + i * bw + bw / 2).toFixed(1) + "," + y(r.target).toFixed(1); });
@@ -395,7 +446,7 @@
     });
     items.forEach(function (r, i) {
       var x = L + i * bw, top = Math.min(y(r.cash), y(0)), h = Math.abs(y(r.cash) - y(0));
-      s += '<rect x="' + (x + bw * 0.2).toFixed(1) + '" y="' + top.toFixed(1) + '" width="' + (bw * 0.6).toFixed(1) + '" height="' + h.toFixed(1) + '" class="bar ' + (r.cash < 0 ? "bar-lose" : r.now ? "bar-now" : "bar-fc") + '"/>';
+      s += '<rect x="' + (x + bw * 0.2).toFixed(1) + '" y="' + top.toFixed(1) + '" width="' + (bw * 0.6).toFixed(1) + '" height="' + h.toFixed(1) + '" class="cbar ' + (r.cash < 0 ? "bar-lose" : r.now ? "bar-now" : "bar-fc") + '"/>';
       s += '<text x="' + (x + bw / 2).toFixed(1) + '" y="' + (H - 10) + '" class="ax">' + (r.now ? "今" : +r.ym.slice(5) + "月") + "</text>";
     });
     return s + "</svg>";
@@ -445,7 +496,8 @@
   }
   function screenHead(title, sub, extra) {
     return '<div class="screen-head"><h1 tabindex="-1"><span class="vt">' + esc(title) + "</span>" + (sub ? "<small>" + esc(sub) + "</small>" : "") + "</h1>" +
-      '<a class="btn ghost back" href="#/">◀ 大地図へ</a>' + (extra || "") + "</div>";
+      '<a class="btn ghost back" href="#/">◀ 大地図へ</a>' + (extra || "") + "</div>" +
+      (sub ? '<p class="screen-sub" aria-hidden="true">' + esc(title) + "・" + esc(sub) + "</p>" : "");
   }
 
   // ---------- 画面：評定 ----------
@@ -463,15 +515,21 @@
     };
     return screenHead("評定", "月次レビュー・" + ml(ym).seireki) + monthNav(ym, months, "hy") +
       '<div class="grid2">' +
-      '<section class="panel"><h2 class="ph">' + term("国力", "月次損益") + "</h2>" +
-      '<table class="rtable"><thead><tr><th scope="col">項目</th><th scope="col">今月</th><th scope="col">前月</th><th scope="col">増減</th></tr></thead><tbody>' +
+      '<section class="panel"><h2 class="ph">' + term("勘定", "月次損益") + "</h2>" +
+      '<table class="rtable keep"><thead><tr><th scope="col">項目</th><th scope="col">今月</th><th scope="col">前月</th><th scope="col">増減</th></tr></thead><tbody>' +
       line(term("収入", "売上"), co.sales, pr.sales) + line("原価", co.cost, pr.cost, { cost: true }) +
       line("粗利", co.gross, pr.gross, { rate: co.margin }) + line("販管費", co.sga, pr.sga, { cost: true }) +
       line("営業利益", co.op, pr.op, { strong: true }) +
-      "</tbody></table></section>" +
+      (function () {
+        var a = K.incomePerManKoku(state, ym), b = hasPrev ? K.incomePerManKoku(state, prevYm) : null;
+        var d = a !== null && b !== null ? a - b : null;
+        return '<tr><th scope="row">1万石あたりの収入<small class="sub">（圃場面積あたりの売上）</small></th><td data-label="今月">' + (a === null ? "—" : yen(a)) + '</td><td data-label="前月">' + (b === null ? "—" : yen(b)) + '</td><td data-label="増減" class="' + (d === null ? "" : d >= 0 ? "up" : "down") + '">' + (d === null ? "—" : (d >= 0 ? "+" : "") + yen(d)) + "</td></tr>";
+      })() +
+      "</tbody></table>" +
+      '<p class="note">国力（総石高） ' + K.fmtKoku(K.totalKoku(state)) + "（" + K.fmtArea(K.totalArea(state)) + "）。圃場は今の登録内容で計算します。</p></section>" +
       '<section class="panel"><h2 class="ph">' + term("金の見通し", "手元資金の6か月予測") + "</h2>" + cashChart(fc, ym) +
       '<p class="note">今の手元資金 ' + yen(fc.start) + " から、直近" + (fc.basis.length || 0) + "か月の営業利益の平均（月 " + yen(fc.avgNet) + "）を足し、未完了の施策の費用を期限の月に引いた概算です。</p>" +
-      '<table class="rtable"><thead><tr><th scope="col">月</th><th scope="col">収支</th><th scope="col">施策費用</th><th scope="col">見込み残高</th></tr></thead><tbody>' +
+      '<table class="rtable keep"><thead><tr><th scope="col">月</th><th scope="col">収支</th><th scope="col">施策費用</th><th scope="col">見込み残高</th></tr></thead><tbody>' +
       fc.rows.map(function (r) {
         return '<tr><th scope="row">' + ml(r.ym).seireki + '</th><td data-label="収支">' + yen(r.net) + '</td><td data-label="施策費用">' + (r.measures ? "-" + yen(r.measures) : "—") + '</td><td data-label="見込み残高" class="' + (r.cash < 0 ? "down" : "") + '">' + yen(r.cash) + "</td></tr>";
       }).join("") + "</tbody></table></section>" +
@@ -500,9 +558,11 @@
     var bar = function (g, k) { return '<span class="abar"><span class="bar"><i style="width:' + g[k] + '%"></i></span><b>' + g[k] + "</b></span>"; };
     return screenHead("武将", "メンバー " + state.generals.length + "名") +
       '<section class="panel"><div class="toolbar"><button type="button" class="btn primary" id="add-gen">＋ 武将を召し抱える<small>（メンバー追加）</small></button></div>' +
-      (state.generals.length ? '<table class="rtable"><thead><tr><th scope="col">武将</th><th scope="col">' + term("統率", "マネジメント") + '</th><th scope="col">' + term("武勇", "営業") + '</th><th scope="col">' + term("知略", "企画") + '</th><th scope="col">' + term("政務", "事務") + '</th><th scope="col">担当の城</th><th scope="col">操作</th></tr></thead><tbody>' +
+      (state.generals.length ? '<table class="rtable"><thead><tr><th scope="col">武将</th><th scope="col">' + term("知行", "担当圃場の石高") + '</th><th scope="col">' + term("統率", "マネジメント") + '</th><th scope="col">' + term("武勇", "営業") + '</th><th scope="col">' + term("知略", "企画") + '</th><th scope="col">' + term("政務", "事務") + '</th><th scope="col">担当の城</th><th scope="col">操作</th></tr></thead><tbody>' +
         state.generals.map(function (g) {
+          var gf = K.generalFields(state, g.id);
           return '<tr><th scope="row"><b>' + esc(g.name) + '</b><small class="sub">' + esc(g.role) + "</small></th>" +
+            '<td data-label="知行（担当圃場の石高）"><span><b>知行 ' + K.fmtKoku(K.generalKoku(state, g.id)) + "</b>" + (gf.length ? '<small class="sub fl">' + gf.map(function (f) { return esc(f.name); }).join("・") + "</small>" : '<small class="sub fl">圃場なし</small>') + "</span></td>" +
             '<td data-label="統率（マネジメント）">' + bar(g, "tou") + '</td><td data-label="武勇（営業）">' + bar(g, "bu") + '</td><td data-label="知略（企画）">' + bar(g, "chi") + '</td><td data-label="政務（事務）">' + bar(g, "sei") + "</td>" +
             '<td data-label="担当の城"><label class="sr-only" for="as-' + esc(g.id) + '">' + esc(g.name) + 'の担当の城</label><select id="as-' + esc(g.id) + '" data-assign="' + esc(g.id) + '">' + castleOptions(g.castle, "（担当なし）") + "</select></td>" +
             '<td data-label="操作" class="ops"><button type="button" class="btn ghost" data-edit-gen="' + esc(g.id) + '">編集</button><button type="button" class="btn ghost danger-t" data-del-gen="' + esc(g.id) + '">削除</button></td></tr>';
@@ -516,6 +576,10 @@
       '<label class="f"><span>役職<small>（例：家老＝番頭、奉行＝担当者）</small></span><input name="role" maxlength="40" value="' + esc(g.role) + '" autocomplete="off"></label>' +
       '<div class="f2">' + ab("tou", "統率", "マネジメント") + ab("bu", "武勇", "営業") + ab("chi", "知略", "企画") + ab("sei", "政務", "事務") + "</div>" +
       '<label class="f"><span>担当の城</span><select name="castle">' + castleOptions(g.castle, "（担当なし）") + "</select></label>" +
+      ((state.fields || []).length ? '<fieldset class="f checks"><legend>担当の圃場<small>（知行。1枚の圃場の担当は1人）</small></legend>' + state.fields.map(function (f) {
+        var other = f.general && f.general !== g.id ? generalName(f.general) : "";
+        return '<label class="chk"><input type="checkbox" name="fields" value="' + esc(f.id) + '"' + (g.id && f.general === g.id ? " checked" : "") + "><span>" + esc(f.name) + ' <small class="sub">' + K.fmtKoku(K.kokuOf(state, f.area)) + (other ? "・今は" + esc(other) : "") + "</small></span></label>";
+      }).join("") + "</fieldset>" : "") +
       '<p class="note">能力値は 1〜100 で、自分たちの目安で付けてください。</p>';
   }
   function readGeneral(form, base) {
@@ -525,7 +589,16 @@
     out.role = String(fd.get("role") || "").trim();
     ["tou", "bu", "chi", "sei"].forEach(function (k) { var n = Math.round(+fd.get(k)); out[k] = Math.max(1, Math.min(100, isFinite(n) && n ? n : 1)); });
     out.castle = String(fd.get("castle") || "");
+    out._fields = fd.getAll("fields").map(String);
     return out;
+  }
+  function applyFields(s, g) {
+    var picked = g._fields || [];
+    delete g._fields;
+    s.fields.forEach(function (f) {
+      if (picked.indexOf(f.id) >= 0) f.general = g.id;
+      else if (f.general === g.id) f.general = "";
+    });
   }
   function bindBushou(root) {
     var add = $("#add-gen", root);
@@ -533,7 +606,7 @@
       dialog({ title: "武将を召し抱える（メンバー追加）", body: generalForm(), ok: "召し抱える", onOk: function (f) {
         var g = readGeneral(f);
         if (typeof g === "string") return g;
-        var s = K.clone(state); g.id = K.newId(s, "g"); s.generals.push(g);
+        var s = K.clone(state); g.id = K.newId(s, "g"); applyFields(s, g); s.generals.push(g);
         commit(s, g.name + "を召し抱えました");
       } });
     });
@@ -543,7 +616,7 @@
         dialog({ title: "武将の編集", body: generalForm(g), ok: "保存する", onOk: function (f) {
           var n = readGeneral(f, g);
           if (typeof n === "string") return n;
-          var s = K.clone(state); s.generals = s.generals.map(function (x) { return x.id === g.id ? n : x; });
+          var s = K.clone(state); applyFields(s, n); s.generals = s.generals.map(function (x) { return x.id === g.id ? n : x; });
           commit(s, "記録しました");
         } });
       });
@@ -551,11 +624,8 @@
     $$("[data-del-gen]", root).forEach(function (b) {
       b.addEventListener("click", function () {
         var g = state.generals.filter(function (x) { return x.id === b.dataset.delGen; })[0];
-        confirmDlg("武将の削除", g.name + " を一覧から外します。担当している施策の担当も空になります。よろしいですか。", "削除する", function () {
-          var s = K.clone(state);
-          s.generals = s.generals.filter(function (x) { return x.id !== g.id; });
-          s.measures.forEach(function (m) { if (m.general === g.id) m.general = ""; });
-          commit(s, g.name + "を外しました");
+        confirmDlg("武将の削除", g.name + " を一覧から外します。担当している施策と圃場の担当も空になります。よろしいですか。", "削除する", function () {
+          commit(K.removeGeneral(state, g.id), g.name + "を外しました");
         });
       });
     });
@@ -587,7 +657,7 @@
             '<td data-label="対象の城">' + (m.castle ? esc(castleName(m.castle)) : "全体") + "</td>" +
             '<td data-label="担当">' + (m.general ? esc(generalName(m.general)) : '<span class="muted">未定</span>') + "</td>" +
             '<td data-label="費用">' + (m.cost ? yen(m.cost) : "—") + "</td>" +
-            '<td data-label="期限" class="' + (over ? "down" : "") + '">' + (m.due || "—") + (over ? "<small>（期限切れ）</small>" : "") + "</td>" +
+            '<td data-label="期限" class="' + (over ? "down" : "") + '"><span>' + (m.due || "—") + (over ? "<small>（期限切れ）</small>" : "") + "</span></td>" +
             '<td data-label="状態"><span class="stt stt-' + m.status + '">' + statusName(m.status) + "</span></td>" +
             '<td data-label="操作" class="ops">' + (m.status !== "done" ? '<button type="button" class="btn" data-done-ms="' + esc(m.id) + '">完了</button>' : "") +
             '<button type="button" class="btn ghost" data-edit-ms="' + esc(m.id) + '">編集</button><button type="button" class="btn ghost danger-t" data-del-ms="' + esc(m.id) + '">削除</button></td></tr>';
@@ -670,16 +740,16 @@
     return screenHead("帳簿", "数字の入力・" + ml(ym).seireki) + monthNav(ym, months, "ch") +
       '<p class="note lead">入力欄を離れると自動で保存されます（この端末の中だけに保存）。' + (ym !== state.current ? "<b>今月ではなく過去の月を直しています。</b>" : "") + "</p>" +
       '<form class="ledger" id="ledger" data-ym="' + ym + '" onsubmit="return false">' +
-      '<fieldset class="panel ledger-card co"><legend class="ph">全社<small>（' + ml(ym).seireki + "）</small></legend>" +
+      '<fieldset class="panel ledger-card co"><legend class="ph">全社<small>（' + ml(ym).seireki + "）</small></legend><div class=\"lgrid\">" +
       inp("sga", m.sga, "販管費<small>（人件費・家賃・送料・広告など）</small>", "円", 'min="0" step="1"') +
-      inp("cash", m.cash, "金<small>（月末の手元資金）</small>", "円", 'step="1"') + "</fieldset>" +
+      inp("cash", m.cash, "金<small>（月末の手元資金）</small>", "円", 'step="1"') + "</div></fieldset>" +
       state.castles.map(function (c) {
         var v = K.castleMonth(state, ym, c.id);
-        return '<fieldset class="panel ledger-card"><legend class="ph">' + esc(c.name) + "</legend>" +
+        return '<fieldset class="panel ledger-card"><legend class="ph">' + esc(c.name) + "</legend><div class=\"lgrid\">" +
           FIELDS.map(function (f) {
             return inp(c.id + "." + f.k, f.k === "repeat" ? v.repeat : v[f.k], esc(f.a) + (f.a !== f.b ? "<small>（" + esc(f.b) + "）</small>" : "<small>（" + esc(f.b) + "）</small>"), f.unit,
               f.k === "repeat" ? 'min="0" max="100" step="0.1"' : 'min="0" step="1"');
-          }).join("") + "</fieldset>";
+          }).join("") + "</div></fieldset>";
       }).join("") +
       "</form>" +
       '<div class="grid2">' +
@@ -689,15 +759,25 @@
       }).join("") + "</ul>" +
       (state.castles.length < K.MAX_CASTLES ? '<form class="add-castle" id="add-castle"><label class="f"><span>新しい城（事業・販路）の名前</span><input name="name" maxlength="40" required autocomplete="off" placeholder="例：百貨店催事"></label><button class="btn primary">城を築く（追加）</button></form>' : '<p class="note">城は' + K.MAX_CASTLES + "までです。</p>") +
       "</section>" +
+      '<section class="panel" id="fields-sec" tabindex="-1"><h2 class="ph">' + term("領地", "圃場の追加・編集・削除") + "</h2>" +
+      '<p class="note">国力（総石高） <b>' + K.fmtKoku(K.totalKoku(state)) + "</b>（" + K.fmtArea(K.totalArea(state)) + "）</p>" +
+      ((state.fields || []).length ? '<ul class="castle-admin">' + state.fields.map(function (f) {
+        return '<li><span>' + esc(f.name) + '<small class="sub fl">' + K.fmtKoku(K.kokuOf(state, f.area)) + "（" + K.fmtArea(f.area) + "）" + (f.crop ? "・" + esc(f.crop) : "") + "・" + (f.general ? esc(generalName(f.general)) : '<span class="warn-t">担当なし</span>') + '</small></span><span class="ops"><button type="button" class="btn ghost" data-edf="' + esc(f.id) + '">編集</button><button type="button" class="btn ghost danger-t" data-delf="' + esc(f.id) + '">削除</button></span></li>';
+      }).join("") + "</ul>" : '<p class="empty">まだ圃場がありません。</p>') +
+      (state.fields.length < K.MAX_FIELDS ? '<button type="button" class="btn primary" id="add-field">＋ 圃場を加える</button>' : '<p class="note">圃場は' + K.MAX_FIELDS + "枚までです。</p>") +
+      '<form class="koku-set" id="koku-set"><label class="f"><span>石高の換算<small>（1aあたりの石数。既定は1,000＝1反で1万石）</small></span><span class="inwrap"><input type="number" name="rate" min="1" step="1" required inputmode="numeric" value="' + state.kokuPerA + '"><i>石/a</i></span></label>' +
+      '<p class="note">今の換算：1a＝' + K.fmtKoku(K.kokuOf(state, 1)) + "、1反＝" + K.fmtKoku(K.kokuOf(state, 10)) + "、1町＝" + K.fmtKoku(K.kokuOf(state, 100)) + '</p><button class="btn">換算を変える</button></form>' +
+      "</section>" +
       '<section class="panel"><h2 class="ph">' + term("文書蔵", "取り込み・書き出し・バックアップ") + "</h2>" +
       '<div class="btn-grid">' +
       '<button type="button" class="btn" id="csv-out">CSVを書き出す</button>' +
       '<button type="button" class="btn" id="csv-in">CSVを取り込む</button>' +
+      '<button type="button" class="btn" id="fcsv-out">圃場のCSVを書き出す</button>' +
       '<button type="button" class="btn" id="json-out">バックアップ（JSON）</button>' +
       '<button type="button" class="btn" id="json-in">バックアップから復元</button>' +
       '<button type="button" class="btn ghost" id="reset-sample">サンプルに戻す</button>' +
       '<button type="button" class="btn ghost danger-t" id="wipe">すべて消す</button></div>' +
-      '<details class="csv-help"><summary>CSVの形</summary><p>1行目の見出し：<code>' + K.CSV_COLS.join(",") + '</code></p><p>城ごとに1行（月・城・売上・原価・目標・在庫・リピート率）。販管費と手元資金は、城の欄を「' + K.COMPANY_ROW + '」にした行に書きます。空の欄は今の値のまま。知らない城の名前は新しい城として加えます。表計算ソフトで開けるよう、書き出しは UTF-8（BOM付き）です。</p></details>' +
+      '<details class="csv-help"><summary>CSVの形</summary><p>1行目の見出し：<code>' + K.CSV_COLS.join(",") + '</code></p><p>城ごとに1行（月・城・売上・原価・目標・在庫・リピート率）。販管費と手元資金は、城の欄を「' + K.COMPANY_ROW + '」にした行に書きます。空の欄は今の値のまま。知らない城の名前は新しい城として加えます。</p><p>圃場のCSVは見出しが <code>' + K.FIELD_COLS.join(",") + '</code> の別の表です（取り込みは同じボタンで、見出しを見て自動で見分けます）。面積は a の数字のほか「1町2反」のようにも書けます。担当は武将の名前で書きます。表計算ソフトで開けるよう、書き出しは UTF-8（BOM付き）です。</p></details>' +
       "</section></div>";
   }
   function bindChobo(root) {
@@ -752,14 +832,51 @@
     });
     var stamp = function () { return new Date().toISOString().slice(0, 10); };
     $("#csv-out", root).addEventListener("click", function () { download("keiei-" + stamp() + ".csv", "﻿" + K.toCSV(state), "text/csv"); toast("CSVを書き出しました"); });
+    $("#fcsv-out", root).addEventListener("click", function () { download("keiei-fields-" + stamp() + ".csv", "\uFEFF" + K.fieldsToCSV(state), "text/csv"); toast("圃場のCSVを書き出しました"); });
+    var addF = $("#add-field", root);
+    if (addF) addF.addEventListener("click", function () {
+      dialog({ title: "圃場を加える", body: fieldForm(), ok: "加える", onOk: function (f) {
+        var n = readField(f); if (typeof n === "string") return n;
+        var s = K.clone(state); n.id = K.newId(s, "f"); n.slot = K.freeSlot(s, s.fields, K.MAX_FIELDS); s.fields.push(n);
+        commit(s, "圃場「" + n.name + "」を加えました（" + K.fmtKoku(K.kokuOf(s, n.area)) + "）");
+      } });
+    });
+    $$("[data-edf]", root).forEach(function (b) {
+      b.addEventListener("click", function () {
+        var fl = fieldOf(b.dataset.edf);
+        dialog({ title: "圃場の編集", body: fieldForm(fl), ok: "保存する", onOk: function (f) {
+          var n = readField(f, fl); if (typeof n === "string") return n;
+          var s = K.clone(state); s.fields = s.fields.map(function (x) { return x.id === fl.id ? n : x; });
+          commit(s, "記録しました");
+        } });
+      });
+    });
+    $$("[data-delf]", root).forEach(function (b) {
+      b.addEventListener("click", function () {
+        var fl = fieldOf(b.dataset.delf);
+        confirmDlg("圃場の削除", "圃場「" + fl.name + "」（" + K.fmtArea(fl.area) + "）を削除します。元に戻せません。よろしいですか。", "削除する", function () {
+          if (ui.sel === fl.id) ui.sel = "";
+          commit(K.removeField(state, fl.id), "「" + fl.name + "」を削除しました");
+        });
+      });
+    });
+    var ks = $("#koku-set", root);
+    ks.addEventListener("submit", function (e) {
+      e.preventDefault();
+      var v = +new FormData(ks).get("rate");
+      if (!isFinite(v) || v <= 0) { toast("1以上の数字を入れてください"); return; }
+      var s = K.clone(state); s.kokuPerA = v;
+      commit(s, "換算を1a＝" + K.fmtKoku(v) + "にしました");
+    });
     $("#json-out", root).addEventListener("click", function () { download("keiei-backup-" + stamp() + ".json", JSON.stringify(state, null, 1), "application/json"); toast("バックアップを書き出しました"); });
     $("#csv-in", root).addEventListener("click", function () {
       pickFile(".csv,text/csv", function (text) {
-        var r = K.importCSV(state, text);
+        var r = K.importAnyCSV(state, text);
         if (!r.imported) { alertDlg("取り込めませんでした", r.errors.slice(0, 8).join("\n") || "読める行がありません"); return; }
-        var msg = r.imported + "行を取り込みました" + (r.created.length ? "（新しい城：" + r.created.join("、") + "）" : "");
+        var what = r.kind === "fields" ? "圃場" : "城";
+        var msg = r.imported + "行を取り込みました" + (r.created.length ? "（新しい" + what + "：" + r.created.join("、") + "）" : "");
         commit(r.state, msg);
-        if (r.skipped) alertDlg("一部の行を飛ばしました", msg + "\n飛ばした行：" + r.skipped + "\n" + r.errors.slice(0, 8).join("\n"));
+        if (r.errors.length) alertDlg(r.skipped ? "一部の行を飛ばしました" : "取り込みました（注意あり）", msg + (r.skipped ? "\n飛ばした行：" + r.skipped : "") + "\n" + r.errors.slice(0, 8).join("\n"));
       });
     });
     $("#json-in", root).addEventListener("click", function () {
@@ -780,6 +897,31 @@
         var s = K.emptyState(K.ymOf()); commit(s, "すべて消しました");
       });
     });
+  }
+  function fieldForm(f) {
+    f = f || { name: "", area: 0, crop: "", general: "", memo: "" };
+    var unit = f.area && f.area % 100 === 0 ? "cho" : f.area && f.area % 10 === 0 ? "tan" : "a";
+    var shown = f.area ? +(f.area / (unit === "cho" ? 100 : unit === "tan" ? 10 : 1)).toFixed(2) : "";
+    return '<label class="f"><span>圃場の名前</span><input name="name" required maxlength="40" value="' + esc(f.name) + '" autocomplete="off"></label>' +
+      '<div class="f2"><label class="f"><span>面積</span><input name="area" type="number" min="0" step="any" required inputmode="decimal" value="' + shown + '"></label>' +
+      '<label class="f"><span>単位</span><select name="unit">' + K.AREA_UNITS.map(function (u) { return '<option value="' + u.key + '"' + (u.key === unit ? " selected" : "") + ">" + u.name + "</option>"; }).join("") + "</select></label></div>" +
+      '<p class="note">石高は 1a＝' + K.fmtKoku(K.kokuOf(state, 1)) + " で換算します（帳簿の「石高の換算」で変更）。</p>" +
+      '<label class="f"><span>作物・品種</span><input name="crop" maxlength="60" value="' + esc(f.crop) + '" autocomplete="off" placeholder="例：茶・やぶきた"></label>' +
+      '<label class="f"><span>担当の武将</span><select name="general"><option value="">（担当なし）</option>' + state.generals.map(function (g) { return '<option value="' + esc(g.id) + '"' + (g.id === f.general ? " selected" : "") + ">" + esc(g.name) + "</option>"; }).join("") + "</select></label>" +
+      '<label class="f"><span>メモ</span><textarea name="memo" rows="2" maxlength="300">' + esc(f.memo) + "</textarea></label>";
+  }
+  function readField(form, base) {
+    var fd = new FormData(form), out = K.clone(base || {});
+    out.name = String(fd.get("name") || "").trim();
+    if (!out.name) return "圃場の名前を入れてください";
+    if (state.fields.some(function (x) { return x.name === out.name && (!base || x.id !== base.id); })) return "同じ名前の圃場があります";
+    var v = +fd.get("area");
+    if (!isFinite(v) || v < 0) return "面積は0以上の数字で入れてください";
+    out.area = Math.round(K.areaToA(v, String(fd.get("unit"))) * 100) / 100;
+    out.crop = String(fd.get("crop") || "").trim();
+    out.general = String(fd.get("general") || "");
+    out.memo = String(fd.get("memo") || "").trim();
+    return out;
   }
   function download(name, text, type) {
     var blob = new Blob([text], { type: type + ";charset=utf-8" });
@@ -907,6 +1049,9 @@
     var r = route();
     if (r.name === "hyojo" && r.query === "advice") {
       var a = $("#advice"); if (a) { a.setAttribute("tabindex", "-1"); a.focus(); a.scrollIntoView({ block: "start" }); return; }
+    }
+    if (r.name === "chobo" && r.query === "fields") {
+      var fsec = $("#fields-sec"); if (fsec) { fsec.focus(); fsec.scrollIntoView({ block: "start" }); return; }
     }
     var h = $("#main h1[tabindex]");
     (h || $("#main")).focus({ preventScroll: true });
