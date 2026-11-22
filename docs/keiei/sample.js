@@ -1,10 +1,11 @@
 // 経営評定：架空のサンプルデータ（実在の会社の数字ではありません）。
 // 初回起動時と「サンプルに戻す」で使う。毎回同じ数字になるよう、乱数は固定の種から作る。
 (function (root, factory) {
-  var api = factory();
+  var logic = typeof module === "object" && module.exports ? require("./logic.js") : root.KEIEI;
+  var api = factory(logic);
   if (typeof module === "object" && module.exports) module.exports = api;
   else root.KEIEI_SAMPLE = api;
-})(typeof self !== "undefined" ? self : this, function () {
+})(typeof self !== "undefined" ? self : this, function (L) {
   "use strict";
 
   function rng(seed) {
@@ -80,11 +81,11 @@
       cash = r1000(cash + op * 0.6 - 120000);
       months[ym] = { c: mc, sga: sga, cash: cash };
       if (ym === current) break;
-      chronicle.push({ ym: ym, sales: sales, op: op, rate: target ? sales / target : null, note: notes[ym] || "" });
+      chronicle.push({ kind: "close", ym: ym, sales: sales, op: op, rate: target ? sales / target : null, note: notes[ym] || "" });
     }
 
     return {
-      v: 2,
+      v: 3,
       name: "悠三堂",
       current: current,
       seq: 100,
@@ -98,13 +99,37 @@
         { id: "g5", name: "水沢 小夜", role: "勘定奉行", tou: 64, bu: 40, chi: 62, sei: 91, castle: "c5" }
       ],
       kokuPerA: 1000,
+      targetKoku: 1000000,
+      // 圃場：自領のほか、獲得・開墾中・調略中・狙いの土地もある（国取り）
       fields: [
-        { id: "f1", name: "東の茶畑", area: 120, crop: "茶・やぶきた", general: "g3", memo: "一番茶の主力。南向きで霜に強い。", slot: 0 },
-        { id: "f2", name: "川沿いの茶畑", area: 85, crop: "茶・さえみどり", general: "g2", memo: "被覆栽培で玉露風に仕上げる。", slot: 1 },
-        { id: "f3", name: "山の上の茶園", area: 60, crop: "茶・おくみどり", general: "g1", memo: "朝霧が出る。手摘みの限定品用。", slot: 2 },
-        { id: "f4", name: "南斜面の畑", area: 45, crop: "茶・べにふうき（紅茶用）", general: "", memo: "昨年借りた畑。担当を決めたい。", slot: 3 },
-        { id: "f5", name: "試験圃場", area: 12, crop: "在来種ほか", general: "g5", memo: "新しい品種を少しずつ試す。", slot: 4 },
-        { id: "f6", name: "裏の畑", area: 30, crop: "茶・やぶきた（ほうじ茶用）", general: "g4", memo: "番茶・ほうじ茶の原料。", slot: 5 }
+        { id: "f1", name: "東の茶畑", area: 120, crop: "茶・やぶきた", general: "g3", memo: "一番茶の主力。南向きで霜に強い。", slot: 0, status: "own", since: "2025-10", harvestKg: 15600 },
+        { id: "f2", name: "川沿いの茶畑", area: 85, crop: "茶・さえみどり", general: "g2", memo: "被覆栽培で玉露風に仕上げる。", slot: 1, status: "own", since: "2025-10", harvestKg: 9800 },
+        { id: "f3", name: "山の上の茶園", area: 60, crop: "茶・おくみどり", general: "g1", memo: "朝霧が出る。手摘みの限定品用。", slot: 2, status: "own", since: "2025-10", harvestKg: 5400 },
+        { id: "f4", name: "南斜面の畑", area: 45, crop: "茶・べにふうき（紅茶用）", general: "", memo: "昨年借りた畑。担当を決めたい。", slot: 3, status: "clearing", since: "2026-03", landlord: "h2", terms: "10年契約。更新時に見直し。", rent: 90000, clearCost: 350000 },
+        { id: "f5", name: "試験圃場", area: 12, crop: "在来種ほか", general: "g5", memo: "新しい品種を少しずつ試す。", slot: 4, status: "own", since: "2025-10", harvestKg: 1100 },
+        { id: "f6", name: "裏の畑", area: 30, crop: "茶・やぶきた（ほうじ茶用）", general: "g4", memo: "番茶・ほうじ茶の原料。", slot: 5, status: "own", since: "2025-10", harvestKg: 3300 },
+        { id: "f7", name: "北の耕作放棄地", area: 150, crop: "（未定）", general: "g1", memo: "茶の木が残っている。再生できれば大きい。", slot: 6, status: "aim", since: "2026-10", landlord: "h3", terms: "持ち主は高齢。親戚と相談中とのこと。" },
+        { id: "f8", name: "峠の茶園跡", area: 80, crop: "茶・在来種", general: "g1", memo: "道が細く、運搬に工夫がいる。", slot: 7, status: "talk", since: "2026-06", landlord: "h2", terms: "地代は年12万円で打診中。", rent: 120000, clearCost: 600000 },
+        { id: "f9", name: "駅裏の空き畑", area: 25, crop: "茶・つゆひかり（予定）", general: "g4", memo: "体験摘み取りの会場にも使いたい。", slot: 8, status: "got", since: "2026-09", landlord: "h4", terms: "5年契約。", rent: 40000, clearCost: 150000 }
+      ],
+      // 諸家（取引先・地主など）。名前もアドレスも架空（example.com）
+      houses: [
+        { id: "h1", name: "茶舗 山科園", kind: "trade", contact: "山科 様", email: "info@yamashina-en.example.com", friend: 4, general: "g1", last: "2026-09-02", memo: "卸の一番のお得意様。年末に贈答用の追加注文あり。" },
+        { id: "h2", name: "森川 喜一郎", kind: "landlord", contact: "森川 喜一郎", email: "morikawa@example.com", friend: 3, general: "g1", last: "2026-10-20", memo: "南斜面の畑・峠の茶園跡の持ち主。電話より手紙を好む。" },
+        { id: "h3", name: "大野 フミ", kind: "landlord", contact: "大野 フミ", email: "", friend: 2, general: "g1", last: "2026-07-15", memo: "北の耕作放棄地の持ち主。メールは使わない。" },
+        { id: "h4", name: "駅前不動産", kind: "landlord", contact: "西田", email: "nishida@ekimae-fudosan.example.com", friend: 3, general: "g4", last: "2026-09-28", memo: "駅裏の空き畑の管理。" },
+        { id: "h5", name: "町役場 農林課", kind: "gov", contact: "農林課 ご担当者", email: "nourin@town.example.com", friend: 3, general: "g5", last: "2026-08-10", memo: "耕作放棄地の再生の補助金について相談。" },
+        { id: "h6", name: "カフェ 灯", kind: "trade", contact: "佐伯", email: "hello@tomoshibi-cafe.example.com", friend: 5, general: "g2", last: "2026-11-05", memo: "定期便の法人契約。新商品の試飲に協力的。" },
+        { id: "h7", name: "みどり通信", kind: "press", contact: "編集部", email: "henshu@midori-tsushin.example.com", friend: 3, general: "", last: "", memo: "地域の情報誌。新茶の時期に取材の打診をしたい。" }
+      ],
+      letters: [
+        { id: "l1", date: "2026-11-05", house: "h6", subject: "新茶ティーバッグ試作のご案内（悠三堂）", body: "カフェ 灯\n佐伯様\n\nいつもお世話になっております。悠三堂の香坂でございます。\n新茶のティーバッグを試作いたしましたので、お店で試飲いただけないかと思いご連絡しました。\n来週お持ちしてもよろしいでしょうか。\n\n悠三堂\n香坂 りん" },
+        { id: "l2", date: "2026-10-20", house: "h2", subject: "畑の境界確認の御礼（悠三堂）", body: "森川 喜一郎様\n\n先日は南斜面の畑の境界確認にお立ち会いいただき、誠にありがとうございました。\n開墾の進み具合は、あらためてご報告いたします。\n\n悠三堂\n青葉 誠之助" },
+        { id: "l3", date: "2026-09-28", house: "h4", subject: "駅裏の畑のご契約の御礼（悠三堂）", body: "駅前不動産\n西田様\n\nこのたびは駅裏の畑のご契約、誠にありがとうございました。\n整備が済みましたら、体験摘み取りの会にもぜひお越しください。\n\n悠三堂\n村雨 新兵衛" }
+      ],
+      bugyo: L ? L.defaultBugyo() : [],
+      reports: [
+        { id: "r1", bugyo: "b4", date: "2026-11-10", request: "峠の茶園跡について、地主の森川様に交渉を進めたい旨の書状を書いてほしい。", report: "件名：峠の茶園跡についてのご相談（悠三堂）\n\n森川 喜一郎様\n\n朝夕冷え込む季節となりました。いつも大変お世話になっております。悠三堂の青葉でございます。\n先日は南斜面の畑の境界確認にお立ち会いいただき、ありがとうございました。おかげさまで開墾も順調に進んでおります。\n\nさて、以前ご相談いたしました峠の茶園跡について、あらためてお話を進めさせていただけないかと存じ、ご連絡いたしました。地代や運搬の道の整備など、森川様のご意向をうかがいながら決めさせていただければ幸いです。\n\n来月の上旬に一度ご挨拶に伺いたく存じますが、ご都合のよい日をお知らせいただけますでしょうか。\n\nどうぞよろしくお願い申し上げます。\n\n悠三堂\n青葉 誠之助" }
       ],
       measures: [
         { id: "m1", title: "新茶ティーバッグの試作", kind: "kaikon", castle: "c1", general: "g2", cost: 180000, due: "2026-11-30", status: "doing" },
@@ -115,7 +140,7 @@
         { id: "m6", title: "発送担当アルバイトの採用", kind: "jinji", castle: "", general: "g5", cost: 60000, due: "2026-12-31", status: "todo" },
         { id: "m7", title: "定期便の解約理由アンケート", kind: "shogyo", castle: "c5", general: "g5", cost: 20000, due: "2026-10-31", status: "doing" }
       ],
-      chronicle: chronicle
+      chronicle: chronicle.concat([{ kind: "event", ym: "2026-09", date: "2026-09-28", text: "駅裏の空き畑を獲得、2.5万石（2反5a）" }])
     };
   }
 

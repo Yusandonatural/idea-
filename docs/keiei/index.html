@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>経営評定｜悠三堂の経営を戦国の評定で</title>
-<meta name="description" content="自社の売上・粗利・資金・在庫を、戦国シミュレーション風の画面で見渡す経営管理ツール。データはこの端末の中だけに保存されます。">
+<title>経営評定｜国取りと商いで見る経営</title>
+<meta name="description" content="圃場の国取り、店ごとの商い、取引先への書状、部署ごとのAIへの依頼文を、戦国シミュレーション風の画面で見渡す経営管理ツール。データはこの端末の中だけに保存されます。">
 <meta name="robots" content="noindex">
 <meta name="theme-color" content="#1c1712">
 <link rel="icon" href="icon.svg" type="image/svg+xml">
@@ -20,11 +20,18 @@
 
 <nav class="commands" aria-label="コマンド">
   <a href="#/hyojo" data-route="hyojo"><b>評定</b><small>月次レビュー</small></a>
-  <a href="#/naisei" data-route="naisei"><b>内政</b><small>施策</small></a>
-  <a href="#/bushou" data-route="bushou"><b>武将</b><small>メンバー</small></a>
-  <a href="#/chobo" data-route="chobo"><b>帳簿</b><small>数字の入力</small></a>
-  <a href="#/nenpyo" data-route="nenpyo"><b>年表</b><small>締めの履歴</small></a>
-  <button type="button" id="cmd-next"><b>次の月へ</b><small>月次締め</small></button>
+  <a href="#/kuni" data-route="kuni"><b>国取り</b><small>圃場（農）</small></a>
+  <a href="#/akinai" data-route="akinai"><b>商い</b><small>店（商）</small></a>
+  <a href="#/gaiko" data-route="gaiko"><b>外交</b><small>取引先・書状</small></a>
+  <button type="button" id="cmd-more" aria-expanded="false" aria-controls="more-panel"><b>その他</b><small>奉行所・帳簿など</small></button>
+  <div id="more-panel" class="more-panel" role="group" aria-label="その他のコマンド">
+    <a href="#/bugyo" data-route="bugyo"><b>奉行所</b><small>AIへの依頼</small></a>
+    <a href="#/naisei" data-route="naisei"><b>内政</b><small>施策</small></a>
+    <a href="#/bushou" data-route="bushou"><b>武将</b><small>メンバー</small></a>
+    <a href="#/chobo" data-route="chobo"><b>帳簿</b><small>数字の入力</small></a>
+    <a href="#/nenpyo" data-route="nenpyo"><b>年表</b><small>締めの履歴</small></a>
+    <button type="button" id="cmd-next"><b>次の月へ</b><small>月次締め</small></button>
+  </div>
 </nav>
 
 <div class="fusuma" id="fusuma" aria-hidden="true"><i></i><i></i></div>
