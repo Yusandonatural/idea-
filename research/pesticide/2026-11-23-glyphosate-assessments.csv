@@ -1,0 +1,25 @@
+日付,機関・主体,出来事,結論・内容,種類,出典URL,確認
+2015-03,IARC,モノグラフ112巻の評価,グループ2A（人の証拠は限られる・動物の証拠は十分）,ハザード評価,https://www.iarc.who.int/wp-content/uploads/2017/03/QA_Glyphosate.pdf,未確認
+2016-04-06,食品安全委員会,評価結果（案）の意見募集（〜05-05、11通）,遺伝毒性・発がん性なし、ADI 1 mg/kg体重/日、ARfD設定不要,リスク評価,https://www.fsc.go.jp/iken-bosyu/iken-kekka/kekka.data/kekka_no_glyphosate_280406.pdf,未確認
+2016-05-16,FAO/WHO JMPR,会合の要約公表,グループADI 0〜1 mg/kg体重、食事からの発がんリスクは低い,リスク評価,https://mobil.bfr.bund.de:443/cm/349/who-fao-committee-jmpr-re-assesses-glyphosate-and-confirms-the-bfr-and-efsa-conclusion-that-a-carcinogenic-risk-is-not-to-be-expected.pdf,未確認
+2017-12-25,厚生労働省,グリホサートを含む10品目の残留基準値を設定,数値は未確認,基準,https://www.mhlw.go.jp/file/06-Seisakujouhou-11130500-Shokuhinanzenbu/0000164851.pdf,未確認
+2018,Andreottiら（JNCI）,農業健康研究の更新,54251人でNHLとの関連なし、AMLは要確認,疫学（コホート）,https://pubmed.ncbi.nlm.nih.gov/29136183/,未確認
+2019,Zhangら（Mutation Research）,メタ分析,最高ばく露群のNHL相対リスク1.41（1.13〜1.75）,疫学（メタ分析）,https://pubmed.ncbi.nlm.nih.gov/31342895/,未確認
+2020-01,米EPA,暫定決定,人に発がん性がある可能性は低い,リスク評価,https://www.epa.gov/sites/default/files/2020-01/documents/glyphosate-epidemiological-review-zhang-leon-proposed-interim-decision.pdf,未確認
+2022-06-17,米第9巡回区控訴裁,NRDC v. EPA,人の健康部分を差し戻し,裁判,https://law.justia.com/cases/federal/appellate-courts/ca9/20-70787/20-70787-2022-06-17.html,未確認
+2022-09,米EPA,暫定決定を撤回,登録は継続、再評価を続ける,行政,https://agri-pulse.com/articles/18285-glyphosate-interim-decision-withdrawn-epa-anticipates-final-registration-in-2026,未確認
+2023-07,EFSA,ピアレビューの結論,重大な懸念なし、データ不足あり,リスク評価,https://www.efsa.europa.eu/en/news/glyphosate-no-critical-areas-concern-data-gaps-identified,未確認
+2023,EU,再承認（10年）,条件つきで再承認,規制,https://www.soci.org/news/2023/7/glyphosate-renewal-no-critical-areas-of-concern-says-efsa,未確認
+2025,Panzacchiら（ラマツィーニ研究所）,ラット2年試験,0.5 mg/kg体重/日を含む全群で腫瘍増加と報告,動物実験,https://www.bfr.bund.de/en/notification/animal-study-on-glyphosate-and-cancer-detailed-analysis-required/,未確認
+2025-12-04,Regulatory Toxicology and Pharmacology,Williamsら2000年総説の撤回が報道,ゴーストライティング・独立性の欠如,論文撤回,https://retractionwatch.com/2025/12/04/glyphosate-safety-article-retracted-elsevier-monsanto-ghostwriting,未確認
+2026-03,ECHA,ラマツィーニ研究についての意見募集（3/2〜3/31）,—,規制,https://www.food-safety.com/articles/11806-eu-reaffirms-stance-that-glyphosate-is-not-carcinogenic-after-considering-new-data,未確認
+2026-06-18,農林水産省,グリホサート蜜蜂影響評価書（案）の意見募集,—,再評価,https://www.maff.go.jp/j/council/sizai/nouyaku/attach/pdf/mitubati_22-15.pdf,未確認
+2026-06-25,米最高裁,Monsanto v. Durnell（7対2）,FIFRAが州法の警告義務の訴えより優先。発がん性は判断せず,裁判,https://www.npr.org/2026/06/25/g-s1-120233/supreme-court-monsanto-roundup-decision,未確認
+2026-08-26,環境省,生活環境動植物の基準値案（グリホサート4種の塩）,水域3000 μg/L、鳥類130 mg/kg体重,再評価,https://www.env.go.jp/council/content/49wat-doj05/260826mat0302.pdf,未確認
+2026-09-08,ECHA RAC,ラマツィーニ研究を検討した意見を採択,発がん性の分類は不要（2022年の結論を維持）,ハザード分類,https://agenceurope.eu/en/bulletin/article/13935/11/glyphosate-echa-considers-classification-as-a-carcinogenic-substance-unjustified,未確認
+2026-09-22,米EPA・HHS,科学協力の覚書,新評価は2027年初めの予定,行政,https://www.hhs.gov/press-room/hhs-epa-partnership-strengthen-glyphosate-review.html,未確認
+2026-11-09,ECHA RAC,結論を公表（EFSAページの記載による）,評価を変えない,ハザード分類,https://www.efsa.europa.eu/en/topics/topic/glyphosate,未確認
+2026-11-09,NIEHS研究者（Environment International）,動物精子レビュー受理,動物55件、精子の健康・量の低下は高い確信度,動物実験のレビュー,https://www.sciencedirect.com/science/article/pii/S0160412026005623,未確認
+2026-11-20,ミズーリ州裁判所,Roundup集団和解の最終承認,最大72.5億ドル、異議を退ける、上訴可能,裁判,https://www.law.com/2026/11/20/missouri-judge-grants-final-approval-to-725b-class-action-settlement-over-roundup-/,未確認
+2026-11-22,The Spokesman-Review,NIEHSのがんレビュー（査読前）を報道,人で血液がんとの関連、動物で腫瘍。別のNIHレビューは異なる結論とも,報道,https://www.spokesman.com/stories/2026/nov/22/federal-scientists-flag-new-cancer-concerns-with-c/,未確認
+2027-01（予定）,米EPA,人の健康リスク評価の更新,—,行政,https://www.food-safety.com/articles/11862-epa-announces-glyphosate-safety-review-efforts-decision-expected-by-early-2027-experts-question-scientific-rigor,未確認
