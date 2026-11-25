@@ -1,0 +1,113 @@
+<!doctype html><html lang="ja"><head><meta charset="utf-8"><title>Yusando trifold ja</title>
+<link rel="stylesheet" href="fonts.css">
+<style>@page{size:303mm 216mm;margin:0}
+:root{--kinari:#faf7f0;--kinari2:#f2ede1;--ink:#2b2a26;--soft:#57554c;--green:#4f5f3a;--greend:#3d4a2d;--greenl:#e7ebdc;--gold:#b89a5a;--goldl:#d9c79a;--line:#e3dccb}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{background:#bbb}
+body{font-family:'Shippori Mincho',serif;color:var(--ink);-webkit-font-smoothing:antialiased}
+.sheet{position:relative;overflow:hidden;background:var(--kinari);page-break-after:always;break-after:page}
+.en{font-family:'Cormorant Garamond','Shippori Mincho',serif}
+.lat{font-family:'Cormorant Garamond',serif}
+h2{font:600 13pt/1.3 var(--hf);letter-spacing:.1em;color:var(--green)}
+.en h2{font-size:16pt;letter-spacing:.02em}
+.eyebrow{font:600 6.6pt/1 'Cormorant Garamond','Shippori Mincho',serif;letter-spacing:.26em;color:var(--gold);margin-bottom:1.6mm}
+.rule{width:9mm;height:.3mm;background:var(--gold);margin:2.6mm 0 3.6mm}
+p{font-size:8.2pt;line-height:1.85;color:var(--soft);text-align:justify}
+.en p{font-size:9.8pt;line-height:1.38;text-align:left}
+p+p{margin-top:2.2mm}
+table{width:100%;border-collapse:collapse}
+th,td{border-bottom:.2mm solid var(--line);padding:1.7mm .8mm;text-align:center;vertical-align:middle;font-size:7.2pt;font-weight:400;line-height:1.3}
+.en th,.en td{font-size:8.4pt;line-height:1.15}
+thead th{color:var(--soft);font-size:6.6pt}
+.en thead th{font-size:7.8pt}
+tbody th{text-align:left;color:var(--ink);font-weight:600}
+td small{display:block;font-size:5.6pt;color:#85826f;margin-top:.3mm}
+.en td small{font-size:6.6pt}
+.cmp thead th.nat{background:var(--green);color:var(--kinari);border-radius:1mm 1mm 0 0;font-weight:600}
+.cmp td.nat{background:var(--greenl);color:var(--greend);font-weight:600}
+.brew tbody th{white-space:nowrap}
+.en .brew tbody th{white-space:normal}
+.brew td:last-child{white-space:nowrap}
+.stats{display:flex;gap:2mm;margin-top:5mm}
+.stat{flex:1;text-align:center;border-top:.3mm solid var(--gold);padding-top:2.4mm}
+.stat b{font:500 21pt/1 'Cormorant Garamond',serif;color:var(--green)}
+.stat i{font:600 6.6pt/1 var(--hf);font-style:normal;color:var(--green);margin-left:.5mm}
+.stat span{display:block;font-size:6.2pt;line-height:1.45;color:var(--soft);margin-top:1.6mm}
+.en .stat span{font-size:7.4pt;line-height:1.15}
+.ins{margin-top:4mm}
+.ins>div{display:flex;gap:2.6mm;align-items:flex-start;margin-top:2.6mm}
+.ins svg{flex:0 0 7mm;height:9mm}
+.ins b{display:block;font:600 8.6pt/1.3 var(--hf);color:var(--green);letter-spacing:.06em}
+.en .ins b{font-size:10.6pt;letter-spacing:0}
+.ins span{font-size:7.4pt;line-height:1.6;color:var(--soft)}
+.en .ins span{font-size:8.8pt;line-height:1.25}
+.grp{margin-top:3.6mm}
+.grp h3{font:600 7.4pt/1 var(--hf);letter-spacing:.16em;color:var(--gold);margin-bottom:1.2mm}
+.en .grp h3{font-size:8.6pt;letter-spacing:.14em;text-transform:uppercase}
+.grp ul{list-style:none;display:grid;grid-template-columns:1fr 1fr}
+.grp li{font:600 9.6pt/1.2 var(--hf);padding:1.5mm 0;border-bottom:.2mm solid var(--line);letter-spacing:.06em}
+.en .grp li{font-size:11pt;letter-spacing:0}
+.grp li small{font:400 6pt/1 var(--hf);color:#85826f;margin-left:1.4mm;letter-spacing:0}
+.en .grp li small{font-size:7.2pt;font-style:italic;display:block;margin:.5mm 0 0}
+.note{font-size:6.6pt;line-height:1.6;color:var(--soft);margin-top:3mm}
+.en .note{font-size:7.8pt;line-height:1.25}
+.tip{background:var(--kinari2);border-radius:1.4mm;padding:3mm 3.4mm;margin-top:4mm}
+.tip b{display:block;font:600 8.4pt/1.3 var(--hf);color:var(--green);letter-spacing:.06em;margin-bottom:.8mm}
+.en .tip b{font-size:10.4pt;letter-spacing:0}
+.tip span{font-size:7.2pt;line-height:1.6;color:var(--soft);display:block}
+.en .tip span{font-size:8.6pt;line-height:1.25}
+.qr{text-align:center}
+.qr .box{background:#fff;border:.25mm solid var(--line);border-radius:1.4mm;padding:2mm;margin:0 auto}
+.qr img{width:100%;display:block}
+.qr .t{font:600 8pt/1.3 var(--hf);color:var(--green);margin-top:1.8mm;letter-spacing:.06em}
+.en .qr .t{font-size:10pt;letter-spacing:0}
+.qr .s{font:500 7.4pt/1.2 'Cormorant Garamond','Shippori Mincho',serif;letter-spacing:.06em;color:var(--gold);margin-top:.6mm}
+.addr{font-size:6.8pt;line-height:1.7;color:var(--soft);text-align:center}
+.en .addr{font-size:8pt;line-height:1.3}
+.addr b{display:block;font:600 8.6pt/1.4 var(--hf);color:var(--ink);letter-spacing:.1em}
+.en .addr b{font-size:10.4pt;letter-spacing:.02em}
+/* 表紙まわり */
+.cover{background:var(--green);color:var(--kinari)}
+.cover .logo{display:block}
+.cover .k{font:600 6.8pt/1 var(--hf);letter-spacing:.3em;color:var(--goldl)}
+.en .cover .k{font-size:8.4pt;letter-spacing:.14em}
+.cover h1{font:500 19pt/1.6 var(--hf);letter-spacing:.14em;color:var(--kinari)}
+.en .cover h1{font-size:23pt;line-height:1.14;letter-spacing:.01em}
+.cover .sub{font:italic 500 9pt/1.3 'Cormorant Garamond',serif;color:var(--goldl)}
+.en .cover .sub{font:400 7.4pt/1.3 'Shippori Mincho',serif;font-style:normal;letter-spacing:.14em}
+.cover .place{font:400 7pt/1 var(--hf);letter-spacing:.2em;color:#dfe3d2}
+.en .cover .place{font-size:8.4pt;letter-spacing:.12em}
+.field{position:absolute;left:0;right:0;bottom:0;width:100%}
+.sprig{position:absolute;opacity:.3}
+.sheet{width:303mm;height:216mm}
+.pn{position:absolute;top:0;height:216mm;padding-top:16mm;padding-bottom:15mm}
+.oa{left:0;width:100mm;padding-left:13mm;padding-right:9mm}
+.ob{left:100mm;width:100mm;padding-left:10mm;padding-right:10mm;background:var(--kinari2)}
+.oc{left:200mm;width:103mm;padding-left:11mm;padding-right:14mm}
+.ia{left:0;width:103mm;padding-left:14mm;padding-right:9mm}
+.ib{left:103mm;width:100mm;padding-left:9mm;padding-right:9mm;background:var(--kinari2)}
+.ic{left:203mm;width:100mm;padding-left:9mm;padding-right:13mm}
+.ib th,.ib td{border-color:#d9d1bc}
+.z{zoom:1.16}
+.ia .stats{flex-direction:column;gap:0;margin-top:7mm}
+.ia .stat{display:flex;align-items:center;text-align:left;padding:3.2mm 0}
+.ia .stat b{font-size:24pt} .ia .stat i{align-self:flex-end;margin:0 0 1.2mm 1mm} .ia .stat span{margin:0 0 0 auto;width:50%;font-size:7pt} .en .ia .stat span{font-size:8.4pt}
+.ia .z,.ib .z{zoom:1.3} .en .ib .z{zoom:1.2} .en .ic .z{zoom:1.04}
+.ic .grp ul{grid-template-columns:1fr} .ic .grp li{padding:1.75mm 0} .en .ic .grp li small{display:inline;margin-left:1.6mm}
+.ib .ins{margin-top:7mm} .ib .ins>div{margin-top:4.4mm}
+.oa .brew th,.oa .brew td{padding:2.6mm .8mm} .oa .tip{margin-top:6mm}
+.deco{position:absolute;opacity:.16}
+</style></head>
+<body class="ja" style="--hf:'Shippori Mincho', serif"><section class="sheet"><div class="pn oa"><div class="z"><div class="eyebrow">HOW TO BREW</div><h2>おいしい淹れ方</h2><div class="rule"></div><div class="note" style="margin:-1.4mm 0 2mm">1〜2人分のめやす</div><table class="brew"><thead><tr><th>お茶</th><th>茶葉</th><th>お湯</th><th>時間</th></tr></thead><tbody><tr><th>煎茶・釜炒り茶</th><td>4g</td><td>70〜80℃<small>120ml</small></td><td>1分</td></tr><tr><th>ほうじ茶・玄米茶・番茶</th><td>4g</td><td>熱湯<small>200ml</small></td><td>30秒</td></tr><tr><th>和紅茶・烏龍茶</th><td>3g</td><td>熱湯<small>200ml</small></td><td>2〜3分</td></tr><tr><th>抹茶</th><td>2g</td><td>80℃<small>70ml</small></td><td>茶筅で点てる</td></tr></tbody></table><div class="tip"><b>水出しもおすすめ</b><span>茶葉10gに水1リットル。冷蔵庫で3〜6時間おくと、まろやかな味になります。</span></div><div class="note">濃さはお好みで。茶葉の量と時間で調整してください。</div></div><svg class="deco" style="left:34mm;bottom:19mm;width:34mm" viewBox="0 0 60 84" fill="none" stroke="#4f5f3a" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"><path d="M30 82V42"/><path d="M30 44C24 33 25 15 30 3c5 12 6 30 0 41Z"/><path d="M30 12v30"/><path d="M30 56C17 55 7 44 4 29c13 2 24 12 26 27Z"/><path d="M8 33c8 5 15 12 21 21"/><path d="M30 66C43 65 53 54 56 39c-13 2-24 12-26 27Z"/><path d="M52 43c-8 5-15 12-21 21"/></svg></div><div class="pn ob"><div style="text-align:center">
+<img src="img/logo_ink.png" style="width:46mm;display:block;margin:0 auto 5mm">
+<div style="font:500 10pt/1.9 var(--hf);letter-spacing:.14em;color:var(--green)">自然と人間に、やさしいお茶を。</div>
+<div style="width:9mm;height:.3mm;background:var(--gold);margin:6mm auto 7mm"></div>
+<div style="display:flex;justify-content:center;gap:7mm"><div class="qr"><div class="box" style="width:27mm"><img src="img/qr_shop_ja.svg"></div><div class="t">オンラインショップ</div><div class="s">yusando.com</div></div><div class="qr"><div class="box" style="width:27mm"><img src="img/qr_yt.svg"></div><div class="t">YouTube</div><div class="s">YUSANDO CHANNEL　@yusando</div></div></div>
+<div class="note" style="text-align:center;margin-top:7mm">茶畑を訪ねるツアーも行っています。</div>
+</div>
+<div class="addr" style="position:absolute;left:0;right:0;bottom:16mm"><b>株式会社 悠三堂</b>〒632-0102　奈良県奈良市上深川町227番地<br><span class="lat" style="letter-spacing:.1em;font-size:8.6pt">yusando.com</span></div></div><div class="pn oc cover"><img class="logo" src="img/logo_white.png" style="width:50mm;margin-left:-1mm">
+<svg class="sprig" style="right:12mm;top:62mm;width:30mm" viewBox="0 0 60 84" fill="none" stroke="#d9c79a" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M30 82V42"/><path d="M30 44C24 33 25 15 30 3c5 12 6 30 0 41Z"/><path d="M30 12v30"/><path d="M30 56C17 55 7 44 4 29c13 2 24 12 26 27Z"/><path d="M8 33c8 5 15 12 21 21"/><path d="M30 66C43 65 53 54 56 39c-13 2-24 12-26 27Z"/><path d="M52 43c-8 5-15 12-21 21"/></svg>
+<div style="position:absolute;left:11mm;right:14mm;top:88mm">
+<div class="k">自然栽培　無農薬・無肥料</div><h1 style="margin-top:6mm">自然と人間に、<br>やさしいお茶を。</h1><div class="sub" style="margin-top:5mm">Tea that is kind to nature and to people</div>
+<div style="width:9mm;height:.3mm;background:var(--goldl);margin:8mm 0 4mm"></div><div class="place">奈良・都祁（大和高原）</div></div>
+<svg class="field" style="height:30mm" viewBox="0 0 600 90" preserveAspectRatio="none"><g fill="#3d4a2d"><path d="M-40 90Q5 28 50 90Z"/><path d="M38 90Q83 37 128 90Z"/><path d="M116 90Q161 46 206 90Z"/><path d="M194 90Q239 28 284 90Z"/><path d="M272 90Q317 37 362 90Z"/><path d="M350 90Q395 46 440 90Z"/><path d="M428 90Q473 28 518 90Z"/><path d="M506 90Q551 37 596 90Z"/><path d="M584 90Q629 46 674 90Z"/></g><g fill="#33402a"><path d="M-60 90Q-5 54 50 90Z"/><path d="M36 90Q91 61 146 90Z"/><path d="M132 90Q187 54 242 90Z"/><path d="M228 90Q283 61 338 90Z"/><path d="M324 90Q379 54 434 90Z"/><path d="M420 90Q475 61 530 90Z"/><path d="M516 90Q571 54 626 90Z"/><path d="M612 90Q667 61 722 90Z"/></g></svg></div></section><section class="sheet"><div class="pn ia"><div class="z"><div class="eyebrow">ABOUT</div><h2>悠三堂のこと</h2><div class="rule"></div><p>2015年、奈良・都祁（大和高原）で、ゼロから茶畑を始めました。農薬も肥料も使わない自然栽培で、お茶を育てています。</p><p>まわりで慣行農法をやめた茶畑を引き継ぎ、少しずつ自然栽培へ。11年あまりで、3.5ヘクタールの茶畑が自然栽培に変わりました。</p><p>自然と人間に、やさしいお茶作りを心がけています。</p><div class="stats"><div class="stat"><b>2015</b><i>年</i><span>ゼロから茶畑を<br>始めました</span></div><div class="stat"><b>3.5</b><i>ha</i><span>自然栽培に<br>変わった茶畑</span></div><div class="stat"><b>12</b><i>種類＋</i><span>いま作っている<br>お茶</span></div></div></div></div><div class="pn ib"><div class="z"><div class="eyebrow">NATURAL AGRICULTURE</div><h2>自然栽培とは</h2><div class="rule"></div><p>化学肥料はもちろん、有機肥料も含めて肥料を一切与えず、農薬も使いません。土と茶の木が本来もつ力だけで、時間をかけてゆっくり育てます。</p><div style="height:3.4mm"></div><table class="cmp"><thead><tr><th></th><th class="">慣行栽培</th><th class="">有機栽培</th><th class="nat">自然栽培</th></tr></thead><tbody><tr><th>農薬</th><td class="">使用</td><td class="">原則不使用<small>一部認可資材あり</small></td><td class="nat">不使用</td></tr><tr><th>化学肥料</th><td class="">使用</td><td class="">不使用</td><td class="nat">不使用</td></tr><tr><th>有機肥料</th><td class="">使用</td><td class="">使用</td><td class="nat">不使用</td></tr></tbody></table><div class="ins"><div><svg class="" style="" viewBox="0 0 60 84" fill="none" stroke="#4f5f3a" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M30 82V42"/><path d="M30 44C24 33 25 15 30 3c5 12 6 30 0 41Z"/><path d="M30 12v30"/><path d="M30 56C17 55 7 44 4 29c13 2 24 12 26 27Z"/><path d="M8 33c8 5 15 12 21 21"/><path d="M30 66C43 65 53 54 56 39c-13 2-24 12-26 27Z"/><path d="M52 43c-8 5-15 12-21 21"/></svg><div><b>肥料のかわりに</b><span>茶の木が、自然の中から自分で栄養をつくります。</span></div></div><div><svg class="" style="" viewBox="0 0 60 84" fill="none" stroke="#4f5f3a" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M30 82V42"/><path d="M30 44C24 33 25 15 30 3c5 12 6 30 0 41Z"/><path d="M30 12v30"/><path d="M30 56C17 55 7 44 4 29c13 2 24 12 26 27Z"/><path d="M8 33c8 5 15 12 21 21"/><path d="M30 66C43 65 53 54 56 39c-13 2-24 12-26 27Z"/><path d="M52 43c-8 5-15 12-21 21"/></svg><div><b>農薬のかわりに</b><span>茶の木そのものが強くなり、まわりの環境と調和して育ちます。</span></div></div></div></div></div><div class="pn ic"><div class="z"><div class="eyebrow">OUR TEAS</div><h2>悠三堂のお茶</h2><div class="rule"></div><p>2015年は、抹茶・煎茶・ほうじ茶の3種類から。いまは12種類以上のお茶を作っています。</p><div class="grp"><h3>定番のお茶</h3><ul><li>抹茶<small>石臼挽き</small></li><li>煎茶<small></small></li><li>ほうじ茶<small></small></li><li>玄米茶<small></small></li></ul></div><div class="grp"><h3>新しいお茶</h3><ul><li>和紅茶<small></small></li><li>白茶<small></small></li><li>釜炒り茶<small></small></li><li>烏龍茶<small></small></li></ul></div><div class="grp"><h3>番茶</h3><ul><li>しろばんちゃ<small></small></li><li>あかばんちゃ<small></small></li><li>くろばんちゃ<small></small></li><li>三年番茶<small></small></li></ul></div><div class="note">和紅茶・白茶・釜炒り茶は、自然栽培だからこそおいしいと言われるお茶です。</div><div class="note" style="margin-top:1.4mm">季節限定のお茶もあります。種類と価格は、オンラインショップをご覧ください。</div></div></div><svg class="field" style="height:17mm" viewBox="0 0 600 90" preserveAspectRatio="none"><g fill="#e9e6d6"><path d="M-40 90Q5 28 50 90Z"/><path d="M38 90Q83 37 128 90Z"/><path d="M116 90Q161 46 206 90Z"/><path d="M194 90Q239 28 284 90Z"/><path d="M272 90Q317 37 362 90Z"/><path d="M350 90Q395 46 440 90Z"/><path d="M428 90Q473 28 518 90Z"/><path d="M506 90Q551 37 596 90Z"/><path d="M584 90Q629 46 674 90Z"/></g><g fill="#dfdcc9"><path d="M-60 90Q-5 54 50 90Z"/><path d="M36 90Q91 61 146 90Z"/><path d="M132 90Q187 54 242 90Z"/><path d="M228 90Q283 61 338 90Z"/><path d="M324 90Q379 54 434 90Z"/><path d="M420 90Q475 61 530 90Z"/><path d="M516 90Q571 54 626 90Z"/><path d="M612 90Q667 61 722 90Z"/></g></svg></section></body></html>
