@@ -1,0 +1,20 @@
+year,item,value,unit,source
+2000,茶 販売目的栽培経営体数（全国）,53687,経営体,日本農業新聞 論説（農林業センサス） https://www.agrinews.co.jp/opinion/index/372743（未確認）
+2020,茶 販売目的栽培経営体数（全国）,12325,経営体,同上（未確認）
+2000,茶 基幹的農業従事者 65歳以上割合,51,%,農水省 茶をめぐる情勢 旧版（未確認）
+2010,茶 基幹的農業従事者 65歳以上割合,55,%,農水省 茶をめぐる情勢 https://www.maff.go.jp/j/seisan/tokusan/cha/attach/pdf/ocha-201.pdf（未確認）
+2020,茶 基幹的農業従事者 65歳以上割合,61,%,農水省 茶をめぐる情勢 旧版（未確認）
+2025,茶 基幹的農業従事者 65歳以上割合,63,%,農水省 茶をめぐる情勢 R8.10 https://www.maff.go.jp/j/seisan/tokusan/cha/attach/pdf/ocha-201.pdf（未確認）
+2025,茶 栽培面積（全国）,33400,ha,農水省 作物統計 https://www.maff.go.jp/j/tokei/kouhyou/sakumotu/sakkyou_kome/pdf/syukaku_tya_25.pdf（未確認）
+2025,茶 摘採実面積（全国）,25400,ha,同上（前年比-1300ha、未確認）
+2026,鹿児島県 荒茶工場数,360,工場,鹿児島県 茶関連産業クラスター計画 https://www.cas.go.jp/jp/seisaku/chiikimirai2/sangyo-keikaku/pdf/b-keikaku/kagoshimaken_cyakanren_1-2.pdf（未確認）
+2000,静岡県 茶販売農家数,25000,経営体,静岡県 茶の地域未来計画 https://www.cas.go.jp/jp/seisaku/chiikimirai2/sangyo-keikaku/pdf/c-keikaku/shizuokaken_cha_2-1.pdf（未確認）
+2020,静岡県 総農家数,50736,戸,農水省 関東農政局 静岡地域白書 https://www.maff.go.jp/kanto/chiikinet/shizuoka/tiiki/202601hakusyo.pdf（茶以外含む、未確認）
+2025,静岡県 総農家数,39316,戸,同上（茶以外含む、未確認）
+2010,新規参入者 全作物で有機農業 割合,20.7,%,全国新規就農相談センター調査 https://www.maff.go.jp/j/seisan/kankyo/yuuki/attach/pdf/jichinet_archive-49.pdf（全品目、未確認）
+2013,新規参入者 全作物で有機農業 割合,23.2,%,同上（全品目、未確認）
+2016,新規参入者 全作物で有機農業 割合,20.8,%,同上（全品目、未確認）
+2025,全国 農業経営体数,828000,経営体,2025年農林業センサス（2020年比-23.0%、各県資料、未確認）
+2025,全作目 基幹的農業従事者 65歳以上割合,69.6,%,農水省 白書R7 https://www.maff.go.jp/j/wpaper/w_maff/r7/pdf/1-2-02.pdf（未確認）
+2021,伊藤園 茶産地育成事業 展開面積,2207,ha,伊藤園 https://agri.mynavi.jp/prtimes/2022_04_05_190105/（未確認）
+2024,マイファーム愛川 有機JAS茶園面積,18.5,ha,newscast https://newscast.jp/news/3058548（取得時期に食い違い、未確認）
